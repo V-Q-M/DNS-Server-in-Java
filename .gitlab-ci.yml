@@ -1,0 +1,15 @@
+default:
+  image: python:3.10
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y dnsutils
+    - chmod +x ./test_server.sh
+
+test:
+  tags:
+    - shared
+  script:
+    # Run blackbox tests
+    - ./test_server.sh
+    # Run unittests
+    # -
