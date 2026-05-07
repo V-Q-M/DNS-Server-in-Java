@@ -1,5 +1,4 @@
 # Teamproject **Implementing a DNS server**
-This is just a template. Please remove the *italic* parts and insert your own documentation. You can find a markdown cheatsheet [here](https://www.markdownguide.org/cheat-sheet).
 
 ## Group members
 *List of members in this project and their group. Please insert your information in this list*
@@ -12,27 +11,40 @@ This is just a template. Please remove the *italic* parts and insert your own do
 *Current set of features for this project. Extend this after each week.*
 
 ## Requirements
-*List of requirements, python version, database version, ... and how to install them*
+The project uses Java 25, which can be downloaded from the internet.
 
 ## How to start
-*Commands how to start the server, i.e. `python3 run.py -p 1337`*
+First, compile the project with 
+```
+mvn compile
+```
+
+Then start the the server with 
+```
+java -cp target/classes io.gitlab.teamproject2026.DnsServer 
+```
+
+Or with a custom port number
+```
+java -cp target/classes io.gitlab.teamproject2026.DnsServer -p 2222
+```
 
 ### Examples on tests for the current state of the project
-*Tests you used to verify the correct working of new functionalities added. Probably also contained in the pipeline test, i.e.,:*.
 
+Testing hexdump:  `dig @127.0.0.1 uni-tuebingen.de AAAA`
 
-*- Testing case insensitivity for lookup: `dig @127.0.0.1 -p 1337 +noedns uNi-tUebiNgen.de`*
 
 ## Configuration parameters
-*List and explanation of config parameters (config file, or command line), if any*
+The `-p` is used in the command line to specift a custom port. 
+```
+java -cp target/classes io.gitlab.teamproject2026.DnsServer -p 2222
+```
+If no custom port is specified, the default port of 4242 is used.
 
 ## Known issues and bugs
-*List of known bugs and ideas how to fix them*
+None as of yet
 
 # Changelog
-*Added/Deleted/Modified files. Use the `diff` code formatting below*
 ```diff
-+ added file
-- deleted file
-~ modified file
+~ DNS_SERVER.java
 ```
