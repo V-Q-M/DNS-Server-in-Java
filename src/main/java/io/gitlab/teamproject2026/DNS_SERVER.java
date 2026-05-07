@@ -2,8 +2,9 @@ package io.gitlab.teamproject2026;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.util.Arrays;
 
-public class DnsServer {
+public class DNS_SERVER {
     static void main(String[] args) throws Exception {
         int port_number = 4242; // Default port
 
@@ -14,15 +15,14 @@ public class DnsServer {
             }
         }
 
+        // Open UDP socket
         DatagramSocket socket = new DatagramSocket(port_number);
-
         IO.println("UDP server listening on port " + port_number);
 
+        // Buffer necessary to store the packet
         byte[] buffer = new byte[1024];
 
-
         // Server loop
-
         while (true) {
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
 
@@ -31,13 +31,24 @@ public class DnsServer {
             IO.println("Received packet from " + packet.getAddress() + ":" + packet.getPort());
 
             // Print packet bytes as hex
-            byte[] data = packet.getData();
+            byte[] data = Arrays.copyOfRange(packet.getData(),0, packet.getLength());
 
-            for (int i = 0; i < packet.getLength(); i++) {
-                System.out.printf("%02X ", data[i]);
-            }
+            // This is the important stuff. The Bytes are separated by space e.g. "F3 25 01..."
+            String hexDnsPacket = toHex(data);
 
-            System.out.println("\n");
+            IO.println(hexDnsPacket);
+            IO.println();
         }
+    }
+
+    // Small helper method to convert byte packets into hex
+    private static String toHex(byte[] bytes){
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (byte b : bytes) {
+            stringBuilder.append(String.format("%02X ", b));
+        }
+
+        return stringBuilder.toString().trim();
     }
 }
