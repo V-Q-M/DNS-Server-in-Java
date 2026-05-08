@@ -11,13 +11,13 @@ public class DNSPacket {
     // Header fields
     private byte[] id;
     private boolean qr;
-    private int opcode;
+    private OpCode opcode;
     private boolean aa;
     private boolean tc;
     private boolean rd;
     private boolean ra;
     private final byte[] z = new byte[0];
-    private int rcode;
+    private RCode rcode;
 
     // Section counts
     private int qdcount;
@@ -37,8 +37,8 @@ public class DNSPacket {
     public boolean isQr() { return qr; }
     public void setQr(boolean qr) { this.qr = qr; }
 
-    public int getOpcode() { return opcode; }
-    public void setOpcode(int opcode) { this.opcode = opcode; }
+    public OpCode getOpcode() { return opcode; }
+    public void setOpcode(OpCode opcode) { this.opcode = opcode; }
 
     public boolean isAa() { return aa; }
     public void setAa(boolean aa) { this.aa = aa; }
@@ -52,8 +52,8 @@ public class DNSPacket {
     public boolean isRa() { return ra; }
     public void setRa(boolean ra) { this.ra = ra; }
 
-    public int getRcode() { return rcode; }
-    public void setRcode(int rcode) { this.rcode = rcode; }
+    public RCode getRcode() { return rcode; }
+    public void setRcode(RCode rcode) { this.rcode = rcode; }
 
     public int getQdcount() { return qdcount; }
     public void setQdcount(int qdcount) { this.qdcount = qdcount; }

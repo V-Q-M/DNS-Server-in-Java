@@ -7,17 +7,17 @@ package io.gitlab.teamproject2026.model;
 public class QuestionSection {
 
     private String[] name;
-    private int qtype;
-    private int qclass;
+    private RRType qtype;
+    private RRClass qclass;
 
     public String[] getName() { return name; }
     public void setName(String[] name) { this.name = name; }
 
-    public int getQtype() { return qtype; }
-    public void setQtype(int qtype) { this.qtype = qtype; }
+    public RRType getQtype() { return qtype; }
+    public void setQtype(RRType qtype) { this.qtype = qtype; }
 
-    public int getQclass() { return qclass; }
-    public void setQclass(int qclass) { this.qclass = qclass; }
+    public RRClass getQclass() { return qclass; }
+    public void setQclass(RRClass qclass) { this.qclass = qclass; }
 
     /**
      * Serializes this question section into DNS wire format.

@@ -9,7 +9,8 @@ import io.gitlab.teamproject2026.model.records.ResourceRecord;
 public class AnswerSection {
 
     private String[] name;
-    private int rrclass;
+    private RRType type;
+    private RRClass rrclass;
     private int ttl;
     private int rdlength;
     private ResourceRecord rdata;
@@ -17,8 +18,11 @@ public class AnswerSection {
     public String[] getName() { return name; }
     public void setName(String[] name) { this.name = name; }
 
-    public int getRrclass() { return rrclass; }
-    public void setRrclass(int rrclass) { this.rrclass = rrclass; }
+    public RRType getType() { return type; }
+    public void setType(RRType type) { this.type = type; }
+
+    public RRClass getRrclass() { return rrclass; }
+    public void setRrclass(RRClass rrclass) { this.rrclass = rrclass; }
 
     public int getTtl() { return ttl; }
     public void setTtl(int ttl) { this.ttl = ttl; }
