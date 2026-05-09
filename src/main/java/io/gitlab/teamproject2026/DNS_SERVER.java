@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026;
 
+import io.gitlab.teamproject2026.model.DNSPacket;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.util.Arrays;
@@ -33,6 +35,8 @@ public class DNS_SERVER {
             // Print packet bytes as hex
             byte[] data = Arrays.copyOfRange(packet.getData(),0, packet.getLength());
 
+            DNSPacket packet1 = DNSPacket.from_bytes(data);
+            System.out.println("" + packet1);
             // This is the important stuff. The Bytes are separated by space e.g. "F3 25 01..."
             String hexDnsPacket = toHex(data);
 

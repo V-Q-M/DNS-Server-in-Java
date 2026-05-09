@@ -6,4 +6,12 @@ public enum OpCode {
     private final int value;
     OpCode(int value) { this.value = value; }
     public int getValue() { return value; }
+    public static OpCode fromValue(int value) {
+        for (OpCode opCode : OpCode.values()) {
+            if (opCode.value == value) {
+                return opCode;
+            }
+        }
+        throw new IllegalArgumentException("Invalid OpCode: " + value);
+    }
 }
