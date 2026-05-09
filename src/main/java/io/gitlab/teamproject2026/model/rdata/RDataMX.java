@@ -1,10 +1,10 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
  * Represents a DNS MX (Mail Exchange) record.
  * Specifies the mail server responsible for a domain.
  */
-public class ResourceRecordMX implements ResourceRecord {
+public class RDataMX implements RData {
     public static final int TYPE = 15;
     
     private int preference;
@@ -21,7 +21,7 @@ public class ResourceRecordMX implements ResourceRecord {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static ResourceRecordMX from_bytes(byte[] bytes) {
+    public static RDataMX from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

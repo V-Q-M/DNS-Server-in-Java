@@ -1,19 +1,19 @@
 package io.gitlab.teamproject2026.model;
 
-import io.gitlab.teamproject2026.model.records.ResourceRecord;
+import io.gitlab.teamproject2026.model.rdata.RData;
 
 /**
  * Represents the Answer Section of a DNS packet.
  * Contains the domain name, class, TTL, data length and the actual resource record data.
  */
-public class AnswerSection {
+public class ResourceRecord {
 
     private String[] name;
     private RRType type;
     private RRClass rrclass;
     private int ttl;
     private int rdlength;
-    private ResourceRecord rdata;
+    private RData rdata;
 
     public String[] getName() { return name; }
     public void setName(String[] name) { this.name = name; }
@@ -30,8 +30,8 @@ public class AnswerSection {
     public int getRdlength() { return rdlength; }
     public void setRdlength(int rdlength) { this.rdlength = rdlength; }
 
-    public ResourceRecord getRdata() { return rdata; }
-    public void setRdata(ResourceRecord rdata) { this.rdata = rdata; }
+    public RData getRdata() { return rdata; }
+    public void setRdata(RData rdata) { this.rdata = rdata; }
 
     /**
      * Serializes this answer section into DNS wire format.
@@ -48,7 +48,7 @@ public class AnswerSection {
      * @param bytes raw bytes from an incoming DNS packet
      * @return a new AnswerSection populated with the parsed data
      */
-    public static AnswerSection from_bytes(byte[] bytes) {
+    public static ResourceRecord from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

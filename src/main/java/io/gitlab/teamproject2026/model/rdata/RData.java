@@ -1,10 +1,10 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
- * Interface for all DNS resource record types.
+ * Interface for all DNS RDATA types.
  * Each implementing class defines its own type-specific fields.
  */
-public interface ResourceRecord {
+public interface RData {
 
     /**
      * Serializes this resource record into its binary DNS wire format.
@@ -19,7 +19,7 @@ public interface ResourceRecord {
      * @param bytes raw bytes from an incoming DNS packet
      * @return a new ResourceRecord instance populated with the parsed data
      */
-    static ResourceRecord from_bytes(byte[] bytes) {
+    static RData from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

@@ -1,11 +1,11 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
- * Represents a DNS A record.
- * Maps a domain name to an IPv4 address (32-bit).
+ * Represents a DNS AAAA record.
+ * Maps a domain name to an IPv6 address (128-bit).
  */
-public class ResourceRecordA implements ResourceRecord {
-    public static final int TYPE = 1;
+public class RDataAAAA implements RData {
+    public static final int TYPE = 28;
     
     private byte[] address;
 
@@ -17,7 +17,7 @@ public class ResourceRecordA implements ResourceRecord {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static ResourceRecordA from_bytes(byte[] bytes) {
+    public static RDataAAAA from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

@@ -1,10 +1,10 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
  * Represents a DNS NS (Name Server) record.
  * Specifies the authoritative name server for a domain.
  */
-public class ResourceRecordNS implements ResourceRecord {
+public class RDataNS implements RData {
     public static final int TYPE = 2;
     
     private String nsdname;
@@ -17,7 +17,7 @@ public class ResourceRecordNS implements ResourceRecord {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static ResourceRecordNS from_bytes(byte[] bytes) {
+    public static RDataNS from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

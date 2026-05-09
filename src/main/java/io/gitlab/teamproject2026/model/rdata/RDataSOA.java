@@ -1,11 +1,11 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
  * Represents a DNS SOA (Start of Authority) record.
  * Contains administrative information about a DNS zone.
  * Includes primary nameserver, responsible email, and zone serial number.
  */
-public class ResourceRecordSOA implements ResourceRecord {
+public class RDataSOA implements RData {
     public static final int TYPE = 6;
     
     private String mname;
@@ -42,7 +42,7 @@ public class ResourceRecordSOA implements ResourceRecord {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static ResourceRecordSOA from_bytes(byte[] bytes) {
+    public static RDataSOA from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

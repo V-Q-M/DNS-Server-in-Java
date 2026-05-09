@@ -1,10 +1,10 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
  * Represents a DNS PTR (Pointer) record.
  * Used for reverse DNS lookups, mapping an IP address back to a domain name.
  */
-public class ResourceRecordPTR implements ResourceRecord {
+public class RDataPTR implements RData {
     public static final int TYPE = 12;
     
     private String ptrdname;
@@ -17,7 +17,7 @@ public class ResourceRecordPTR implements ResourceRecord {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static ResourceRecordPTR from_bytes(byte[] bytes) {
+    public static RDataPTR from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }

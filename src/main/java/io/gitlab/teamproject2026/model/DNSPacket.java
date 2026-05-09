@@ -27,9 +27,9 @@ public class DNSPacket {
 
     // Sections
     private QuestionSection[] questionSections;
-    private AnswerSection[] answerSections;
-    private AnswerSection[] authoritySections;
-    private AnswerSection[] additionalSections;
+    private ResourceRecord[] answerSections;
+    private ResourceRecord[] authoritySections;
+    private ResourceRecord[] additionalSections;
 
     public byte[] getId() { return id; }
     public void setId(byte[] id) { this.id = id; }
@@ -70,14 +70,14 @@ public class DNSPacket {
     public QuestionSection[] getQuestionSections() { return questionSections; }
     public void setQuestionSections(QuestionSection[] questionSections) { this.questionSections = questionSections; }
 
-    public AnswerSection[] getAnswerSections() { return answerSections; }
-    public void setAnswerSections(AnswerSection[] answerSections) { this.answerSections = answerSections; }
+    public ResourceRecord[] getAnswerSections() { return answerSections; }
+    public void setAnswerSections(ResourceRecord[] answerSections) { this.answerSections = answerSections; }
 
-    public AnswerSection[] getAuthoritySections() { return authoritySections; }
-    public void setAuthoritySections(AnswerSection[] authoritySections) { this.authoritySections = authoritySections; }
+    public ResourceRecord[] getAuthoritySections() { return authoritySections; }
+    public void setAuthoritySections(ResourceRecord[] authoritySections) { this.authoritySections = authoritySections; }
 
-    public AnswerSection[] getAdditionalSections() { return additionalSections; }
-    public void setAdditionalSections(AnswerSection[] additionalSections) { this.additionalSections = additionalSections; }
+    public ResourceRecord[] getAdditionalSections() { return additionalSections; }
+    public void setAdditionalSections(ResourceRecord[] additionalSections) { this.additionalSections = additionalSections; }
 
     /**
      * Serializes this DNS packet into DNS wire format.

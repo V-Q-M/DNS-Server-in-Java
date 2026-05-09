@@ -1,10 +1,10 @@
-package io.gitlab.teamproject2026.model.records;
+package io.gitlab.teamproject2026.model.rdata;
 
 /**
  * Represents a DNS CNAME (Canonical Name) record.
  * Aliases one domain name to another.
  */
-public class ResourceRecordCNAME implements ResourceRecord {
+public class RDataCNAME implements RData {
     public static final int TYPE = 5;
     
     private String cname;
@@ -17,7 +17,7 @@ public class ResourceRecordCNAME implements ResourceRecord {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static ResourceRecordCNAME from_bytes(byte[] bytes) {
+    public static RDataCNAME from_bytes(byte[] bytes) {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 }
