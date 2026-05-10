@@ -41,7 +41,13 @@ public class DNS_SERVER {
         }
 
         // Open UDP socket
-        InetAddress bindAddress = InetAddress.getByName(bind_ip);
+        InetAddress bindAddress;
+        try {
+            bindAddress = InetAddress.getByName(bind_ip);
+        } catch (Exception e) {
+            IO.println("Invalid IP address: " + bind_ip + " — using default 0.0.0.0");
+            bindAddress = InetAddress.getByName("0.0.0.0");
+        }
         try (DatagramSocket socket = new DatagramSocket(port_number, bindAddress)) {
             IO.println("UDP server listening on " + bind_ip + " : " + port_number);
 
@@ -65,6 +71,8 @@ public class DNS_SERVER {
                 IO.println(hexDnsPacket);
                 IO.println();
             }
+        } catch (IllegalArgumentException e) {
+            IO.println("Invalid port: " + port_number + " — port must be between 0 and 65535");
         }
     }
 
