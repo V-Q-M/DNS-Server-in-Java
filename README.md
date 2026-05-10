@@ -24,10 +24,27 @@ Then start the the server with
 java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER 
 ```
 
-Or with a custom port number
+### Unix
+Alternatively, add an alias of your choice
+```bash
+alias run=java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER
 ```
-java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p 2222
+And start the server with your alias (and parameters)
+```bash
+run -p 2222
 ```
+### Windows
+Alternatively, add a function shortcut 
+```PowerShell
+function run { java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER $args }
+```
+
+And start the server with your alias (and parameters)
+```PowerShell
+run -p 2222
+```
+
+
 
 ### Examples on tests for the current state of the project
 
@@ -35,14 +52,36 @@ Testing hexdump:  `dig @127.0.0.1 uni-tuebingen.de AAAA`
 
 
 ## Configuration parameters
-The `-p` is used in the command line to specify a custom port. 
-```
+
+### Command line
+The parameter `-p` is used in the command line to specify a custom port. 
+```bash
 java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p 2222
 ```
-If no custom port is specified, the default port of 4242 is used.
+
+The parameter `-a` is used to specify a custom IP-Address.
+```bash
+java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -a 0.0.0.0
+```
+
+
+### Config file
+If a file named `config.properties` exists, it can be used to define a new default port and IP-Address.
+
+Example config;
+```aiignore
+# DNS Server Configuration
+# These values are overridden by command-line arguments if provided.
+server.port=1337
+server.ip=127.0.0.1
+```
+This example specifies a default port `1337` and default IP-Address `127.0.0.1`.
+
+If no config file exists and no command line arguments are provided, the fallback port `4242` and fallback IP-Address `0.0.0.0` is used.
+
 
 ## Known issues and bugs
-None as of yet
+- It is unclear wether port numbers below `1024` are supposed to be supported. Allowing them would require `sudo` rights and risk a crash, should the necessary rights not be provided.
 
 # Changelog
 ```diff
