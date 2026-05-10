@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.model;
 
+import io.gitlab.teamproject2026.DNSParser;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 
@@ -120,40 +122,42 @@ public class DNSPacket {
     /**
      * Deserializes a complete DNS packet from DNS wire format.
      * Splits the byte array into header and individual sections
-     * and passes the relevant bytes to each section's from_bytes method.
+     * and parses them individually
      *
      * @param bytes raw bytes from an incoming DNS packet
      * @return a new DnsPacket populated with all parsed fields
      */
-    public static DNSPacket from_bytes(byte[] bytes) {
-        /*
-        for (byte bte : bytes){
-            System.out.println(Integer.toBinaryString(bte & 0xFF));
-        }*/
+    public static DNSPacket fromBytes(byte[] bytes) {
         DNSPacket dnsPacket = new DNSPacket();
         dnsPacket.setId(new byte[]{bytes[0], bytes[1]});
 
-        dnsPacket.setQr((bytes[2] >> 7 & 1) == 1); // relevant bit shifted all the way to the right, masked, so only it remains => 0=false, 1=true
-        dnsPacket.setOpcode(OpCode.fromValue((bytes[2] >> 3) & 0x0F)); // relevant 4 bits shifted to the right, masked and converted to int
-        dnsPacket.setAa((bytes[2] >> 2 & 1) == 1);
-        dnsPacket.setTc((bytes[2] >> 1 & 1) == 1);
-        dnsPacket.setRd((bytes[2] & 1) == 1);
+        dnsPacket.setQr(DNSParser.extractBit(bytes[2], 0));
+        dnsPacket.setOpcode(OpCode.fromValue(DNSParser.subBits(bytes[2], 1, 5)));
+        dnsPacket.setAa(DNSParser.extractBit(bytes[2], 5));
+        dnsPacket.setTc(DNSParser.extractBit(bytes[2], 6));
+        dnsPacket.setRd(DNSParser.extractBit(bytes[2], 7));
 
-        dnsPacket.setRa((bytes[3] >> 7 & 1) == 1);
-        dnsPacket.setZ((byte) ((bytes[3] >> 4) & 8));
-        dnsPacket.setRcode(RCode.fromValue(bytes[3] & 0x0F));
+        dnsPacket.setRa(DNSParser.extractBit(bytes[3], 0));
+        dnsPacket.setZ(DNSParser.subBits(bytes[3], 1, 4));
+        dnsPacket.setRcode(RCode.fromValue(DNSParser.subBits(bytes[3], 4, 7)));
 
-        dnsPacket.setQdcount((((bytes[4] & 0xFF) << 8) + (bytes[5] & 0xFF)) & 0xFFFF);
-        dnsPacket.setAncount((((bytes[6] & 0xFF) << 8) + (bytes[7] & 0xFF)) & 0xFFFF);
-        dnsPacket.setNscount((((bytes[8] & 0xFF) << 8) + (bytes[9] & 0xFF)) & 0xFFFF);
-        dnsPacket.setArcount((((bytes[10] & 0xFF) << 8) + (bytes[11] & 0xFF)) & 0xFFFF);
+        dnsPacket.setQdcount(DNSParser.as16BitInt(bytes[4], bytes[5]));
+        dnsPacket.setAncount(DNSParser.as16BitInt(bytes[6], bytes[7]));
+        dnsPacket.setNscount(DNSParser.as16BitInt(bytes[8], bytes[9]));
+        dnsPacket.setArcount(DNSParser.as16BitInt(bytes[10], bytes[11]));
 
-        dnsPacket.setQuestionSections(new QuestionSection[]{QuestionSection.from_bytes(Arrays.copyOfRange(bytes, 12, bytes.length))});
-        System.out.println(dnsPacket.getQuestionSection(0).getFinalParsedByte());
-        System.out.println(bytes[dnsPacket.getQuestionSection(0).getFinalParsedByte()]);
-        /*int byte_index = 12;
+        int byte_index = 12;
         dnsPacket.setQuestionSections(new QuestionSection[dnsPacket.getQdcount()]);
-        Arrays.fill(dnsPacket.getQuestionSections(), new QuestionSection());*/
+        for (int i = 0; i < dnsPacket.getQdcount(); i++) {
+            dnsPacket.getQuestionSections()[i] = QuestionSection.fromBytes(bytes, byte_index);
+            byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() + 1;
+        }
+
+        for (int i = 0; i < dnsPacket.getAncount(); i++) {
+            dnsPacket.getAnswerSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
+            byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() + 1;
+        }
+
         return dnsPacket;
     }
 }

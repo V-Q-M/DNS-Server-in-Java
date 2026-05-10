@@ -1,7 +1,11 @@
 package io.gitlab.teamproject2026.model;
 
+import io.gitlab.teamproject2026.DNSParser;
+
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
+import java.util.Map;
 
 /**
  * Represents the Question Section of a DNS packet.
@@ -12,7 +16,7 @@ public class QuestionSection {
     private String[] name;
     private RRType qtype;
     private RRClass qclass;
-    private int finalParsedByte = -1;
+    private int lastProcessedByte;
 
     public String[] getName() { return name; }
     public void setName(String[] name) { this.name = name; }
@@ -23,9 +27,7 @@ public class QuestionSection {
     public RRClass getQclass() { return qclass; }
     public void setQclass(RRClass qclass) { this.qclass = qclass; }
 
-    public int getFinalParsedByte() { return finalParsedByte; }
-    public void setFinalParsedByte(int finalParsedByte) { this.finalParsedByte = finalParsedByte; }
-
+    public int getLastProcessedByte(){return lastProcessedByte; }
     @Override
     public String toString() {
         return "\n    name: " + String.join(".", getName()) + "\n    qtype: " + getQtype() + "\n    qclass: " + getQclass();
@@ -40,26 +42,20 @@ public class QuestionSection {
     }
 
     /**
-     * Deserializes a question section from DNS wire format.
-     *
-     * @param bytes raw bytes from an incoming DNS packet
-     * @return a new QuestionSection populated with the parsed data
+     * Parses the bytes array from the given index into a QuestionSection object and stores its end in the lastProcessedByte field
+     * @param bytes the full byte array of the packet
+     * @param byteIndex the index of the byte at which this question section starts
+     * @return the parsed question section
      */
-    public static QuestionSection from_bytes(byte[] bytes) {
+    public static QuestionSection fromBytes(byte[] bytes, int byteIndex) {
         QuestionSection questionSection = new QuestionSection();
-        LinkedList<String> labels = new LinkedList<>();
-        int byteIndex = 0;
-        while (bytes[byteIndex] != 0) {
-            int labelLength = bytes[byteIndex++] & 0xFF;
-            labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength)));
-            byteIndex += labelLength;
-        }
+        String[] labels = DNSParser.parseName(bytes, byteIndex);
+        byteIndex = DNSParser.countNameLength(bytes, byteIndex);
         byteIndex++;
-        questionSection.setName(labels.toArray(new String[0]));
-        questionSection.setQtype(RRType.fromValue((((bytes[byteIndex] & 0xFF) << 8) + (bytes[byteIndex+1] & 0xFF)) & 0xFFFF));
-        questionSection.setQclass(RRClass.fromValue((((bytes[byteIndex+2] & 0xFF) << 8) + (bytes[byteIndex+3] & 0xFF)) & 0xFFFF));
-
-        questionSection.setFinalParsedByte(byteIndex);
+        questionSection.setName(labels);
+        questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex], bytes[byteIndex+1])));
+        questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex+2], bytes[byteIndex+3])));
+        questionSection.lastProcessedByte = byteIndex+3;
         return questionSection;
     }
 }

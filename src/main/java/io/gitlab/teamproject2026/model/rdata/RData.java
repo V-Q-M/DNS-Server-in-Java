@@ -19,20 +19,19 @@ public interface RData {
      * Deserializes a rdata record from its binary DNS wire format.
      *
      * @param bytes raw bytes from an incoming DNS packet
-     * @param byte_type the byte of the resource record from an incoming DNS packet
+     * @param rrType the rrType of the resource record from an incoming DNS packet
      * @return a new ResourceRecord instance populated with the parsed data
      */
-    static RData from_bytes(byte[] bytes, byte byte_type) {
-        RRType rrType = RRType.fromValue((int) byte_type);
+    static RData fromBytes(byte[] bytes, RRType rrType) {
         return switch (rrType) {
-            case A -> RDataA.from_bytes(bytes);
-            case AAAA -> RDataAAAA.from_bytes(bytes);
-            case CNAME -> RDataCNAME.from_bytes(bytes);
-            case MX -> RDataMX.from_bytes(bytes);
-            case NS -> RDataNS.from_bytes(bytes);
-            case PTR -> RDataPTR.from_bytes(bytes);
-            case SOA -> RDataSOA.from_bytes(bytes);
-            case TXT -> RDataTXT.from_bytes(bytes);
+            case A -> RDataA.fromBytes(bytes);
+            case AAAA -> RDataAAAA.fromBytes(bytes);
+            case CNAME -> RDataCNAME.fromBytes(bytes);
+            case MX -> RDataMX.fromBytes(bytes);
+            case NS -> RDataNS.fromBytes(bytes);
+            case PTR -> RDataPTR.fromBytes(bytes);
+            case SOA -> RDataSOA.fromBytes(bytes);
+            case TXT -> RDataTXT.fromBytes(bytes);
         };
     }
 }
