@@ -9,11 +9,15 @@ import java.util.Arrays;
 import java.util.Properties;
 
 public class DNS_SERVER {
+
+    private static final int DEFAULT_PORT = 4242;
+    private static final String DEFAULT_IP = "0.0.0.0";
+
     static void main(String[] args) throws Exception {
           
         // Layer 1: defaults
-        int port_number = 4242; // Default port
-        String bind_ip = "0.0.0.0";
+        int port_number = DEFAULT_PORT;
+        String bind_ip = DEFAULT_IP;
 
          // Layer 2: config file
         Properties props = new Properties();
@@ -42,8 +46,8 @@ public class DNS_SERVER {
 
         // port check (delete later if 0-1024 ports are allowed)
         if (port_number < 1024 || port_number > 65535) {
-        IO.println("Invalid port: " + port_number + " — port must be between 1024 and 65535, using default 4242");
-        port_number = 4242;
+            IO.println("Invalid port: " + port_number + " — port must be between 1024 and 65535, using default " + DEFAULT_PORT);
+            port_number = DEFAULT_PORT;
         }
 
         // Open UDP socket
@@ -51,9 +55,9 @@ public class DNS_SERVER {
         try {
             bindAddress = InetAddress.getByName(bind_ip);
         } catch (Exception e) {
-            IO.println("Invalid IP address: " + bind_ip + " — using default 0.0.0.0");
-            bind_ip = "0.0.0.0";
-            bindAddress = InetAddress.getByName("0.0.0.0");
+            IO.println("Invalid IP address: " + bind_ip + " — using default " + DEFAULT_IP);
+            bind_ip = DEFAULT_IP;
+            bindAddress = InetAddress.getByName(DEFAULT_IP);
         }
         try (DatagramSocket socket = new DatagramSocket(port_number, bindAddress)) {
             IO.println("UDP server listening on " + bind_ip + " : " + port_number);
