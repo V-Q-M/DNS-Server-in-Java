@@ -59,6 +59,7 @@ public class DNS_SERVER {
             bind_ip = DEFAULT_IP;
             bindAddress = InetAddress.getByName(DEFAULT_IP);
         }
+
         try (DatagramSocket socket = new DatagramSocket(port_number, bindAddress)) {
             IO.println("UDP server listening on " + bind_ip + " : " + port_number);
 
@@ -78,10 +79,8 @@ public class DNS_SERVER {
                 int clientPort = packet.getPort();
                 IO.println("Received packet from " + clientAddress + ":" + clientPort);
 
-                // This is the important stuff. The Bytes are separated by space e.g. "F3 25 01..."
-                String hexDnsPacket = toHex(data);
-
-                IO.println(hexDnsPacket);
+                // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
+                IO.println(toHex(data));
                 IO.println();
 
                 // @TODO store correctly assembled result in here
