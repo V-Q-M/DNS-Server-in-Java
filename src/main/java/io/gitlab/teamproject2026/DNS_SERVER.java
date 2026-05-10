@@ -40,12 +40,19 @@ public class DNS_SERVER {
             }
         }
 
+        // port check (delete later if 0-1024 ports are allowed)
+        if (port_number < 1024 || port_number > 65535) {
+        IO.println("Invalid port: " + port_number + " — port must be between 1024 and 65535, using default 4242");
+        port_number = 4242;
+        }
+
         // Open UDP socket
         InetAddress bindAddress;
         try {
             bindAddress = InetAddress.getByName(bind_ip);
         } catch (Exception e) {
             IO.println("Invalid IP address: " + bind_ip + " — using default 0.0.0.0");
+            bind_ip = "0.0.0.0";
             bindAddress = InetAddress.getByName("0.0.0.0");
         }
         try (DatagramSocket socket = new DatagramSocket(port_number, bindAddress)) {
@@ -71,8 +78,10 @@ public class DNS_SERVER {
                 IO.println(hexDnsPacket);
                 IO.println();
             }
-        } catch (IllegalArgumentException e) {
-            IO.println("Invalid port: " + port_number + " — port must be between 0 and 65535");
+        // we can use that in case we are allowed to use ports <1024 if that is the case then 
+        // delete the if statement above and uncomment this part      
+        //} catch (IllegalArgumentException e) {
+        //    IO.println("Invalid port: " + port_number + " — port must be between 0 and 65535");
         }
     }
 
