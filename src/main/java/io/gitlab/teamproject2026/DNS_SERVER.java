@@ -61,7 +61,8 @@ public class DNS_SERVER {
         }
 
         try (DatagramSocket socket = new DatagramSocket(port_number, bindAddress)) {
-            IO.println("UDP server listening on " + bind_ip + " : " + port_number);
+            IO.println("UDP server listening on " + bind_ip + ":" + port_number);
+            IO.println();
 
             // Buffer necessary to store the packet
             byte[] buffer = new byte[1024];
@@ -80,8 +81,7 @@ public class DNS_SERVER {
                 IO.println("Received packet from " + clientAddress + ":" + clientPort);
 
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                IO.println(toHex(data));
-                IO.println();
+                IO.println("IN: " + toHex(data));
 
                 // @TODO store correctly assembled result in here
                 byte[] response = new byte[1];
@@ -98,6 +98,8 @@ public class DNS_SERVER {
                 socket.send(responsePacket);
 
                 IO.println("Send response to: " + clientAddress + ":" + clientPort);
+                IO.println("OUT: " + toHex(response));
+                IO.println();
             }
         // we can use that in case we are allowed to use ports <1024 if that is the case then 
         // delete the if statement above and uncomment this part      
