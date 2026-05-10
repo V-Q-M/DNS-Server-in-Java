@@ -89,7 +89,7 @@ public class DNSPacket {
 
     public ResourceRecord[] getAdditionalSections() { return additionalSections; }
     public void setAdditionalSections(ResourceRecord[] additionalSections) { this.additionalSections = additionalSections; }
-    public ResourceRecord getAdditionalSections(int index) {return additionalSections[index];}
+    public ResourceRecord getAdditionalSection(int index) {return additionalSections[index];}
 
     @Override
     public String toString() {
@@ -153,9 +153,22 @@ public class DNSPacket {
             byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() + 1;
         }
 
+        dnsPacket.setAnswerSections(new ResourceRecord[dnsPacket.getQdcount()]);
         for (int i = 0; i < dnsPacket.getAncount(); i++) {
             dnsPacket.getAnswerSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
             byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() + 1;
+        }
+
+        dnsPacket.setAuthoritySections(new ResourceRecord[dnsPacket.getNscount()]);
+        for (int i = 0; i < dnsPacket.getNscount(); i++) {
+            dnsPacket.getAuthoritySections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
+            byte_index = dnsPacket.getAuthoritySection(i).getLastProcessedByte() + 1;
+        }
+
+        dnsPacket.setAdditionalSections(new ResourceRecord[dnsPacket.getArcount()]);
+        for (int i = 0; i < dnsPacket.getArcount(); i++) {
+            dnsPacket.getAdditionalSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
+            byte_index = dnsPacket.getAdditionalSection(i).getLastProcessedByte() + 1;
         }
 
         return dnsPacket;

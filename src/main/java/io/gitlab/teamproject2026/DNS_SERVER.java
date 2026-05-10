@@ -38,7 +38,7 @@ public class DNS_SERVER {
             // This is the important stuff. The Bytes are separated by space e.g. "F3 25 01..."
             String hexDnsPacket = toHex(data);
 
-            DNSPacket oopPacket = DNSParser.parseBytes(data);
+            DNSPacket oopPacket = DNSPacket.fromBytes(data);
             System.out.println("" + oopPacket);
 
             IO.println(hexDnsPacket);

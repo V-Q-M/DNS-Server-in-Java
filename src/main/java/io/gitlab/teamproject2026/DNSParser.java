@@ -9,22 +9,6 @@ import java.util.Map;
 
 public class DNSParser{
     /**
-     * Deserializes a complete DNS packet from DNS wire format.
-     * Splits the byte array into header and individual sections
-     * and parses them individually
-     *
-     * @param bytes raw bytes from an incoming DNS packet
-     * @return a new DnsPacket populated with all parsed fields
-     */
-    public static DNSPacket parseBytes(byte[] bytes){
-                /*
-        for (byte bte : bytes){
-            System.out.println(Integer.toBinaryString(bte & 0xFF));
-        }*/
-        return DNSPacket.fromBytes(bytes);
-    }
-
-    /**
      * Uses bitwise logic to only read the single specified bit and converts it to a Boolean
      * @param source The byte to extract the bit from
      * @param index Integer from 0-7 with 0 representing the msb and 7 being the lsb
@@ -63,7 +47,8 @@ public class DNSParser{
     }
     public static int countNameLength(byte[] bytes, int byteIndex){
         while (bytes[byteIndex] != 0) {
-            byteIndex += bytes[byteIndex++] & 0xFF;
+            int labelLength = bytes[byteIndex++] & 0xFF;
+            byteIndex += labelLength;
         }
         return byteIndex;
     }
