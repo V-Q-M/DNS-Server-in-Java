@@ -53,9 +53,9 @@ public class QuestionSection {
         byteIndex = DNSParser.countNameLength(bytes, byteIndex);
         byteIndex++;
         questionSection.setName(labels);
-        questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex], bytes[byteIndex+1])));
-        questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex+2], bytes[byteIndex+3])));
-        questionSection.lastProcessedByte = byteIndex+3;
+        questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        questionSection.lastProcessedByte = byteIndex - 1;
         return questionSection;
     }
 }

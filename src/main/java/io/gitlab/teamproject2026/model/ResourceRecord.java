@@ -15,7 +15,7 @@ public class ResourceRecord {
     private String[] name;
     private RRType type;
     private RRClass rrclass;
-    private int ttl;
+    private long ttl;
     private int rdlength;
     private RData rdata;
     private int lastProcessedByte;
@@ -29,8 +29,8 @@ public class ResourceRecord {
     public RRClass getRrclass() { return rrclass; }
     public void setRrclass(RRClass rrclass) { this.rrclass = rrclass; }
 
-    public int getTtl() { return ttl; }
-    public void setTtl(int ttl) { this.ttl = ttl; }
+    public long getTtl() { return ttl; }
+    public void setTtl(long ttl) { this.ttl = ttl; }
 
     public int getRdlength() { return rdlength; }
     public void setRdlength(int rdlength) { this.rdlength = rdlength; }
@@ -57,13 +57,15 @@ public class ResourceRecord {
     public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
         ResourceRecord resourceRecord = new ResourceRecord();
         String[] labels = DNSParser.parseName(bytes, byteIndex);
+        System.out.println(Arrays.toString(labels));
         byteIndex = DNSParser.countNameLength(bytes, byteIndex);
         resourceRecord.setName(labels);
-        resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex], bytes[byteIndex+1])));
-        resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex+2], bytes[byteIndex+3])));
-        resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex+4], bytes[byteIndex+5], bytes[byteIndex+6], bytes[byteIndex+7]));
-        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex+8], bytes[byteIndex+9]));
-        resourceRecord.setRdata(RData.fromBytes(Arrays.copyOfRange(bytes, byteIndex + 10, byteIndex + 10 + resourceRecord.getRdlength()), resourceRecord.getType()));
+        resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
+        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        resourceRecord.setRdata(RData.fromBytes(Arrays.copyOfRange(bytes, byteIndex, byteIndex + resourceRecord.getRdlength()), resourceRecord.getType()));
+        resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
         return resourceRecord;
     }
 }

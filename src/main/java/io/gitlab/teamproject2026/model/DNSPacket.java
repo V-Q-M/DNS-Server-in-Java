@@ -128,6 +128,9 @@ public class DNSPacket {
      * @return a new DnsPacket populated with all parsed fields
      */
     public static DNSPacket fromBytes(byte[] bytes) {
+        if(bytes.length <= 12){
+            throw new IllegalArgumentException("Invalid form body. DNS Packets require at least 12 bytes for the Header");
+        }
         DNSPacket dnsPacket = new DNSPacket();
         dnsPacket.setId(new byte[]{bytes[0], bytes[1]});
 
@@ -152,13 +155,11 @@ public class DNSPacket {
             dnsPacket.getQuestionSections()[i] = QuestionSection.fromBytes(bytes, byte_index);
             byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() + 1;
         }
-
         dnsPacket.setAnswerSections(new ResourceRecord[dnsPacket.getQdcount()]);
         for (int i = 0; i < dnsPacket.getAncount(); i++) {
             dnsPacket.getAnswerSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
             byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() + 1;
         }
-
         dnsPacket.setAuthoritySections(new ResourceRecord[dnsPacket.getNscount()]);
         for (int i = 0; i < dnsPacket.getNscount(); i++) {
             dnsPacket.getAuthoritySections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
