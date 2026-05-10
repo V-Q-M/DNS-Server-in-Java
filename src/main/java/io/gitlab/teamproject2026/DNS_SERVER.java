@@ -68,19 +68,37 @@ public class DNS_SERVER {
             // Server loop
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
-                // Receive Packet
                 socket.receive(packet);
-                IO.println("Received packet from " + packet.getAddress() + ":" + packet.getPort());
 
-                // Print packet bytes as hex
-                byte[] data = Arrays.copyOfRange(packet.getData(),0, packet.getLength());
+                // Received DNS packet is stored here
+                byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
+
+                // Store the client IP and client Port for further use
+                InetAddress clientAddress = packet.getAddress();
+                int clientPort = packet.getPort();
+                IO.println("Received packet from " + clientAddress + ":" + clientPort);
 
                 // This is the important stuff. The Bytes are separated by space e.g. "F3 25 01..."
                 String hexDnsPacket = toHex(data);
 
                 IO.println(hexDnsPacket);
                 IO.println();
+
+                // @TODO store correctly assembled result in here
+                byte[] response = new byte[1];
+
+                // Build UDP packet
+                DatagramPacket responsePacket = new DatagramPacket(
+                        response,
+                        response.length,
+                        clientAddress,
+                        clientPort
+                );
+
+                // Actually send the packet over our socket
+                socket.send(responsePacket);
+
+                IO.println("Send response to: " + clientAddress + ":" + clientPort);
             }
         // we can use that in case we are allowed to use ports <1024 if that is the case then 
         // delete the if statement above and uncomment this part      
