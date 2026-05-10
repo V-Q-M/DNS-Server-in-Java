@@ -59,8 +59,10 @@ public class DNS_SERVER {
             bind_ip = DEFAULT_IP;
             bindAddress = InetAddress.getByName(DEFAULT_IP);
         }
+
         try (DatagramSocket socket = new DatagramSocket(port_number, bindAddress)) {
-            IO.println("UDP server listening on " + bind_ip + " : " + port_number);
+            IO.println("UDP server listening on " + bind_ip + ":" + port_number);
+            IO.println();
 
             // Buffer necessary to store the packet
             byte[] buffer = new byte[1024];
@@ -68,18 +70,35 @@ public class DNS_SERVER {
             // Server loop
             while (true) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
-                // Receive Packet
                 socket.receive(packet);
-                IO.println("Received packet from " + packet.getAddress() + ":" + packet.getPort());
 
-                // Print packet bytes as hex
-                byte[] data = Arrays.copyOfRange(packet.getData(),0, packet.getLength());
+                // Received DNS packet is stored here
+                byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
 
-                // This is the important stuff. The Bytes are separated by space e.g. "F3 25 01..."
-                String hexDnsPacket = toHex(data);
+                // Store the client IP and client Port for further use
+                InetAddress clientAddress = packet.getAddress();
+                int clientPort = packet.getPort();
+                IO.println("Received packet from " + clientAddress + ":" + clientPort);
 
-                IO.println(hexDnsPacket);
+                // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
+                IO.println("IN: " + toHex(data));
+
+                // @TODO store correctly assembled result in here
+                byte[] response = new byte[1];
+
+                // Build UDP packet
+                DatagramPacket responsePacket = new DatagramPacket(
+                        response,
+                        response.length,
+                        clientAddress,
+                        clientPort
+                );
+
+                // Actually send the packet over our socket
+                socket.send(responsePacket);
+
+                IO.println("Send response to: " + clientAddress + ":" + clientPort);
+                IO.println("OUT: " + toHex(response));
                 IO.println();
             }
         // we can use that in case we are allowed to use ports <1024 if that is the case then 
