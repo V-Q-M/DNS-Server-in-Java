@@ -1,6 +1,10 @@
 package io.gitlab.teamproject2026.model;
 
+import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.rdata.RData;
+
+import java.util.Arrays;
+import java.util.Map;
 
 /**
  * Represents the Answer Section of a DNS packet.
@@ -11,9 +15,10 @@ public class ResourceRecord {
     private String[] name;
     private RRType type;
     private RRClass rrclass;
-    private int ttl;
+    private long ttl;
     private int rdlength;
     private RData rdata;
+    private int lastProcessedByte;
 
     public String[] getName() { return name; }
     public void setName(String[] name) { this.name = name; }
@@ -24,8 +29,8 @@ public class ResourceRecord {
     public RRClass getRrclass() { return rrclass; }
     public void setRrclass(RRClass rrclass) { this.rrclass = rrclass; }
 
-    public int getTtl() { return ttl; }
-    public void setTtl(int ttl) { this.ttl = ttl; }
+    public long getTtl() { return ttl; }
+    public void setTtl(long ttl) { this.ttl = ttl; }
 
     public int getRdlength() { return rdlength; }
     public void setRdlength(int rdlength) { this.rdlength = rdlength; }
@@ -33,6 +38,7 @@ public class ResourceRecord {
     public RData getRdata() { return rdata; }
     public void setRdata(RData rdata) { this.rdata = rdata; }
 
+    public int getLastProcessedByte() { return lastProcessedByte; }
     /**
      * Serializes this answer section into DNS wire format.
      *
@@ -48,7 +54,18 @@ public class ResourceRecord {
      * @param bytes raw bytes from an incoming DNS packet
      * @return a new AnswerSection populated with the parsed data
      */
-    public static ResourceRecord from_bytes(byte[] bytes) {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
+        ResourceRecord resourceRecord = new ResourceRecord();
+        String[] labels = DNSParser.parseName(bytes, byteIndex);
+        System.out.println(Arrays.toString(labels));
+        byteIndex = DNSParser.countNameLength(bytes, byteIndex);
+        resourceRecord.setName(labels);
+        resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
+        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        resourceRecord.setRdata(RData.fromBytes(Arrays.copyOfRange(bytes, byteIndex, byteIndex + resourceRecord.getRdlength()), resourceRecord.getType()));
+        resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
+        return resourceRecord;
     }
 }

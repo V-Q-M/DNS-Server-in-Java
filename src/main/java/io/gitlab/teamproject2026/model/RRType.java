@@ -6,4 +6,12 @@ public enum RRType {
     private final int value;
     RRType(int value) { this.value = value; }
     public int getValue() { return value; }
+    public static RRType fromValue(int value) {
+        for (RRType rrType : RRType.values()) {
+            if (rrType.value == value) {
+                return rrType;
+            }
+        }
+        throw new IllegalArgumentException("Invalid RRType: " + value);
+    }
 }

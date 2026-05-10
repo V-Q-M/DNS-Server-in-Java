@@ -2,6 +2,7 @@ package io.gitlab.teamproject2026;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import io.gitlab.teamproject2026.model.DNSPacket;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -14,7 +15,7 @@ public class DNS_SERVER {
     private static final String DEFAULT_IP = "0.0.0.0";
 
     static void main(String[] args) throws Exception {
-          
+
         // Layer 1: defaults
         int port_number = DEFAULT_PORT;
         String bind_ip = DEFAULT_IP;
@@ -83,6 +84,10 @@ public class DNS_SERVER {
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
                 IO.println("IN: " + toHex(data));
 
+                // Map bytedata to oop classes
+                DNSPacket oopPacket = DNSPacket.fromBytes(data);
+                IO.println("Assembled Packet:\n" + oopPacket);
+
                 // @TODO store correctly assembled result in here
                 byte[] response = new byte[1];
 
@@ -101,10 +106,6 @@ public class DNS_SERVER {
                 IO.println("OUT: " + toHex(response));
                 IO.println();
             }
-        // we can use that in case we are allowed to use ports <1024 if that is the case then 
-        // delete the if statement above and uncomment this part      
-        //} catch (IllegalArgumentException e) {
-        //    IO.println("Invalid port: " + port_number + " — port must be between 0 and 65535");
         }
     }
 

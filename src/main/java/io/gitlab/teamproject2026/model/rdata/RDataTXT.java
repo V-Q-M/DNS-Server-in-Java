@@ -6,7 +6,7 @@ package io.gitlab.teamproject2026.model.rdata;
  */
 public class RDataTXT implements RData {
     public static final int TYPE = 16;
-    
+
     private String txtdata;
 
     public String getTxtdata() { return txtdata; }
@@ -17,7 +17,9 @@ public class RDataTXT implements RData {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    public static RDataTXT from_bytes(byte[] bytes) {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public static RDataTXT fromBytes(byte[] bytes) {
+        RDataTXT rDataTXT = new RDataTXT();
+        rDataTXT.setTxtdata(new String(bytes));
+        return rDataTXT;
     }
 }
