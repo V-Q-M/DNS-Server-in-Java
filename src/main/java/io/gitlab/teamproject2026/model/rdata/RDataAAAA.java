@@ -13,8 +13,8 @@ public class RDataAAAA implements RData {
     public void setAddress(byte[] address) { this.address = address; }
     
     @Override
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        return address;
     }
 
     public static RDataAAAA fromBytes(byte[] bytes) {

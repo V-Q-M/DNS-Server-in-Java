@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
+
 /**
  * Represents a DNS PTR (Pointer) record.
  * Used for reverse DNS lookups, mapping an IP address back to a domain name.
@@ -15,8 +17,8 @@ public class RDataPTR implements RData {
     public void setPtrdname(String[] ptrdname) { this.ptrdname = ptrdname; }
 
     @Override
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        return encodeName(String.join(".", ptrdname));
     }
 
     public static RDataPTR fromBytes(byte[] bytes) {

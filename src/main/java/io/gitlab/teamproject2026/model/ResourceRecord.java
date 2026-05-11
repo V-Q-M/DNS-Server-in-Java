@@ -4,8 +4,7 @@ import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.rdata.RData;
 
 import java.util.Arrays;
-import java.util.Map;
-
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 /**
  * Represents the Answer Section of a DNS packet.
  * Contains the domain name, class, TTL, data length and the actual resource record data.
@@ -44,8 +43,36 @@ public class ResourceRecord {
      *
      * @return byte array representing this answer section
      */
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        byte[] name  = encodeName(String.join(".", this.name));
+        byte[] rdata = this.getRdata().toBytes();
+        byte[] result = new byte[name.length + 10 + rdata.length];
+
+        int pos = 0;
+        System.arraycopy(name, 0, result, pos, name.length);
+        pos += name.length;
+
+        result[pos]     = (byte) (this.getType().getValue() >> 8);
+        result[pos + 1] = (byte) (this.getType().getValue());
+        pos += 2;
+
+        result[pos]     = (byte) (this.getRrclass().getValue() >> 8);
+        result[pos + 1] = (byte) (this.getRrclass().getValue());
+        pos += 2;
+
+        result[pos]     = (byte) (this.getTtl() >> 24);
+        result[pos + 1] = (byte) (this.getTtl() >> 16);
+        result[pos + 2] = (byte) (this.getTtl() >> 8);
+        result[pos + 3] = (byte) (this.getTtl());
+        pos += 4;
+
+        result[pos]     = (byte) (rdata.length >> 8);  // rdlength
+        result[pos + 1] = (byte) (rdata.length);
+        pos += 2;
+
+        System.arraycopy(rdata, 0, result, pos, rdata.length);
+
+        return result;
     }
 
     /**

@@ -90,10 +90,8 @@ public class DNS_SERVER {
                 DNSPacket oopPacket = DNSPacket.fromBytes(data);
                 IO.println("Assembled Packet:\n" + oopPacket);
 
-            // TODO: return appropriate mock package type
-
-            // Assemble response here
-            byte[] response = MockResponses.a(requestPacket).to_bytes();
+                // Return mock response here as bytes
+                byte[] response = MockResponses.respond(oopPacket).toBytes();
 
                 // Build UDP packet
                 DatagramPacket responsePacket = new DatagramPacket(

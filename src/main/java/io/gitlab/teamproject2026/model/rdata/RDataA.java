@@ -16,8 +16,8 @@ public class RDataA implements RData {
 
 
     @Override
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        return address;
     }
 
     public static RDataA fromBytes(byte[] bytes) {
