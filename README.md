@@ -1,10 +1,9 @@
 # Teamproject **Implementing a DNS server**
 
 ## Group members
-*List of members in this project and their group. Please insert your information in this list*
 ### Group 1
-- Name, Firstname, Mat-Nr, Email
 - Hölz, Robin, 6979700, robin.hoelz@student.uni-tuebingen.de
+- Müller, Viktor, 6349273, viktor.mueller@student.uni-tuebingen.de
 ### Group 2
 - Name, Firstname, Mat-Nr, Email
 
