@@ -4,14 +4,15 @@
 ### Group 1
 - Hölz, Robin, 6979700, robin.hoelz@student.uni-tuebingen.de
 - Müller, Viktor, 6349273, viktor.mueller@student.uni-tuebingen.de
-- Philippin, Johannes, 6994772, johannes.philippin @student.uni-tuebingen.de
+- Philippin, Johannes, 6994772, johannes.philippin@student.uni-tuebingen.de
 - Ruoff, Laurenz, 6978381, laurenz.ruoff@student.uni-tuebingen.de
 ### Group 2
 - Name, Firstname, Mat-Nr, Email
 
 ## About
-*Current set of features for this project. Extend this after each week.*
-
+- Receive and send correctly assembled DNS packets (with mock responses)
+- Store the packets in a robust OOP model
+- Use a Config file or command line parameters to configure the server
 ## Requirements
 The project uses Java 25, which can be downloaded from the internet.
 
@@ -50,7 +51,17 @@ run -p 2222
 
 ### Examples on tests for the current state of the project
 
-Testing hexdump:  `dig @127.0.0.1 uni-tuebingen.de AAAA`
+Testing hexdump and valid parsing:  `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
+
+Testing valid response packets:
+- `dig @127.0.0.1 uni-tuebingen.de +noedns A`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns CNAME`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns SOA`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns TXT`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns NS`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns PTR`
+- `dig @127.0.0.1 uni-tuebingen.de +noedns MX`
 
 
 ## Configuration parameters
