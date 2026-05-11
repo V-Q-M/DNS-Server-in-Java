@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
+
 /**
  * Represents a DNS NS (Name Server) record.
  * Specifies the authoritative name server for a domain.
@@ -15,8 +17,8 @@ public class RDataNS implements RData {
     public void setNsdname(String[] nsdname) { this.nsdname = nsdname; }
 
     @Override
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        return encodeName(String.join(".", nsdname));
     }
 
     public static RDataNS fromBytes(byte[] bytes) {

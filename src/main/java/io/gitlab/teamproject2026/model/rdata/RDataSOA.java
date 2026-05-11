@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
+
 /**
  * Represents a DNS SOA (Start of Authority) record.
  * Contains administrative information about a DNS zone.
@@ -40,8 +42,27 @@ public class RDataSOA implements RData {
     public void setMinimum(long minimum) { this.minimum = minimum; }
 
     @Override
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        byte[] mname   = encodeName(String.join(".", this.getMname()));
+        byte[] rname   = encodeName(String.join(".", this.getRname()));
+        byte[] result  = new byte[mname.length + rname.length + 20]; // 5 x 4-byte ints
+        int pos = 0;
+
+        System.arraycopy(mname, 0, result, pos, mname.length); pos += mname.length;
+        System.arraycopy(rname, 0, result, pos, rname.length); pos += rname.length;
+
+        result[pos] = (byte)(serial >> 24); result[pos+1] = (byte)(serial >> 16);
+        result[pos+2] = (byte)(serial >>  8); result[pos+3] = (byte)(serial); pos += 4;
+        result[pos] = (byte)(refresh >> 24); result[pos+1] = (byte)(refresh >> 16);
+        result[pos+2] = (byte)(refresh >>  8); result[pos+3] = (byte)(refresh); pos += 4;
+        result[pos] = (byte)(retry >> 24); result[pos+1] = (byte)(retry >> 16);
+        result[pos+2] = (byte)(retry >>  8); result[pos+3] = (byte)(retry); pos += 4;
+        result[pos] = (byte)(expire >> 24); result[pos+1] = (byte)(expire >> 16);
+        result[pos+2] = (byte)(expire >>  8); result[pos+3] = (byte)(expire); pos += 4;
+        result[pos] = (byte)(minimum >> 24); result[pos+1] = (byte)(minimum >> 16);
+        result[pos+2] = (byte)(minimum >>  8); result[pos+3] = (byte)(minimum); pos += 4;
+
+        return result;
     }
 
     public static RDataSOA fromBytes(byte[] bytes) {

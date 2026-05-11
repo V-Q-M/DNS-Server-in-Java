@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+
+import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -88,8 +90,8 @@ public class DNS_SERVER {
                 DNSPacket oopPacket = DNSPacket.fromBytes(data);
                 IO.println("Assembled Packet:\n" + oopPacket);
 
-                // @TODO store correctly assembled result in here
-                byte[] response = new byte[1];
+                // Return mock response here as bytes
+                byte[] response = MockResponses.respond(oopPacket).toBytes();
 
                 // Build UDP packet
                 DatagramPacket responsePacket = new DatagramPacket(

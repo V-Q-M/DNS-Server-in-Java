@@ -13,7 +13,7 @@ public interface RData {
      *
      * @return byte array representing this record in DNS wire format
      */
-    byte[] to_bytes();
+    byte[] toBytes();
 
     /**
      * Deserializes a rdata record from its binary DNS wire format.

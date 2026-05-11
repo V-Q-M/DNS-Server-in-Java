@@ -1,11 +1,7 @@
 package io.gitlab.teamproject2026.model;
 
 import io.gitlab.teamproject2026.DNSParser;
-
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
 /**
  * Represents the Question Section of a DNS packet.
@@ -37,8 +33,20 @@ public class QuestionSection {
      *
      * @return byte array representing this question section
      */
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        byte[] name = encodeName(String.join(".", this.getName()));
+        byte[] result = new byte[name.length + 4];
+
+        System.arraycopy(name, 0, result, 0, name.length);
+
+        int pos = name.length;
+        result[pos]     = (byte) (this.getQtype().getValue() >> 8);
+        result[pos + 1] = (byte) (this.getQtype().getValue());
+        result[pos + 2] = (byte) (this.getQclass().getValue() >> 8);
+        result[pos + 3] = (byte) (this.getQclass().getValue());
+
+        return result;
+
     }
 
     /**

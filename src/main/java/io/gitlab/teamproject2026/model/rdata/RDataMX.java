@@ -2,6 +2,9 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
+
+
 /**
  * Represents a DNS MX (Mail Exchange) record.
  * Specifies the mail server responsible for a domain.
@@ -19,8 +22,13 @@ public class RDataMX implements RData {
     public void setExchange(String[] exchange) { this.exchange = exchange; }
 
     @Override
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        byte[] name = encodeName(String.join(".", exchange));
+        byte[] result = new byte[2 + name.length];
+        result[0] = (byte) (preference >> 8);
+        result[1] = (byte) (preference);
+        System.arraycopy(name, 0, result, 2, name.length);
+        return result;
     }
 
     public static RDataMX fromBytes(byte[] bytes) {

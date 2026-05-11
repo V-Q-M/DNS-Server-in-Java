@@ -2,8 +2,8 @@ package io.gitlab.teamproject2026.model;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.LinkedList;
 
 /**
  * Represents a complete DNS packet, including header fields and all sections.
@@ -36,78 +36,176 @@ public class DNSPacket {
     private ResourceRecord[] authoritySections;
     private ResourceRecord[] additionalSections;
 
-    public byte[] getId() { return id; }
-    public void setId(byte[] id) { this.id = id; }
+    public byte[] getId() {
+        return id;
+    }
 
-    public boolean isQr() { return qr; }
-    public void setQr(boolean qr) { this.qr = qr; }
+    public void setId(byte[] id) {
+        this.id = id;
+    }
 
-    public OpCode getOpcode() { return opcode; }
-    public void setOpcode(OpCode opcode) { this.opcode = opcode; }
+    public boolean isQr() {
+        return qr;
+    }
 
-    public boolean isAa() { return aa; }
-    public void setAa(boolean aa) { this.aa = aa; }
+    public void setQr(boolean qr) {
+        this.qr = qr;
+    }
 
-    public boolean isTc() { return tc; }
-    public void setTc(boolean tc) { this.tc = tc; }
+    public OpCode getOpcode() {
+        return opcode;
+    }
 
-    public boolean isRd() { return rd; }
-    public void setRd(boolean rd) { this.rd = rd; }
+    public void setOpcode(OpCode opcode) {
+        this.opcode = opcode;
+    }
 
-    public boolean isRa() { return ra; }
-    public void setRa(boolean ra) { this.ra = ra; }
+    public boolean isAa() {
+        return aa;
+    }
 
-    public byte getZ() { return z; }
-    public void setZ(byte z) { this.z = z; }
+    public void setAa(boolean aa) {
+        this.aa = aa;
+    }
 
-    public RCode getRcode() { return rcode; }
-    public void setRcode(RCode rcode) { this.rcode = rcode; }
+    public boolean isTc() {
+        return tc;
+    }
 
-    public int getQdcount() { return qdcount; }
-    public void setQdcount(int qdcount) { this.qdcount = qdcount; }
+    public void setTc(boolean tc) {
+        this.tc = tc;
+    }
 
-    public int getAncount() { return ancount; }
-    public void setAncount(int ancount) { this.ancount = ancount; }
+    public boolean isRd() {
+        return rd;
+    }
 
-    public int getNscount() { return nscount; }
-    public void setNscount(int nscount) { this.nscount = nscount; }
+    public void setRd(boolean rd) {
+        this.rd = rd;
+    }
 
-    public int getArcount() { return arcount; }
-    public void setArcount(int arcount) { this.arcount = arcount; }
+    public boolean isRa() {
+        return ra;
+    }
 
-    public QuestionSection[] getQuestionSections() { return questionSections; }
-    public void setQuestionSections(QuestionSection[] questionSections) { this.questionSections = questionSections; }
-    public QuestionSection getQuestionSection(int index) {return questionSections[index];}
+    public void setRa(boolean ra) {
+        this.ra = ra;
+    }
 
-    public ResourceRecord[] getAnswerSections() { return answerSections; }
-    public void setAnswerSections(ResourceRecord[] answerSections) { this.answerSections = answerSections; }
-    public ResourceRecord getAnswerSection(int index) {return answerSections[index];}
+    public byte getZ() {
+        return z;
+    }
 
-    public ResourceRecord[] getAuthoritySections() { return authoritySections; }
-    public void setAuthoritySections(ResourceRecord[] authoritySections) { this.authoritySections = authoritySections; }
-    public ResourceRecord getAuthoritySection(int index) {return authoritySections[index];}
+    public void setZ(byte z) {
+        this.z = z;
+    }
 
-    public ResourceRecord[] getAdditionalSections() { return additionalSections; }
-    public void setAdditionalSections(ResourceRecord[] additionalSections) { this.additionalSections = additionalSections; }
-    public ResourceRecord getAdditionalSection(int index) {return additionalSections[index];}
+    public RCode getRcode() {
+        return rcode;
+    }
+
+    public void setRcode(RCode rcode) {
+        this.rcode = rcode;
+    }
+
+    public int getQdcount() {
+        return qdcount;
+    }
+
+    public void setQdcount(int qdcount) {
+        this.qdcount = qdcount;
+    }
+
+    public int getAncount() {
+        return ancount;
+    }
+
+    public void setAncount(int ancount) {
+        this.ancount = ancount;
+    }
+
+    public int getNscount() {
+        return nscount;
+    }
+
+    public void setNscount(int nscount) {
+        this.nscount = nscount;
+    }
+
+    public int getArcount() {
+        return arcount;
+    }
+
+    public void setArcount(int arcount) {
+        this.arcount = arcount;
+    }
+
+    public QuestionSection[] getQuestionSections() {
+        return questionSections;
+    }
+
+    public void setQuestionSections(QuestionSection[] questionSections) {
+        this.questionSections = questionSections;
+    }
+
+    public QuestionSection getQuestionSection(int index) {
+        return questionSections[index];
+    }
+
+    public ResourceRecord[] getAnswerSections() {
+        return answerSections;
+    }
+
+    public void setAnswerSections(ResourceRecord[] answerSections) {
+        this.answerSections = answerSections;
+    }
+
+    public ResourceRecord getAnswerSection(int index) {
+        return answerSections[index];
+    }
+
+    public ResourceRecord[] getAuthoritySections() {
+        return authoritySections;
+    }
+
+    public void setAuthoritySections(ResourceRecord[] authoritySections) {
+        this.authoritySections = authoritySections;
+    }
+
+    public ResourceRecord getAuthoritySection(int index) {
+        return authoritySections[index];
+    }
+
+    public ResourceRecord[] getAdditionalSections() {
+        return additionalSections;
+    }
+
+    public void setAdditionalSections(ResourceRecord[] additionalSections) {
+        this.additionalSections = additionalSections;
+    }
+
+    public ResourceRecord getAdditionalSection(int index) {
+        return additionalSections[index];
+    }
 
     @Override
     public String toString() {
         return "id: " + Integer.toBinaryString(id[0] & 0xFF) + Integer.toBinaryString(id[1] & 0xFF) + "\n"
-        + "qr: " + qr + "\n"
-        + "opcode: " + opcode + "\n"
-        + "aa: " + aa + "\n"
-        + "tc: " + tc + "\n"
-        + "rd: " + rd + "\n"
-        + "ra: " + ra + "\n"
-        + "z: " + Integer.toBinaryString(z & 0xFF) + "\n"
-        + "rcode: " + rcode + "\n"
-        + "qdcount: " + qdcount + "\n"
-        + "ancount: " + ancount + "\n"
-        + "nscount: " + nscount + "\n"
-        + "arcount: " + arcount + "\n"
-        + "questionSections: " + Arrays.toString(questionSections)+ "\n";
+                + "qr: " + qr + "\n"
+                + "opcode: " + opcode + "\n"
+                + "aa: " + aa + "\n"
+                + "tc: " + tc + "\n"
+                + "rd: " + rd + "\n"
+                + "ra: " + ra + "\n"
+                + "z: " + Integer.toBinaryString(z & 0xFF) + "\n"
+                + "rcode: " + rcode + "\n"
+                + "qdcount: " + qdcount + "\n"
+                + "ancount: " + ancount + "\n"
+                + "nscount: " + nscount + "\n"
+                + "arcount: " + arcount + "\n"
+                + "questionSections: " + Arrays.toString(questionSections) + "\n";
     }
+
     /**
      * Serializes this DNS packet into DNS wire format.
      * Assembles header and all sections into a single byte array
@@ -115,8 +213,73 @@ public class DNSPacket {
      *
      * @return byte array representing the complete DNS packet
      */
-    public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public byte[] toBytes() {
+        // Header has a length of 12 bytes
+        byte[] header = new byte[12];
+
+        // put id
+        header[0] = this.getId()[0];
+        header[1] = this.getId()[1];
+
+        // first flag byte
+        byte flagsByte1 = 0;
+        flagsByte1 |= (byte) ((this.isQr() ? 1 : 0) << 7); // QR
+        flagsByte1 |= (byte) ((this.getOpcode().getValue()) << 3); // Opcode
+        flagsByte1 |= (byte) ((this.isAa() ? 1 : 0) << 2); // AA
+        flagsByte1 |= (byte) ((this.isTc() ? 1 : 0) << 1); // TC
+        flagsByte1 |= (byte) (this.isRd() ? 1 : 0); // RD
+        header[2] = flagsByte1;
+
+        // second flag byte
+        byte flagsByte2 = 0;
+        flagsByte2 |= (byte) ((this.isRa() ? 1 : 0) << 7); // Ra
+        // z bits are zero anyway
+        // rcode 0 (noerror) for now
+        header[3] = flagsByte2;
+
+        header[4] = 0;
+        header[5] = 1; // 1 query for now (make dynamic later)
+        header[6] = 0;
+        header[7] = 1; // 1 response for now (make dynamic later)
+        header[8] = 0;
+        header[9] = 0;
+        header[10] = 0;
+        header[11] = 0;
+
+        // serialize each section
+        byte[][] questions = new byte[this.getQuestionSections().length][];
+        for (int i = 0; i < this.getQuestionSections().length; i++) {
+            questions[i] = this.getQuestionSections()[i].toBytes();
+        }
+
+        byte[][] answers = new byte[this.getAnswerSections().length][];
+        for (int i = 0; i < this.getAnswerSections().length; i++) {
+            answers[i] = this.getAnswerSections()[i].toBytes();
+        }
+
+        // calculate total size
+        int totalSize = header.length;
+        for (byte[] q : questions) totalSize += q.length;
+        for (byte[] a : answers)   totalSize += a.length;
+
+        // copy everything into result
+        byte[] result = new byte[totalSize];
+        int pos = 0;
+
+        System.arraycopy(header, 0, result, pos, header.length);
+        pos += header.length;
+
+        for (byte[] q : questions) {
+            System.arraycopy(q, 0, result, pos, q.length);
+            pos += q.length;
+        }
+
+        for (byte[] a : answers) {
+            System.arraycopy(a, 0, result, pos, a.length);
+            pos += a.length;
+        }
+
+        return result;
     }
 
     /**
@@ -128,7 +291,7 @@ public class DNSPacket {
      * @return a new DnsPacket populated with all parsed fields
      */
     public static DNSPacket fromBytes(byte[] bytes) {
-        if(bytes.length <= 12){
+        if (bytes.length <= 12) {
             throw new IllegalArgumentException("Invalid form body. DNS Packets require at least 12 bytes for the Header");
         }
         DNSPacket dnsPacket = new DNSPacket();
@@ -173,5 +336,21 @@ public class DNSPacket {
         }
 
         return dnsPacket;
+    }
+
+    // Helper function to encode a name
+    public static byte[] encodeName(String name) {
+        byte[] result = new byte[name.length() + 2];
+        int pos = 0;
+
+        for (String label : name.split("\\.")) {
+            byte[] labelBytes = label.getBytes(StandardCharsets.US_ASCII);
+            result[pos++] = (byte) labelBytes.length;
+            System.arraycopy(labelBytes, 0, result, pos, labelBytes.length);
+            pos += labelBytes.length;
+        }
+        result[pos++] = 0;
+
+        return Arrays.copyOf(result, pos);
     }
 }
