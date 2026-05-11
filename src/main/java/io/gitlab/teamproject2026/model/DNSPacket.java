@@ -155,7 +155,7 @@ public class DNSPacket {
             dnsPacket.getQuestionSections()[i] = QuestionSection.fromBytes(bytes, byte_index);
             byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() + 1;
         }
-        dnsPacket.setAnswerSections(new ResourceRecord[dnsPacket.getQdcount()]);
+        dnsPacket.setAnswerSections(new ResourceRecord[dnsPacket.getAncount()]);
         for (int i = 0; i < dnsPacket.getAncount(); i++) {
             dnsPacket.getAnswerSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
             byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() + 1;

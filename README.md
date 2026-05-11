@@ -86,4 +86,5 @@ If no config file exists and no command line arguments are provided, the fallbac
 # Changelog
 ```diff
 ~ DNS_SERVER.java
+~ DNSParser.java and fromBytes methods
 ```
