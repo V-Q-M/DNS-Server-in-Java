@@ -5,6 +5,7 @@
 - Hölz, Robin, 6979700, robin.hoelz@student.uni-tuebingen.de
 - Müller, Viktor, 6349273, viktor.mueller@student.uni-tuebingen.de
 - Philippin, Johannes, 6994772, johannes.philippin @student.uni-tuebingen.de
+- Ruoff, Laurenz, 6978381, laurenz.ruoff@student.uni-tuebingen.de
 ### Group 2
 - Name, Firstname, Mat-Nr, Email
 
