@@ -6,4 +6,12 @@ public enum RCode {
     private final int value;
     RCode(int value) { this.value = value; }
     public int getValue() { return value; }
+    public static RCode fromValue(int value) {
+        for (RCode rCode : RCode.values()) {
+            if (rCode.value == value) {
+                return rCode;
+            }
+        }
+        throw new IllegalArgumentException("Invalid RCode: " + value);
+    }
 }
