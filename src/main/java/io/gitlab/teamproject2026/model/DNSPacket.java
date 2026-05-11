@@ -87,7 +87,16 @@ public class DNSPacket {
      * @return byte array representing the complete DNS packet
      */
     public byte[] to_bytes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        // Header has a length of 12 bytes
+        byte[] header = new byte[12];
+
+        // put id
+        header[0] = this.getId()[0];
+        header[1] = this.getId()[1];
+
+        byte[] result = new byte[header.length];
+        System.arraycopy(header, 0, result, 0, header.length);
+        return result;
     }
 
     /**
