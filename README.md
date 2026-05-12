@@ -6,6 +6,7 @@
 - Müller, Viktor, 6349273, viktor.mueller@student.uni-tuebingen.de
 - Philippin, Johannes, 6994772, johannes.philippin@student.uni-tuebingen.de
 - Ruoff, Laurenz, 6978381, laurenz.ruoff@student.uni-tuebingen.de
+- Bobes, Anas, 6688712, Anas.Bobes@student.uni-tuebingen.de
 ### Group 2
 - Name, Firstname, Mat-Nr, Email
 
