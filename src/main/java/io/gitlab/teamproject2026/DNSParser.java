@@ -2,6 +2,7 @@ package io.gitlab.teamproject2026;
 
 import io.gitlab.teamproject2026.model.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -63,7 +64,7 @@ public class DNSParser{
         LinkedList<String> labels = new LinkedList<>();
         while (bytes[byteIndex] != 0) {
             int labelLength = bytes[byteIndex++] & 0xFF;
-            labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength)));
+            labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength), StandardCharsets.US_ASCII));
             byteIndex += labelLength;
         }
         return labels.toArray(new String[0]);
