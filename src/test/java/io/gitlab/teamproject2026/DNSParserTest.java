@@ -1,0 +1,152 @@
+package io.gitlab.teamproject2026;
+
+import io.gitlab.teamproject2026.data.MockResponses;
+import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.model.rdata.*;
+import org.junit.jupiter.api.Test;
+import java.util.HexFormat;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class DNSParserTest {
+    @Test
+    void subBitTest(){
+        assertEquals(0b110, DNSParser.subBits((byte) 0b10110110, 2, 5));
+        assertEquals(0b10110, DNSParser.subBits((byte) 0b10110110, 0, 5));
+        assertEquals(0b110, DNSParser.subBits((byte) 0b10110110, 5, 8));
+        assertEquals(0b00000, DNSParser.subBits((byte) 0b00000000, 2, 7));
+    }
+    @Test
+    void extractBitTest(){
+        assertEquals(true, DNSParser.extractBit((byte) 0b10110110, 2));
+        assertEquals(false, DNSParser.extractBit((byte) 0b10110110, 1));
+        assertEquals(true, DNSParser.extractBit((byte) 0b10110110, 5));
+        assertEquals(false, DNSParser.extractBit((byte) 0b10110110, 7));
+
+    }
+    @Test
+    void as16BitIntTest(){
+        assertEquals(5, DNSParser.as16BitInt((byte) 0x00, (byte) 0x05));
+        assertEquals(16197, DNSParser.as16BitInt((byte) 0x3F, (byte) 0x45));
+        assertEquals(65535, DNSParser.as16BitInt((byte) 0xFF, (byte) 0xFF));
+    }
+    @Test
+    void as32BitIntTest(){
+        assertEquals(328960, DNSParser.as32BitInt((byte) 0x00, (byte) 0x05, (byte) 0x05, (byte) 0x00));
+        assertEquals(4294967295L, DNSParser.as32BitInt((byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF));
+        assertEquals(4278519043L, DNSParser.as32BitInt((byte) 0xFF, (byte) 0x05, (byte) 0x05, (byte) 0x03));
+    }
+    @Test
+    void parseNameTest(){
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, DNSParser.parseName(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"), 0));
+    }
+    @Test
+    void RDataTest(){
+        RDataA rdataA = RDataA.fromBytes(new byte[]{ (byte)134, (byte)2, (byte)5, (byte)1 });
+        assertArrayEquals(new byte[]{ (byte)134, (byte)2, (byte)5, (byte)1 }, rdataA.getAddress());
+
+        byte[] addressAAAA = new byte[]{
+                (byte)0x20, (byte)0x01, (byte)0x07, (byte)0xc0,  // 2001:07c0
+                (byte)0x30, (byte)0x0c, (byte)0x30, (byte)0xf0,  // 300c:30f0
+                (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,  // 0000:0000 (::)
+                (byte)0x86, (byte)0x02, (byte)0x05, (byte)0x01   // 8602:0501
+        }; // 2001:7c0:300c:30f0::8602:501
+        RDataAAAA rdataAAAA = RDataAAAA.fromBytes(addressAAAA);
+        assertArrayEquals(addressAAAA, rdataAAAA.getAddress());
+
+        RDataCNAME rDataCNAME = RDataCNAME.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"));
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rDataCNAME.getCname());
+
+        RDataMX rdataMx = RDataMX.fromBytes(HexFormat.of().parseHex("00020d756e692d74756562696e67656e02646500"));
+        rdataMx.setExchange(new String[] {"uni-tuebingen", "de"});
+        rdataMx.setPreference(2);
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rdataMx.getExchange());
+        assertEquals(2, rdataMx.getPreference());
+
+        RDataNS rdataNs = RDataNS.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"));
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rdataNs.getNsdname());
+
+        RDataPTR rdataPtr = RDataPTR.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"));
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rdataPtr.getPtrdname());
+
+        RDataSOA rDataSOA =  RDataSOA.fromBytes(HexFormat.of().parseHex(
+                "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Mname)
+                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
+                + "00000002" // 2 (serial)
+                + "00000002" // 2 (refresh)
+                + "00000002" // 2 (retry)
+                + "00000002" // 2 (expire)
+                + "00000002" // 2 (minimum)
+        ));
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rDataSOA.getMname());
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rDataSOA.getRname());
+        assertEquals(2, rDataSOA.getSerial());
+        assertEquals(2, rDataSOA.getRefresh());
+        assertEquals(2, rDataSOA.getRetry());
+        assertEquals(2, rDataSOA.getExpire());
+        assertEquals(2, rDataSOA.getMinimum());
+
+        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e6465"));
+        assertEquals("uni-tuebingen.de", rDataTxt.getTxtdata());
+    }
+    @Test
+    void fullPacketTest(){
+        final DNSPacket testQueryA = new DNSPacket();
+        testQueryA.setId(new byte[]{(byte) 0b11111111, (byte) 0b10100110});
+        testQueryA.setQr(false);
+        testQueryA.setOpcode(OpCode.QUERY);
+        testQueryA.setAa(false);
+        testQueryA.setTc(false);
+        testQueryA.setRd(false);
+        testQueryA.setRa(false);
+        testQueryA.setRcode(RCode.NOERROR);
+        testQueryA.setQdcount(1);
+
+        QuestionSection questionSectionA = new QuestionSection();
+        questionSectionA.setName(new String[]{"test", "kn", "uni-tuebingen", "de"});
+        questionSectionA.setQtype(RRType.A);
+        questionSectionA.setQclass(RRClass.IN);
+
+        testQueryA.setQuestionSections(new QuestionSection[] {questionSectionA});
+        DNSPacket mockResponse = MockResponses.respond(testQueryA);
+        byte[] mockResponseBytes = mockResponse.toBytes();
+        assertArrayEquals(mockResponseBytes, DNSPacket.fromBytes(mockResponseBytes).toBytes());
+
+        mockResponse.setNscount(2);
+        mockResponse.setAuthoritySections(new ResourceRecord[]{mockResponse.getAnswerSection(0), mockResponse.getAnswerSection(0)});
+        mockResponse.setArcount(2);
+        mockResponse.setAdditionalSections(mockResponse.getAuthoritySections());
+        mockResponseBytes = mockResponse.toBytes();
+        assertArrayEquals(mockResponseBytes, DNSPacket.fromBytes(mockResponseBytes).toBytes());
+    }
+    @Test
+    void RRTest(){
+        ResourceRecord resourceRecord = ResourceRecord.fromBytes(HexFormat.of().parseHex(
+                "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (name)
+                + "0006" // SOA (type)
+                + "0001" // IN (class)
+                + "00000002" // 2s (ttl)
+                + "0038" // 56 (rdlenght)
+                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Mname)
+                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
+                + "00000002" // 2 (serial)
+                + "00000002" // 2 (refresh)
+                + "00000002" // 2 (retry)
+                + "00000002" // 2 (expire)
+                + "00000002" // 2 (minimum)
+        ), 0);
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, resourceRecord.getName());
+        assertEquals(RRType.SOA, resourceRecord.getType());
+        assertEquals(RRClass.IN, resourceRecord.getRrclass());
+        assertEquals(2, resourceRecord.getTtl());
+        assertEquals(56, resourceRecord.getRdlength());
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, ((RDataSOA) resourceRecord.getRdata()).getMname());
+        assertArrayEquals(new String[] {"uni-tuebingen", "de"}, ((RDataSOA) resourceRecord.getRdata()).getRname());
+        assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getSerial());
+        assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getRefresh());
+        assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getRetry());
+        assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getExpire());
+        assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getMinimum());
+
+    }
+}
