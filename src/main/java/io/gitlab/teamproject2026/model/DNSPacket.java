@@ -203,7 +203,10 @@ public class DNSPacket {
                 + "ancount: " + ancount + "\n"
                 + "nscount: " + nscount + "\n"
                 + "arcount: " + arcount + "\n"
-                + "questionSections: " + Arrays.toString(questionSections) + "\n";
+                + "questionSections: " + Arrays.toString(questionSections) + "\n"
+                + "answerSections: " + Arrays.toString(answerSections) + "\n"
+                + "authoritySections: " + Arrays.toString(authoritySections) + "\n"
+                + "additionalSections: " + Arrays.toString(additionalSections) + "\n";
     }
 
     /**

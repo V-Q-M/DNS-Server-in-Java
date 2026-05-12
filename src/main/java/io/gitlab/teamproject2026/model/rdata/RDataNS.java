@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import java.util.Arrays;
+
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
 /**
@@ -15,6 +17,11 @@ public class RDataNS implements RData {
 
     public String[] getNsdname() { return nsdname; }
     public void setNsdname(String[] nsdname) { this.nsdname = nsdname; }
+
+    @Override
+    public String toString(){
+        return Arrays.toString(nsdname);
+    }
 
     @Override
     public byte[] toBytes() {

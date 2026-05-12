@@ -23,6 +23,10 @@ public class QuestionSection {
     public RRClass getQclass() { return qclass; }
     public void setQclass(RRClass qclass) { this.qclass = qclass; }
 
+    /**
+     * Only curated if parsed from bytes and used by the surrounding packet to adjust the parsing offset
+     * @return amount of bytes used to parse this QuestionSection
+     */
     public int getLastProcessedByte(){return lastProcessedByte; }
     @Override
     public String toString() {
@@ -58,8 +62,7 @@ public class QuestionSection {
     public static QuestionSection fromBytes(byte[] bytes, int byteIndex) {
         QuestionSection questionSection = new QuestionSection();
         String[] labels = DNSParser.parseName(bytes, byteIndex);
-        byteIndex = DNSParser.countNameLength(bytes, byteIndex);
-        byteIndex++;
+        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         questionSection.setName(labels);
         questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));

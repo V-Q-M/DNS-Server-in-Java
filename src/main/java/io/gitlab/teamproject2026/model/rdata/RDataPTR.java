@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import java.util.Arrays;
+
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
 /**
@@ -15,6 +17,11 @@ public class RDataPTR implements RData {
 
     public String[] getPtrdname() { return ptrdname; }
     public void setPtrdname(String[] ptrdname) { this.ptrdname = ptrdname; }
+
+    @Override
+    public String toString(){
+        return Arrays.toString(ptrdname);
+    }
 
     @Override
     public byte[] toBytes() {

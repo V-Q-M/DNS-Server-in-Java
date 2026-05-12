@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import java.util.Arrays;
+
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
 /**
@@ -40,6 +42,11 @@ public class RDataSOA implements RData {
 
     public long getMinimum() { return minimum; }
     public void setMinimum(long minimum) { this.minimum = minimum; }
+
+    @Override
+    public String toString(){
+        return "    mname: " + Arrays.toString(mname) + "\n    rname: "+ Arrays.toString(rname) + "\n    serial: " + serial  + ", refresh: " + refresh + ", retry: " + retry + ", expire: " + expire  + ", minimum: " + minimum;
+    }
 
     @Override
     public byte[] toBytes() {

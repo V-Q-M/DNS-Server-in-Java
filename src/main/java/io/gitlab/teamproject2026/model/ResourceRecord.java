@@ -37,7 +37,21 @@ public class ResourceRecord {
     public RData getRdata() { return rdata; }
     public void setRdata(RData rdata) { this.rdata = rdata; }
 
+    /**
+     * Only curated if parsed from bytes and used by the surrounding packet to adjust the parsing offset
+     * @return amount of bytes used to parse this ResourceRecord
+     */
     public int getLastProcessedByte() { return lastProcessedByte; }
+
+    @Override
+    public String toString() {
+        return "\n    name: " + Arrays.toString(name) + "\n"
+                + "    rrtype: " + type + "\n"
+                + "    rrclass: " + rrclass + "\n"
+                + "    ttl: " + ttl + "s\n"
+                + "    rdlength: " + rdlength + "\n"
+                + "    rdata: " + rdata + "\n";
+    }
     /**
      * Serializes this answer section into DNS wire format.
      *
@@ -84,8 +98,7 @@ public class ResourceRecord {
     public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
         ResourceRecord resourceRecord = new ResourceRecord();
         String[] labels = DNSParser.parseName(bytes, byteIndex);
-        System.out.println(Arrays.toString(labels));
-        byteIndex = DNSParser.countNameLength(bytes, byteIndex);
+        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         resourceRecord.setName(labels);
         resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));

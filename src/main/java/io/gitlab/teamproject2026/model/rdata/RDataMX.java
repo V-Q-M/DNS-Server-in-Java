@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 
+import java.util.Arrays;
+
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
 
@@ -20,6 +22,11 @@ public class RDataMX implements RData {
 
     public String[] getExchange() { return exchange; }
     public void setExchange(String[] exchange) { this.exchange = exchange; }
+
+    @Override
+    public String toString(){
+        return "preference: " + preference + ", exchange: " + Arrays.toString(exchange);
+    }
 
     @Override
     public byte[] toBytes() {

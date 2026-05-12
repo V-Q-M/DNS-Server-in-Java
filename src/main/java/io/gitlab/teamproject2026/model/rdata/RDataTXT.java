@@ -15,12 +15,13 @@ public class RDataTXT implements RData {
     public void setTxtdata(String txtdata) { this.txtdata = txtdata; }
 
     @Override
+    public String toString(){
+        return txtdata;
+    }
+
+    @Override
     public byte[] toBytes() {
-        byte[] text = txtdata.getBytes(StandardCharsets.US_ASCII);
-        byte[] result = new byte[1 + text.length];
-        result[0] = (byte) text.length;
-        System.arraycopy(text, 0, result, 1, text.length);
-        return result;
+        return txtdata.getBytes(StandardCharsets.US_ASCII);
     }
 
     public static RDataTXT fromBytes(byte[] bytes) {

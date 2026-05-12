@@ -14,6 +14,10 @@ public class RDataA implements RData {
     public byte[] getAddress() { return address; }
     public void setAddress(byte[] address) { this.address = address; }
 
+    @Override
+    public String toString(){
+        return Arrays.toString(address);
+    }
 
     @Override
     public byte[] toBytes() {

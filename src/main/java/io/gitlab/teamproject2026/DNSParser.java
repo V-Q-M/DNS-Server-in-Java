@@ -72,10 +72,11 @@ public class DNSParser{
     /**
      * Finds the amount of bytes used within this domain name byte array
      * @param bytes the full array of bytes
-     * @param byteIndex the index, where the domain name is supposed to start
+     * @param startIndex the index, where the domain name is supposed to start
      * @return the amount of bytes until a length 0 byte is found.
      */
-    public static int countNameLength(byte[] bytes, int byteIndex){
+    public static int countNameLength(byte[] bytes, int startIndex){
+        int byteIndex = startIndex;
         if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
             throw new UnsupportedOperationException("Message compression not implemented yet");
         }
@@ -83,6 +84,6 @@ public class DNSParser{
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;
         }
-        return byteIndex;
+        return byteIndex - startIndex + 1;
     }
 }
