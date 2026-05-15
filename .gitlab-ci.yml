@@ -1,17 +1,27 @@
-default:
-  image: python:3.10
-  before_script:
-    - apt-get update -qy
-    - apt-get install -y dnsutils
-    - chmod +x ./test_server.sh
+stages:
+  - build 
+  - test
 
-test:
-  tags:
-    - shared
+# Building the project
+build:
+  stage: build
+  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
   script:
-    # Run blackbox tests
-    # disabled because they are written for Python (only done so that the pipeline doesn't keep failing, can be removed if it causes a merge conflict)
-    #- ./test_server.sh
-    # Run unittests
-    # -
-    echo "Tests complete"
+    - echo "Building the project..."
+    - mvn clean compile
+
+tests:
+  stage: test
+  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+  script:
+    - echo "Running unit tests..."
+    - mvn test
+  artifacts:
+    when: always
+    paths: 
+      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
+      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
+    reports:
+      junit: 
+      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
+      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
