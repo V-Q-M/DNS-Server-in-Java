@@ -15,7 +15,14 @@ tests:
   tags:
   - shared
   stage: test
-  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+  image: 
+  - maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+  - docker/compose:latest
+  services:
+  - docker:dind
+  before_script:
+  - docker version
+  - docker-compose version
   script:
     - echo "Running blackbox tests..."
     # Run blackbox tests
