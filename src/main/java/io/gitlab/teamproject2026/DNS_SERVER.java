@@ -11,6 +11,7 @@ import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.Properties;
 
+
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
@@ -46,6 +47,10 @@ public class DNS_SERVER {
                 i++;
             }
         }
+
+        // Layer 3: connect to cache
+        DNSCache cache = new DNSCache();
+        System.out.println(cache.connect());
 
         // port check (delete later if 0-1024 ports are allowed)
         if (portNumber > 65535) {
