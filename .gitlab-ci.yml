@@ -10,7 +10,6 @@ build:
   script:
     - echo "Building the project..."
     - mvn clean compile
-    - docker compose up
 
 docker: 
   stage: docker
