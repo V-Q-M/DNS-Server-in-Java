@@ -5,10 +5,10 @@ default:
     - apt-get install -y dnsutils
     - chmod +x ./test_server.sh
 
-#test:
-  #tags:
-  #  - shared
-  #script:
+test:
+  tags:
+    - shared
+  script:
     # Run blackbox tests
     # disabled because they are written for Python (only done so that the pipeline doesn't keep failing, can be removed if it causes a merge conflict)
     #- ./test_server.sh
