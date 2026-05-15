@@ -8,7 +8,11 @@
 - Ruoff, Laurenz, 6978381, laurenz.ruoff@student.uni-tuebingen.de
 - Bobes, Anas, 6688712, Anas.Bobes@student.uni-tuebingen.de
 ### Group 2
-- Name, Firstname, Mat-Nr, Email
+- Alnajar, Yaman, 
+- Baum, Kevin, 6386894, kevin.baum@student.uni-tuebingen.de
+- Patnaik, Noemi, 6019008, noemi.patnaik@student.uni-tuebingen.de
+- Zabel Natalie, 6677093, natalie-aislyn.zabel@student.uni-tuebingen.de
+ 
 
 ## About
 - Receive and send correctly assembled DNS packets (with mock responses)
@@ -95,7 +99,7 @@ If no config file exists and no command line arguments are provided, the fallbac
 
 
 ## Known issues and bugs
-- It is unclear wether port numbers below `1024` are supposed to be supported. Allowing them would require `sudo` rights and risk a crash, should the necessary rights not be provided.
+- TXT Records can currently only be parsed if they contain only one string. 
 
 # Changelog
 ```diff
