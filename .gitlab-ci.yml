@@ -1,6 +1,5 @@
 stages:
   - build
-  - docker 
   - test
 
 # Building the project
@@ -10,19 +9,6 @@ build:
   script:
     - echo "Building the project..."
     - mvn clean compile
-
-docker: 
-  stage: docker
-  image: docker/compose:latest
-  services:
-  - docker:dind
-  before_script:
-  - docker version
-  - docker-compose version
-  script:
-    - docker-compose down
-    - docker-compose build
-    - docker-compose up 
 
 tests:
   tags:
@@ -35,6 +21,8 @@ tests:
     # - ./test_server.sh
     # Run unittests
     # -
+    - echo "starting Postgresdocker"
+    - docker run --name postgres --restart always --shm-size 128mb -e POSTGRES_PASSWORD=example -p 5432:5432 -v ./postgres/postgres.conf:/etc/postgresql/postgresql.conf:ro -v ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro postgres postgres -c config_file=/etc/postgresql/postgresql.conf
     - echo "Running unit tests..."
     - mvn test
   artifacts:
