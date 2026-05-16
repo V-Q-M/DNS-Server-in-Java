@@ -48,10 +48,6 @@ public class DNS_SERVER {
             }
         }
 
-        // Layer 3: connect to cache
-        DNSCache cache = new DNSCache();
-        System.out.println(cache.connect());
-
         // port check (delete later if 0-1024 ports are allowed)
         if (portNumber > 65535) {
             IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default " + DEFAULT_PORT);
