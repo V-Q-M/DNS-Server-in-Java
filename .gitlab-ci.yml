@@ -1,5 +1,6 @@
 stages:
   - build
+  - docker 
   - test
 
 # Building the project
@@ -9,6 +10,19 @@ build:
   script:
     - echo "Building the project..."
     - mvn clean compile
+
+docker: 
+  stage: docker
+  image: docker/compose:latest
+  services:
+  - docker:dind
+  before_script:
+  - docker version
+  - docker-compose version
+  script:
+    - docker-compose down
+    - docker-compose build
+    - docker-compose up 
 
 tests:
   tags:
