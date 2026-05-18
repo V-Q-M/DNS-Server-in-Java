@@ -22,7 +22,7 @@ tests:
     # Run unittests
     # -
     - echo "starting Postgresdocker"
-    - docker run --name postgres --restart always --shm-size 128mb -e POSTGRES_PASSWORD=example -p 5432:5432 -v ./postgres/postgres.conf:/etc/postgresql/postgresql.conf:ro -v ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro postgres postgres -c config_file=/etc/postgresql/postgresql.conf
+    - docker run -d --name postgres --restart always --shm-size 128mb -e POSTGRES_PASSWORD=example -p 5432:5432 -v ./postgres/postgres.conf:/etc/postgresql/postgresql.conf:ro -v ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro postgres postgres -c config_file=/etc/postgresql/postgresql.conf
     - echo "Running unit tests..."
     - mvn test
   artifacts:
