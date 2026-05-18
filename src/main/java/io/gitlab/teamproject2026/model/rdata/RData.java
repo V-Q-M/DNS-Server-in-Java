@@ -22,16 +22,16 @@ public interface RData {
      * @param rrType the rrType of the resource record from an incoming DNS packet
      * @return a new ResourceRecord instance populated with the parsed data
      */
-    static RData fromBytes(byte[] bytes, RRType rrType) {
+    static RData fromBytes(byte[] bytes, int byteIndex, RRType rrType) {
         return switch (rrType) {
-            case A -> RDataA.fromBytes(bytes);
-            case AAAA -> RDataAAAA.fromBytes(bytes);
-            case CNAME -> RDataCNAME.fromBytes(bytes);
-            case MX -> RDataMX.fromBytes(bytes);
-            case NS -> RDataNS.fromBytes(bytes);
-            case PTR -> RDataPTR.fromBytes(bytes);
-            case SOA -> RDataSOA.fromBytes(bytes);
-            case TXT -> RDataTXT.fromBytes(bytes);
+            case A -> RDataA.fromBytes(bytes, byteIndex);
+            case AAAA -> RDataAAAA.fromBytes(bytes, byteIndex);
+            case CNAME -> RDataCNAME.fromBytes(bytes, byteIndex);
+            case MX -> RDataMX.fromBytes(bytes, byteIndex);
+            case NS -> RDataNS.fromBytes(bytes, byteIndex);
+            case PTR -> RDataPTR.fromBytes(bytes, byteIndex);
+            case SOA -> RDataSOA.fromBytes(bytes, byteIndex);
+            case TXT -> RDataTXT.fromBytes(bytes, byteIndex);
         };
     }
 }

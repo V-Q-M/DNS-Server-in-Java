@@ -42,7 +42,7 @@ public class DNSParserTest {
     }
     @Test
     void RDataTest(){
-        RDataA rdataA = RDataA.fromBytes(new byte[]{ (byte)134, (byte)2, (byte)5, (byte)1 });
+        RDataA rdataA = RDataA.fromBytes(new byte[]{ (byte)134, (byte)2, (byte)5, (byte)1 },0);
         assertArrayEquals(new byte[]{ (byte)134, (byte)2, (byte)5, (byte)1 }, rdataA.getAddress());
 
         byte[] addressAAAA = new byte[]{
@@ -51,22 +51,22 @@ public class DNSParserTest {
                 (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,  // 0000:0000 (::)
                 (byte)0x86, (byte)0x02, (byte)0x05, (byte)0x01   // 8602:0501
         }; // 2001:7c0:300c:30f0::8602:501
-        RDataAAAA rdataAAAA = RDataAAAA.fromBytes(addressAAAA);
+        RDataAAAA rdataAAAA = RDataAAAA.fromBytes(addressAAAA,0);
         assertArrayEquals(addressAAAA, rdataAAAA.getAddress());
 
-        RDataCNAME rDataCNAME = RDataCNAME.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"));
+        RDataCNAME rDataCNAME = RDataCNAME.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"),0);
         assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rDataCNAME.getCname());
 
-        RDataMX rdataMx = RDataMX.fromBytes(HexFormat.of().parseHex("00020d756e692d74756562696e67656e02646500"));
+        RDataMX rdataMx = RDataMX.fromBytes(HexFormat.of().parseHex("00020d756e692d74756562696e67656e02646500"),0);
         rdataMx.setExchange(new String[] {"uni-tuebingen", "de"});
         rdataMx.setPreference(2);
         assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rdataMx.getExchange());
         assertEquals(2, rdataMx.getPreference());
 
-        RDataNS rdataNs = RDataNS.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"));
+        RDataNS rdataNs = RDataNS.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"),0);
         assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rdataNs.getNsdname());
 
-        RDataPTR rdataPtr = RDataPTR.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"));
+        RDataPTR rdataPtr = RDataPTR.fromBytes(HexFormat.of().parseHex("0d756e692d74756562696e67656e02646500"),0);
         assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rdataPtr.getPtrdname());
 
         RDataSOA rDataSOA =  RDataSOA.fromBytes(HexFormat.of().parseHex(
@@ -77,7 +77,7 @@ public class DNSParserTest {
                 + "00000002" // 2 (retry)
                 + "00000002" // 2 (expire)
                 + "00000002" // 2 (minimum)
-        ));
+        ),0);
         assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rDataSOA.getMname());
         assertArrayEquals(new String[] {"uni-tuebingen", "de"}, rDataSOA.getRname());
         assertEquals(2, rDataSOA.getSerial());
@@ -86,7 +86,7 @@ public class DNSParserTest {
         assertEquals(2, rDataSOA.getExpire());
         assertEquals(2, rDataSOA.getMinimum());
 
-        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e6465"));
+        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e6465"),0);
         assertEquals("uni-tuebingen.de", rDataTxt.getTxtdata());
     }
     @Test

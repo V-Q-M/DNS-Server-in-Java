@@ -72,10 +72,10 @@ public class RDataSOA implements RData {
         return result;
     }
 
-    public static RDataSOA fromBytes(byte[] bytes) {
+    public static RDataSOA fromBytes(byte[] bytes, int byteIndex) {
         RDataSOA rDataSOA = new RDataSOA();
-        rDataSOA.setMname(DNSParser.parseName(bytes, 0));
-        int byteIndex = DNSParser.countNameLength(bytes, 0);
+        rDataSOA.setMname(DNSParser.parseName(bytes, byteIndex));
+        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         rDataSOA.setRname(DNSParser.parseName(bytes, byteIndex));
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         rDataSOA.setSerial(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));

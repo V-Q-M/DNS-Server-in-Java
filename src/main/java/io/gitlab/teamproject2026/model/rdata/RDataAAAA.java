@@ -24,9 +24,9 @@ public class RDataAAAA implements RData {
         return address;
     }
 
-    public static RDataAAAA fromBytes(byte[] bytes) {
+    public static RDataAAAA fromBytes(byte[] bytes, int byteIndex) {
         RDataAAAA rDataAAAA = new RDataAAAA();
-        rDataAAAA.setAddress(bytes);
+        rDataAAAA.setAddress(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 16));
         return rDataAAAA;
     }
 }

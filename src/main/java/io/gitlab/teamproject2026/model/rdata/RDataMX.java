@@ -38,10 +38,10 @@ public class RDataMX implements RData {
         return result;
     }
 
-    public static RDataMX fromBytes(byte[] bytes) {
+    public static RDataMX fromBytes(byte[] bytes, int byteIndex) {
         RDataMX rDataMX = new RDataMX();
-        rDataMX.setPreference(DNSParser.as16BitInt(bytes[0], bytes[1]));
-        rDataMX.setExchange(DNSParser.parseName(bytes, 2));
+        rDataMX.setPreference(DNSParser.as16BitInt(bytes[byteIndex], bytes[1+byteIndex]));
+        rDataMX.setExchange(DNSParser.parseName(bytes, 2+byteIndex));
         return rDataMX;
     }
 }

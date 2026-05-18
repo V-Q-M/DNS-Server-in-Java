@@ -28,9 +28,9 @@ public class RDataNS implements RData {
         return encodeName(String.join(".", nsdname));
     }
 
-    public static RDataNS fromBytes(byte[] bytes) {
+    public static RDataNS fromBytes(byte[] bytes, int byteIndex) {
         RDataNS rDataNS = new RDataNS();
-        rDataNS.setNsdname(DNSParser.parseName(bytes, 0));
+        rDataNS.setNsdname(DNSParser.parseName(bytes, byteIndex));
         return  rDataNS;
     }
 }

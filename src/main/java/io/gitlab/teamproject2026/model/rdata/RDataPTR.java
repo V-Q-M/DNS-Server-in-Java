@@ -28,9 +28,9 @@ public class RDataPTR implements RData {
         return encodeName(String.join(".", ptrdname));
     }
 
-    public static RDataPTR fromBytes(byte[] bytes) {
+    public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {
         RDataPTR rDataPTR = new RDataPTR();
-        rDataPTR.setPtrdname(DNSParser.parseName(bytes, 0));
+        rDataPTR.setPtrdname(DNSParser.parseName(bytes, byteIndex));
         return rDataPTR;
     }
 }

@@ -113,9 +113,12 @@ public class ResourceRecord {
         resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]), bytes, byteIndex);
-        resourceRecord.setRdata(RData.fromBytes(Arrays.copyOfRange(bytes, byteIndex, byteIndex + resourceRecord.getRdlength()), resourceRecord.getType()));
-        resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
+        //resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]), bytes, byteIndex);
+        int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
+        resourceRecord.setRdata(RData.fromBytes(bytes, byteIndex, resourceRecord.getType()));
+        resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);
+        resourceRecord.lastProcessedByte = byteIndex + rdlengthComp;
+        //resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
         return resourceRecord;
     }
 }

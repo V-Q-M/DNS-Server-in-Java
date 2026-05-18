@@ -28,9 +28,9 @@ public class RDataCNAME implements RData {
         return encodeName(domain);
     }
 
-    public static RDataCNAME fromBytes(byte[] bytes) {
+    public static RDataCNAME fromBytes(byte[] bytes, int byteIndex) {
         RDataCNAME rDataCNAME = new RDataCNAME();
-        rDataCNAME.setCname(DNSParser.parseName(bytes, 0));
+        rDataCNAME.setCname(DNSParser.parseName(bytes, byteIndex));
         return rDataCNAME;
     }
 }
