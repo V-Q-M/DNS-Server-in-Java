@@ -18,7 +18,7 @@ public interface RData {
     /**
      * Deserializes a rdata record from its binary DNS wire format.
      *
-     * @param bytes raw bytes from an incoming DNS packet
+     * @param bytes COMPLETE raw bytes array of an incoming DNS packet
      * @param rrType the rrType of the resource record from an incoming DNS packet
      * @return a new ResourceRecord instance populated with the parsed data
      */

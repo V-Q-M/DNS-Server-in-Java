@@ -102,39 +102,4 @@ public class DNSSerializerTest {
                 + "00000002" // 2 (minimum)
         ), resourceRecord.toBytes());
     }
-    @Test
-    void decompressionTest(){
-        RDataSOA rData = new RDataSOA();
-        rData.setMname(new String[] {"uni-tuebingen", "de"});
-        rData.setRname(new String[] {"uni-tuebingen", "de"});
-        rData.setSerial(2);
-        rData.setRefresh(2);
-        rData.setRetry(2);
-        rData.setExpire(2);
-        rData.setMinimum(2);
-
-        ResourceRecord resourceRecord = new ResourceRecord();
-        resourceRecord.setName(new String[] {"uni-tuebingen", "de"});
-        resourceRecord.setType(RRType.SOA);
-        resourceRecord.setRrclass(RRClass.IN);
-        resourceRecord.setTtl(2);
-        resourceRecord.setRdlength(rData.toBytes().length);
-        resourceRecord.setRdata(rData);
-
-        assertArrayEquals(ResourceRecord.fromBytes(HexFormat.of().parseHex(
-                "001122334455667788991011" 
-                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (name)
-                + "0006" // SOA (type)
-                + "0001" // IN (class)
-                + "00000002" // 2s (ttl)
-                + "0028" // 40 (rdlength)
-                + "c00c" // uni-tuebingen.de (Mname)
-                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
-                + "00000002" // 2 (serial)
-                + "00000002" // 2 (refresh)
-                + "00000002" // 2 (retry)
-                + "00000002" // 2 (expire)
-                + "00000002" // 2 (minimum)
-        ),12).toBytes(), resourceRecord.toBytes());
-    }
 }

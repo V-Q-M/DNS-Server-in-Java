@@ -102,7 +102,8 @@ public class ResourceRecord {
     /**
      * Deserializes an answer section from DNS wire format.
      *
-     * @param bytes raw bytes from an incoming DNS packet
+     * @param bytes COMPLETE incoming DNS packet
+     * @param byteIndex starting index of answer section
      * @return a new AnswerSection populated with the parsed data
      */
     public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
@@ -113,12 +114,10 @@ public class ResourceRecord {
         resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        //resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]), bytes, byteIndex);
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         resourceRecord.setRdata(RData.fromBytes(bytes, byteIndex, resourceRecord.getType()));
         resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);
         resourceRecord.lastProcessedByte = byteIndex + rdlengthComp;
-        //resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
         return resourceRecord;
     }
 }
