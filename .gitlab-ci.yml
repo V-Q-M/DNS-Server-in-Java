@@ -1,40 +1,15 @@
-stages:
-  - build 
-  - test
+default:
+  image: python:3.10
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y dnsutils
+    - chmod +x ./test_server.sh
 
-# Building the project
-build:
-  stage: build
-  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
-  script:
-    - echo "Building the project..."
-    - mvn clean compile
-    - docker compose up
-
-tests:
+test:
   tags:
-  - shared
-  stage: test
-  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+    - shared
   script:
-    - echo "Running blackbox tests..."
     # Run blackbox tests
-    # - ./test_server.sh
+    - ./test_server.sh
     # Run unittests
     # -
-    - echo "Running unit tests..."
-    - mvn test
-  artifacts:
-    when: always
-    paths: 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
-      - ./target/surefire-reposts/TEST-io.gitlab.teamproject2026.DNSCacheSetupTest.xml
-    reports:
-      junit: 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
-      - ./target/surefire-reposts/TEST-io.gitlab.teamproject2026.DNSCacheSetupTest.xml
-
