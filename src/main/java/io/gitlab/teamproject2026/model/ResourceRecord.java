@@ -32,11 +32,12 @@ public class ResourceRecord {
     public void setTtl(long ttl) { this.ttl = ttl; }
 
     public int getRdlength() { return rdlength; }
+    public void setRdlength(int rdlength) {this.rdlength = rdlength;}
     public void setRdlength(int rdlength, byte[] bytes, int byteIndex) { 
         if (type == RRType.SOA || type == RRType.NS || type == RRType.MX || type == RRType.CNAME){
-            int decompPlus = countNameLengthDecomp(bytes, byteIndex) - countNameLength(bytes, byteIndex) // counts by how many bytes the RData section increased due to decompression
+            int decompPlus = DNSParser.countNameLengthDecomp(bytes, byteIndex) - DNSParser.countNameLength(bytes, byteIndex); // counts by how many bytes the RData section increased due to decompression
             if (this.type == RRType.SOA){
-                decompPlus += countNameLengthDecomp(bytes, byteIndex+2) - countNameLength(bytes, byteIndex+2)
+                decompPlus += DNSParser.countNameLengthDecomp(bytes, byteIndex+2) - DNSParser.countNameLength(bytes, byteIndex+2);
             }
             this.rdlength = rdlength + decompPlus; 
         }

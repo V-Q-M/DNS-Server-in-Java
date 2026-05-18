@@ -58,11 +58,15 @@ public class DNSParser{
      * @return an array of labels, sourced from the bytes
      */
     public static String[] parseName(byte[] bytes, int byteIndex){
-        
+        int countPointers = 0;
         LinkedList<String> labels = new LinkedList<>();
         while (bytes[byteIndex] != 0) {
             if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bits = 1
-               byteIndex = getPointerTarget(bytes, byteIndex)
+                countPointers += 2;
+                if (countPointers >= 257){
+                throw new IllegalArgumentException("Compression loop detected");  //name restricted to max 255 label octets including label length octets
+                }
+                byteIndex = getPointerTarget(bytes, byteIndex);
             }
             int labelLength = bytes[byteIndex++] & 0xFF;
             labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength), StandardCharsets.US_ASCII));
@@ -100,9 +104,9 @@ public class DNSParser{
         
         while (bytes[byteIndex] != 0) {
             if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
-                int notCompressedLength = byteIndex - startIndex 
-                pointStartIndex = getPointerTarget(bytes, byteIndex)
-                return countNameLengthDecomp(bytes, pointStartIndex) + notCompressedLength //namelength = (labels at normal place)+(labels at pointer)
+                int notCompressedLength = byteIndex - startIndex;
+                int pointStartIndex = getPointerTarget(bytes, byteIndex);
+                return countNameLength(bytes, pointStartIndex) + notCompressedLength; //namelength = (labels at normal place)+(labels at pointer)
             }
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;
@@ -116,32 +120,19 @@ public class DNSParser{
      * @param pointerIndex the index, where the pointer starts
      * @return target of the pointer where referred labels can be found
      */
-    public static int getPointerTarget(bytes, pointerIndex){
-        LinkedList<String> labels = new LinkedList<>();
-        Boolean jumped = false;
-        int countPointers = 0;
-        while true {
-            countPointers += 2
-            if (countPointers >= 257){
-                throw new IllegalArgumentException("Compression loop detected")  //name restricted to max 255 label octets including label length octets
-            }
-            if (pointerIndex >= bytes.length){
-                throw new IndexOutOfBoundsException("pointer points out of bounds")
-            }
-            byte[] labelLengthOrPointer = bytes[pointerIndex]
-
-            if (pointerIndex+1 >= bytes.length){
-                throw new IndexOutOfBoundsException("pointer points out of bounds")
-            }
-            int pointerTarget = (0x3F & as16BitInt(byte1, bytes[pointerIndex+1])) //extract pointer offset
-            if (pointerTarget >= bytes.length){
-                throw new IndexOutOfBoundsException("pointer points out of bounds")
-            }
-            return pointerTarget
-            
-
+    public static int getPointerTarget(byte[] bytes, int pointerIndex){
+        if (pointerIndex >= bytes.length){
+            throw new IndexOutOfBoundsException("pointer points out of bounds");
         }
-
+        byte labelLengthOrPointer = bytes[pointerIndex];
+        if (pointerIndex+1 >= bytes.length){
+            throw new IndexOutOfBoundsException("pointer points out of bounds");
+        }
+        int pointerTarget = (0x3F & as16BitInt(labelLengthOrPointer, bytes[pointerIndex+1])); //extract pointer offset
+        if (pointerTarget >= bytes.length){
+            throw new IndexOutOfBoundsException("pointer points out of bounds");
+        }
+        return pointerTarget;
     }
 
 }
