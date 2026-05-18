@@ -17,7 +17,15 @@ public class CacheHandler {
         this.conn = provider.getConnection();
     }
 
+    /**
+     * Returns the full ResourceRecord from the Database, given a name and type
+     * @param name
+     * @param type
+     * @return
+     * @throws SQLException
+     */
     public ResourceRecord[] lookup(String name, RRType type) throws SQLException {
+        name = name.toLowerCase();
         switch (type) {
             case A: {
                 List<ResourceRecord> records = new ArrayList<>();
@@ -191,8 +199,13 @@ public class CacheHandler {
         }
     }
 
+    /**
+     * Inserts a given ResourceRecord into the Database
+     * @param record
+     * @throws SQLException
+     */
     public void insert(ResourceRecord record) throws SQLException {
-        String name = String.join(".", record.getName());
+        String name = String.join(".", record.getName()).toLowerCase();
         switch (record.getType()) {
             case A: {
                 RDataA rdata = (RDataA) record.getRdata();
@@ -294,7 +307,14 @@ public class CacheHandler {
         }
     }
 
+    /**
+     * Deletes a ResourceRecord of given name and type
+     * @param name
+     * @param type
+     * @throws SQLException
+     */
     public void delete(String name, RRType type) throws SQLException {
+        name = name.toLowerCase();
         String table;
         switch (type) {
             case A:     table = "a_rdata";    break;
@@ -310,6 +330,38 @@ public class CacheHandler {
         try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM " + table + " WHERE name = ?")) {
             stmt.setString(1, name);
             stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Clears the database tables of all entries
+     * @throws SQLException
+     */
+    public void clearAll() throws SQLException {
+        try (var stmt = conn.createStatement()) {
+            stmt.execute("TRUNCATE TABLE a_rdata, aaaa_rdata, cname_rdata, mx_rdata, ns_rdata, ptr_rdata, soa_rdata, txt_rdata");
+        }
+    }
+
+
+    // TODO add more performant version to pack RRs of same type together and send to DB
+    /**
+    * Inserts a given array of ResourceRecords into the database 
+    * @param records
+    * @throws SQLException
+    */
+    public void insertAll(ResourceRecord[] records) throws SQLException {
+        conn.setAutoCommit(false);
+        try {
+            for (ResourceRecord record : records) {
+                insert(record);
+            }
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 }

@@ -28,7 +28,7 @@ public class DNSCacheTest {
     }
 
     @Test
-    void insertAndLookupA() throws Exception {
+    void insertTest() throws Exception {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(new String[]{"test", "example", "com"});
         rr.setType(RRType.A);
@@ -49,7 +49,7 @@ public class DNSCacheTest {
     }
 
     @Test
-    void deleteRemovesRecord() throws Exception {
+    void deleteTest() throws Exception {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(new String[]{"delete", "example", "com"});
         rr.setType(RRType.A);
@@ -65,5 +65,55 @@ public class DNSCacheTest {
 
         ResourceRecord[] results = handler.lookup("delete.example.com", RRType.A);
         assertEquals(0, results.length);
+    }
+
+    @Test
+    void clearAllTest() throws Exception {
+        ResourceRecord rr = new ResourceRecord();
+        rr.setName(new String[]{"clear", "example", "com"});
+        rr.setType(RRType.A);
+        rr.setRrclass(RRClass.IN);
+        rr.setTtl(300);
+        rr.setRdlength(4);
+        RDataA rdata = new RDataA();
+        rdata.setAddress(new byte[]{5, 6, 7, 8});
+        rr.setRdata(rdata);
+
+        handler.insert(rr);
+        handler.clearAll();
+
+        ResourceRecord[] results = handler.lookup("clear.example.com", RRType.A);
+        assertEquals(0, results.length);
+    }
+
+    @Test
+    void insertAllTest() throws Exception {
+        ResourceRecord rr1 = new ResourceRecord();
+        rr1.setName(new String[]{"bulk1", "example", "com"});
+        rr1.setType(RRType.A);
+        rr1.setRrclass(RRClass.IN);
+        rr1.setTtl(300);
+        rr1.setRdlength(4);
+        RDataA rdata1 = new RDataA();
+        rdata1.setAddress(new byte[]{10, 0, 0, 1});
+        rr1.setRdata(rdata1);
+
+        ResourceRecord rr2 = new ResourceRecord();
+        rr2.setName(new String[]{"bulk2", "example", "com"});
+        rr2.setType(RRType.A);
+        rr2.setRrclass(RRClass.IN);
+        rr2.setTtl(300);
+        rr2.setRdlength(4);
+        RDataA rdata2 = new RDataA();
+        rdata2.setAddress(new byte[]{10, 0, 0, 2});
+        rr2.setRdata(rdata2);
+
+        handler.insertAll(new ResourceRecord[]{rr1, rr2});
+
+        assertEquals(1, handler.lookup("bulk1.example.com", RRType.A).length);
+        assertEquals(1, handler.lookup("bulk2.example.com", RRType.A).length);
+
+        handler.delete("bulk1.example.com", RRType.A);
+        handler.delete("bulk2.example.com", RRType.A);
     }
 }
