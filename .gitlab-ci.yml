@@ -1,6 +1,5 @@
 stages:
-  - build
-  - docker 
+  - build 
   - test
 
 # Building the project
@@ -12,24 +11,18 @@ build:
     - mvn clean compile
     - docker compose up
 
-docker: 
-  stage: docker
-  image: docker/compose:latest
+tests:
+  tags:
+  - shared
+  stage: test
+  image: 
+  - maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+  - docker/compose:latest
   services:
   - docker:dind
   before_script:
   - docker version
   - docker-compose version
-  script:
-    - docker-compose down
-    - docker-compose build
-    - docker-compose up 
-
-tests:
-  tags:
-  - shared
-  stage: test
-  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
   script:
     - echo "Running blackbox tests..."
     # Run blackbox tests
