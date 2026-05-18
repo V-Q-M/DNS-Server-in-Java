@@ -58,11 +58,12 @@ public class DNSParser{
      * @return an array of labels, sourced from the bytes
      */
     public static String[] parseName(byte[] bytes, int byteIndex){
-        if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
-            throw new UnsupportedOperationException("Message compression not implemented yet");
-        }
+        
         LinkedList<String> labels = new LinkedList<>();
         while (bytes[byteIndex] != 0) {
+            if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bits = 1
+               byteIndex = goToPointer(bytes, byteIndex)
+            }
             int labelLength = bytes[byteIndex++] & 0xFF;
             labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength), StandardCharsets.US_ASCII));
             byteIndex += labelLength;
@@ -79,7 +80,7 @@ public class DNSParser{
     public static int countNameLength(byte[] bytes, int startIndex){
         int byteIndex = startIndex;
         if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
-            throw new UnsupportedOperationException("Message compression not implemented yet");
+            return byteIndex - startIndex + 2;  //pointer always 2 bytes
         }
         while (bytes[byteIndex] != 0) {
             int labelLength = bytes[byteIndex++] & 0xFF;
@@ -87,4 +88,39 @@ public class DNSParser{
         }
         return byteIndex - startIndex + 1;
     }
+
+    /**
+     * resolves pointer to the location of the label(s) being pointed to
+     * @param bytes the full array of bytes
+     * @param pointerIndex the index, where the pointer starts
+     */
+    public static int goToPointer(bytes, pointerIndex){
+        LinkedList<String> labels = new LinkedList<>();
+        Boolean jumped = false;
+        //nextOffse
+        int countPointers = 0;
+        while true {
+            countPointers += 2
+            if (countPointers >= 257){
+                throw new IllegalArgumentException("Compression loop detected")  //name restricted to max 255 label octets including label length octets
+            }
+            if (pointerIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("pointer points out of bounds")
+            }
+            byte[] labelLengthOrPointer = bytes[pointerIndex]
+
+            if (pointerIndex+1 >= bytes.length){
+                throw new IndexOutOfBoundsException("pointer points out of bounds")
+            }
+            int pointerOffset = (0x3F & as16BitInt(byte1, bytes[pointerIndex+1])) //extract pointer offset
+            if (pointerOffset >= bytes.length){
+                throw new IndexOutOfBoundsException("pointer points out of bounds")
+            }
+            return pointerOffset
+            
+
+        }
+
+    }
+
 }
