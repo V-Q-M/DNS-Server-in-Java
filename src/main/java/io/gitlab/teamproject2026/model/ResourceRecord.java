@@ -32,7 +32,16 @@ public class ResourceRecord {
     public void setTtl(long ttl) { this.ttl = ttl; }
 
     public int getRdlength() { return rdlength; }
-    public void setRdlength(int rdlength) { this.rdlength = rdlength; }
+    public void setRdlength(int rdlength, byte[] bytes, int byteIndex) { 
+        if (type == RRType.SOA || type == RRType.NS || type == RRType.MX || type == RRType.CNAME){
+            int decompPlus = countNameLengthDecomp(bytes, byteIndex) - countNameLength(bytes, byteIndex) // counts by how many bytes the RData section increased due to decompression
+            if (this.type == RRType.SOA){
+                decompPlus += countNameLengthDecomp(bytes, byteIndex+2) - countNameLength(bytes, byteIndex+2)
+            }
+            this.rdlength = rdlength + decompPlus; 
+        }
+        else { this.rdlength = rdlength;}
+    }
 
     public RData getRdata() { return rdata; }
     public void setRdata(RData rdata) { this.rdata = rdata; }
@@ -103,7 +112,7 @@ public class ResourceRecord {
         resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]), bytes, byteIndex);
         resourceRecord.setRdata(RData.fromBytes(Arrays.copyOfRange(bytes, byteIndex, byteIndex + resourceRecord.getRdlength()), resourceRecord.getType()));
         resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
         return resourceRecord;

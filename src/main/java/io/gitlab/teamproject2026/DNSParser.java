@@ -62,7 +62,7 @@ public class DNSParser{
         LinkedList<String> labels = new LinkedList<>();
         while (bytes[byteIndex] != 0) {
             if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bits = 1
-               byteIndex = goToPointer(bytes, byteIndex)
+               byteIndex = getPointerTarget(bytes, byteIndex)
             }
             int labelLength = bytes[byteIndex++] & 0xFF;
             labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength), StandardCharsets.US_ASCII));
@@ -72,10 +72,10 @@ public class DNSParser{
     }
 
     /**
-     * Finds the amount of bytes used within this domain name byte array
+     * Finds the amount of bytes used within this domain name byte array (compressed)
      * @param bytes the full array of bytes
      * @param startIndex the index, where the domain name is supposed to start
-     * @return the amount of bytes until a length 0 byte is found.
+     * @return the amount of bytes until a length 0 byte or pointer is found.
      */
     public static int countNameLength(byte[] bytes, int startIndex){
         int byteIndex = startIndex;
@@ -90,14 +90,35 @@ public class DNSParser{
     }
 
     /**
+     * Finds the amount of bytes used within this domain name byte array (decompressed)
+     * @param bytes the full array of bytes
+     * @param startIndex the index, where the domain name is supposed to start
+     * @return the total amount of bytes of a domain name in its decompressed version.
+     */
+    public static int countNameLengthDecomp(byte[] bytes, int startIndex){
+        int byteIndex = startIndex;
+        
+        while (bytes[byteIndex] != 0) {
+            if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
+                int notCompressedLength = byteIndex - startIndex 
+                pointStartIndex = getPointerTarget(bytes, byteIndex)
+                return countNameLengthDecomp(bytes, pointStartIndex) + notCompressedLength //namelength = (labels at normal place)+(labels at pointer)
+            }
+            int labelLength = bytes[byteIndex++] & 0xFF;
+            byteIndex += labelLength;
+        }
+        return byteIndex - startIndex + 1;
+    }
+
+    /**
      * resolves pointer to the location of the label(s) being pointed to
      * @param bytes the full array of bytes
      * @param pointerIndex the index, where the pointer starts
+     * @return target of the pointer where referred labels can be found
      */
-    public static int goToPointer(bytes, pointerIndex){
+    public static int getPointerTarget(bytes, pointerIndex){
         LinkedList<String> labels = new LinkedList<>();
         Boolean jumped = false;
-        //nextOffse
         int countPointers = 0;
         while true {
             countPointers += 2
@@ -112,11 +133,11 @@ public class DNSParser{
             if (pointerIndex+1 >= bytes.length){
                 throw new IndexOutOfBoundsException("pointer points out of bounds")
             }
-            int pointerOffset = (0x3F & as16BitInt(byte1, bytes[pointerIndex+1])) //extract pointer offset
-            if (pointerOffset >= bytes.length){
+            int pointerTarget = (0x3F & as16BitInt(byte1, bytes[pointerIndex+1])) //extract pointer offset
+            if (pointerTarget >= bytes.length){
                 throw new IndexOutOfBoundsException("pointer points out of bounds")
             }
-            return pointerOffset
+            return pointerTarget
             
 
         }
