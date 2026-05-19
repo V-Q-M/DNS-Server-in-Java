@@ -8,10 +8,10 @@
 - Ruoff, Laurenz, 6978381, laurenz.ruoff@student.uni-tuebingen.de
 - Bobes, Anas, 6688712, Anas.Bobes@student.uni-tuebingen.de
 ### Group 2
-- Alnajar, Yaman, 
+- Alnajar, Yaman, 5779680, yaman.alnajar@student.uni-tuebingen.de
 - Baum, Kevin, 6386894, kevin.baum@student.uni-tuebingen.de
 - Patnaik, Noemi, 6019008, noemi.patnaik@student.uni-tuebingen.de
-- Zabel Natalie, 6677093, natalie-aislyn.zabel@student.uni-tuebingen.de
+- Zabel, Natalie, 6677093, natalie-aislyn.zabel@student.uni-tuebingen.de
  
 
 ## About
