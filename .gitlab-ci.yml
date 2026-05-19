@@ -26,7 +26,7 @@ tests:
   artifacts:
     when: always
     paths: 
-      - ./target/surefire-reports/**
+      - ./target/surefire-reports/*
     reports:
       junit: 
-      - ./target/surefire-reports/**
+      - ./target/surefire-reports/*.xml
