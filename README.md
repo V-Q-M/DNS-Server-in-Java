@@ -66,6 +66,13 @@ And start the server with your alias (and parameters)
 run -p 2222
 ```
 
+### Monitoring
+
+Along with the Database, the ```compose.yaml``` file also starts a GUI for the Database. This GUI can be accessed [here](http://localhost:8080). To log in you must select PostgreSQL as the Database-Server type. The Login credentials are: 
+- Username: Postgres 
+- Password: example
+- Database: dns
+
 
 
 ### Examples on tests for the current state of the project
@@ -117,7 +124,6 @@ You can change the configuration of the PostgreSQL Server both in the ```compose
 - ```postgres.conf``` is the config file for the PostgreSQL server itself
 
 Finally, you can configure the inital state fo the Database by mounting scripts to the ```/docker-entrypoint-initdb.d/``` directory within the container, as any ```.sql``` or ```.sh``` scripts will autmatically be executed on container startup. 
-
 
 
 ## Known issues and bugs
