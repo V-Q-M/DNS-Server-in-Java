@@ -1,39 +1,15 @@
-stages:
-  - build
-  - test
+default:
+  image: python:3.10
+  before_script:
+    - apt-get update -qy
+    - apt-get install -y dnsutils
+    - chmod +x ./test_server.sh
 
-# Building the project
-build:
-  stage: build
-  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
-  script:
-    - echo "Building the project..."
-    - mvn clean compile
-
-tests:
+test:
   tags:
-  - shared
-  stage: test
-  image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+    - shared
   script:
-    - echo "Running blackbox tests..."
     # Run blackbox tests
-    # - ./test_server.sh
+    - ./test_server.sh
     # Run unittests
     # -
-    - echo "starting Postgresdocker"
-    - docker run -d --name postgres --restart always --shm-size 128mb -e POSTGRES_PASSWORD=example -p 5432:5432 -v ./postgres/postgres.conf:/etc/postgresql/postgresql.conf:ro -v ./postgres/init-scripts:/docker-entrypoint-initdb.d:ro postgres postgres -c config_file=/etc/postgresql/postgresql.conf
-    - echo "Running unit tests..."
-    - mvn test
-  artifacts:
-    when: always
-    paths: 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
-    reports:
-      junit: 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
-
