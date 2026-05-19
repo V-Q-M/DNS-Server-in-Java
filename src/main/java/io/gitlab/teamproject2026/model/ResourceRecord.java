@@ -37,7 +37,8 @@ public class ResourceRecord {
         if (type == RRType.SOA || type == RRType.NS || type == RRType.MX || type == RRType.CNAME){
             int decompPlus = DNSParser.countNameLengthDecomp(bytes, byteIndex) - DNSParser.countNameLength(bytes, byteIndex); // counts by how many bytes the RData section increased due to decompression
             if (this.type == RRType.SOA){
-                decompPlus += DNSParser.countNameLengthDecomp(bytes, byteIndex+2) - DNSParser.countNameLength(bytes, byteIndex+2);
+                int rnameIndex = byteIndex + DNSParser.countNameLength(bytes, byteIndex);
+                decompPlus += DNSParser.countNameLengthDecomp(bytes, rnameIndex) - DNSParser.countNameLength(bytes, rnameIndex);
             }
             this.rdlength = rdlength + decompPlus; 
         }
@@ -116,7 +117,7 @@ public class ResourceRecord {
         resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         resourceRecord.setRdata(RData.fromBytes(bytes, byteIndex, resourceRecord.getType()));
-        resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);
+        resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);//byteIndex falsch?!
         resourceRecord.lastProcessedByte = byteIndex + rdlengthComp;
         return resourceRecord;
     }

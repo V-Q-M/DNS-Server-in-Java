@@ -319,23 +319,23 @@ public class DNSPacket {
         dnsPacket.setQuestionSections(new QuestionSection[dnsPacket.getQdcount()]);
         for (int i = 0; i < dnsPacket.getQdcount(); i++) {
             dnsPacket.getQuestionSections()[i] = QuestionSection.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() + 1;
+            byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() ;
         }
         dnsPacket.setAnswerSections(new ResourceRecord[dnsPacket.getAncount()]);
         for (int i = 0; i < dnsPacket.getAncount(); i++) {
             dnsPacket.getAnswerSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() + 1;
+            byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() ;
         }
         dnsPacket.setAuthoritySections(new ResourceRecord[dnsPacket.getNscount()]);
         for (int i = 0; i < dnsPacket.getNscount(); i++) {
             dnsPacket.getAuthoritySections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAuthoritySection(i).getLastProcessedByte() + 1;
+            byte_index = dnsPacket.getAuthoritySection(i).getLastProcessedByte() ;
         }
 
         dnsPacket.setAdditionalSections(new ResourceRecord[dnsPacket.getArcount()]);
         for (int i = 0; i < dnsPacket.getArcount(); i++) {
             dnsPacket.getAdditionalSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAdditionalSection(i).getLastProcessedByte() + 1;
+            byte_index = dnsPacket.getAdditionalSection(i).getLastProcessedByte() ;
         }
 
         return dnsPacket;

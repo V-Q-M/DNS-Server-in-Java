@@ -197,4 +197,77 @@ public class DNSParserTest {
                 + "00000002" // 2 (minimum)
         ),0).toBytes(), resourceRecord.toBytes());
     }
+
+
+
+
+        @Test
+        void testFromBytesWithCNAME() {
+
+            QuestionSection question = new QuestionSection();
+
+            question.setName(new String[]{"kn-mattermost","cs","uni-tuebingen", "de"});
+
+            question.setQtype(RRType.CNAME);
+            question.setQclass(RRClass.IN);
+
+            ResourceRecord cnameAnswer = new ResourceRecord();
+            cnameAnswer.setName(new String[]{"kn-mattermost","cs", "uni-tuebingen", "de"});
+            cnameAnswer.setType(RRType.CNAME);
+            cnameAnswer.setRrclass(RRClass.IN);
+            cnameAnswer.setTtl(86400);
+
+            RDataCNAME cnameData = new RDataCNAME();
+            cnameData.setCname(new String[]{"atlas","cs", "uni-tuebingen", "de"});
+            cnameAnswer.setRdata(cnameData);
+
+            ResourceRecord cnameARR = new ResourceRecord();
+            cnameARR.setName(new String[]{"atlas","cs", "uni-tuebingen", "de"});
+            cnameARR.setType(RRType.A);
+            cnameARR.setRrclass(RRClass.IN);
+            cnameARR.setTtl(1200);
+
+            RDataA cnameDataARR = new RDataA();
+            cnameDataARR.setAddress(new byte[]{(byte) 134, (byte) 2, (byte) 10, (byte) 224});
+            cnameARR.setRdata(cnameDataARR);
+
+            // Build packet
+            DNSPacket packet = new DNSPacket();
+
+            packet.setId(new byte[]{0x74, 0x06});
+
+            packet.setQr(true);
+            packet.setOpcode(OpCode.QUERY);
+
+            packet.setAa(true);
+            packet.setTc(false);
+
+            packet.setRd(true);
+            packet.setRa(true);
+
+            packet.setRcode(RCode.NOERROR);
+
+            packet.setQdcount(1);
+            packet.setAncount(2);
+            packet.setNscount(0);
+            packet.setArcount(0);
+
+            packet.setQuestionSections(new QuestionSection[]{question});
+            packet.setAnswerSections(new ResourceRecord[]{cnameAnswer, cnameARR});
+
+            packet.setAuthoritySections(new ResourceRecord[0]);
+            packet.setAdditionalSections(new ResourceRecord[0]);
+
+            // Serialize
+            byte[] bytes = packet.toBytes();
+
+            // Deserialize
+            DNSPacket constructed = DNSPacket.fromBytes(bytes);
+            System.out.println(constructed);
+            System.out.println(DNSPacket.fromBytes(HexFormat.of().parseHex("7406858000010002000000000d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001c00c000500010001518000080561746c6173c01ac03f00010001000004b0000486020ae0")));
+            
+            assertArrayEquals(bytes, DNSPacket.fromBytes(HexFormat.of().parseHex("7406858000010002000000000d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001c00c000500010001518000080561746c6173c01ac03f00010001000004b0000486020ae0")).toBytes());
+            
+        }
+
 }

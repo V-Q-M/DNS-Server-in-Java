@@ -60,17 +60,19 @@ public class DNSParser{
     public static String[] parseName(byte[] bytes, int byteIndex){
         int countPointers = 0;
         LinkedList<String> labels = new LinkedList<>();
-        while (bytes[byteIndex] != 0) {
-            if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bits = 1
+        int currentIndex = byteIndex;
+        while (bytes[currentIndex] != 0) {
+            if((bytes[currentIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bits = 1
                 countPointers += 2;
                 if (countPointers >= 257){
                 throw new IllegalArgumentException("Compression loop detected");  //name restricted to max 255 label octets including label length octets
                 }
-                byteIndex = getPointerTarget(bytes, byteIndex);
+                currentIndex = getPointerTarget(bytes, currentIndex);
+                continue;
             }
-            int labelLength = bytes[byteIndex++] & 0xFF;
-            labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength), StandardCharsets.US_ASCII));
-            byteIndex += labelLength;
+            int labelLength = bytes[currentIndex++] & 0xFF;
+            labels.add(new String(Arrays.copyOfRange(bytes, currentIndex, currentIndex + labelLength), StandardCharsets.US_ASCII));
+            currentIndex += labelLength;
         }
         return labels.toArray(new String[0]);
     }
@@ -83,10 +85,11 @@ public class DNSParser{
      */
     public static int countNameLength(byte[] bytes, int startIndex){
         int byteIndex = startIndex;
-        if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
-            return byteIndex - startIndex + 2;  //pointer always 2 bytes
-        }
+        
         while (bytes[byteIndex] != 0) {
+            if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
+                return byteIndex - startIndex + 2;  //pointer always 2 bytes
+            }
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;
         }
@@ -103,7 +106,7 @@ public class DNSParser{
         int byteIndex = startIndex;
         
         while (bytes[byteIndex] != 0) {
-            if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
+            if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
                 int notCompressedLength = byteIndex - startIndex;
                 int pointStartIndex = getPointerTarget(bytes, byteIndex);
                 return countNameLength(bytes, pointStartIndex) + notCompressedLength; //namelength = (labels at normal place)+(labels at pointer)
@@ -128,7 +131,7 @@ public class DNSParser{
         if (pointerIndex+1 >= bytes.length){
             throw new IndexOutOfBoundsException("pointer points out of bounds");
         }
-        int pointerTarget = (0x3F & as16BitInt(labelLengthOrPointer, bytes[pointerIndex+1])); //extract pointer offset
+        int pointerTarget = (0x3FFF & as16BitInt(labelLengthOrPointer, bytes[pointerIndex+1])); //extract pointer offset
         if (pointerTarget >= bytes.length){
             throw new IndexOutOfBoundsException("pointer points out of bounds");
         }

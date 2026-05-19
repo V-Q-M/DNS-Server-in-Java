@@ -66,7 +66,7 @@ public class QuestionSection {
         questionSection.setName(labels);
         questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
-        questionSection.lastProcessedByte = byteIndex - 1;
+        questionSection.lastProcessedByte = byteIndex;
         return questionSection;
     }
 }
