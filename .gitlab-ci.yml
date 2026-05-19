@@ -26,9 +26,7 @@ tests:
   artifacts:
     when: always
     paths: 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
+      - ./target/surefire-reports/**
     reports:
       junit: 
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSParserTest.xml
-      - ./target/surefire-reports/TEST-io.gitlab.teamproject2026.DNSSerializerTest.xml
+      - ./target/surefire-reports/**
