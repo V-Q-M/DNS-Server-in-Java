@@ -190,7 +190,7 @@ public class DNSPacket {
 
     @Override
     public String toString() {
-        return "id: " + Integer.toBinaryString(id[0] & 0xFF) + Integer.toBinaryString(id[1] & 0xFF) + "\n"
+        return  "id:" + String.format("%16s", Integer.toBinaryString(((id[0] & 0xFF) << 8) | (id[1] & 0xFF))).replace(" ", "0") + "\n"
                 + "qr: " + qr + "\n"
                 + "opcode: " + opcode + "\n"
                 + "aa: " + aa + "\n"
@@ -237,17 +237,19 @@ public class DNSPacket {
         byte flagsByte2 = 0;
         flagsByte2 |= (byte) ((this.isRa() ? 1 : 0) << 7); // Ra
         // z bits are zero anyway
-        // rcode 0 (noerror) for now
+        if (this.getRcode() != null) {
+            flagsByte2 |= (byte) (this.getRcode().getValue() & 0x0F); 
+        } //rcode
         header[3] = flagsByte2;
 
-        header[4] = 0;
-        header[5] = 1; // 1 query for now (make dynamic later)
-        header[6] = 0;
-        header[7] = 1; // 1 response for now (make dynamic later)
-        header[8] = 0;
-        header[9] = 0;
-        header[10] = 0;
-        header[11] = 0;
+        header[4] = (byte) ((this.getQdcount() >> 8) & 0xFF);
+        header[5] = (byte) (this.getQdcount() & 0xFF); 
+        header[6] = (byte) ((this.getAncount() >> 8) & 0xFF);
+        header[7] = (byte) (this.getAncount() & 0xFF); 
+        header[8] = (byte) ((this.getNscount() >> 8) & 0xFF);
+        header[9] = (byte) (this.getNscount() & 0xFF);
+        header[10] = (byte) ((this.getArcount() >> 8) & 0xFF);
+        header[11] = (byte) (this.getArcount() & 0xFF);
 
         // serialize each section
         byte[][] questions = new byte[this.getQuestionSections().length][];
@@ -260,10 +262,22 @@ public class DNSPacket {
             answers[i] = this.getAnswerSections()[i].toBytes();
         }
 
+        byte[][] authorities = new byte[this.getAuthoritySections() != null ? this.getAuthoritySections().length : 0][];
+        for (int i = 0; i < authorities.length; i++) {
+            authorities[i] = this.getAuthoritySections()[i].toBytes();
+        }
+
+        byte[][] additionals = new byte[this.getAdditionalSections() != null ? this.getAdditionalSections().length : 0][];
+        for (int i = 0; i < additionals.length; i++) {
+            additionals[i] = this.getAdditionalSections()[i].toBytes();
+        }
+
         // calculate total size
         int totalSize = header.length;
         for (byte[] q : questions) totalSize += q.length;
         for (byte[] a : answers)   totalSize += a.length;
+        for (byte[] ns : authorities) totalSize += ns.length;
+        for (byte[] ar : additionals) totalSize += ar.length;
 
         // copy everything into result
         byte[] result = new byte[totalSize];
@@ -280,6 +294,14 @@ public class DNSPacket {
         for (byte[] a : answers) {
             System.arraycopy(a, 0, result, pos, a.length);
             pos += a.length;
+        }
+        for (byte[] ns : authorities) {
+            System.arraycopy(ns, 0, result, pos, ns.length);
+            pos += ns.length;
+        }
+        for (byte[] ar : additionals) {
+            System.arraycopy(ar, 0, result, pos, ar.length);
+            pos += ar.length;
         }
 
         return result;

@@ -117,7 +117,7 @@ public class ResourceRecord {
         resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         resourceRecord.setRdata(RData.fromBytes(bytes, byteIndex, resourceRecord.getType()));
-        resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);//byteIndex falsch?!
+        resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);
         resourceRecord.lastProcessedByte = byteIndex + rdlengthComp;
         return resourceRecord;
     }
