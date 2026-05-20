@@ -11,6 +11,32 @@ import java.sql.Connection;
 @EnabledIfSystemProperty(named = "localDB", matches = "true")
 class CacheHandlerTest {
 
+    private CacheHandler handler;
+
+    @BeforeEach
+    void setup() throws Exception {
+        handler = new CacheHandler(new CacheConnectionProvider());
+        handler.clearAll();
+    }
+
+    @AfterEach
+    void reset() throws Exception {
+        handler.clearAll();
+    }
+
+    private static ResourceRecord makeA(String name, long ttl, byte[] address) {
+        ResourceRecord rr = new ResourceRecord();
+        rr.setName(name.split("\\."));
+        rr.setType(RRType.A);
+        rr.setRrclass(RRClass.IN);
+        rr.setTtl(ttl);
+        rr.setRdlength(address.length);
+        RDataA rdata = new RDataA();
+        rdata.setAddress(address);
+        rr.setRdata(rdata);
+        return rr;
+    }
+
     @Test
     void cacheConnectionTest() throws Exception {
         CacheConnectionProvider provider = new CacheConnectionProvider();
@@ -19,101 +45,82 @@ class CacheHandlerTest {
         conn.close();
     }
 
-    private CacheHandler handler;
-
-    @BeforeEach
-    void setup() throws Exception {
-        handler = new CacheHandler(new CacheConnectionProvider());
-        handler.clearAll();
-    }
-    @AfterEach
-    void reset() throws Exception {
-        handler.clearAll();
-    }
-
     @Test
     void insertTest() throws Exception {
-        ResourceRecord rr = new ResourceRecord();
-        rr.setName(new String[]{"test", "example", "com"});
-        rr.setType(RRType.A);
-        rr.setRrclass(RRClass.IN);
-        rr.setTtl(300);
-        rr.setRdlength(4);
-        RDataA rdata = new RDataA();
-        rdata.setAddress(new byte[]{1, 2, 3, 4});
-        rr.setRdata(rdata);
-
-        handler.insert(rr);
+        handler.insert(makeA("test.example.com", 300, new byte[] { 1, 2, 3, 4 }));
 
         ResourceRecord[] results = handler.lookup("test.example.com", RRType.A);
-        assertTrue(results.length > 0);
-        assertArrayEquals(new byte[]{1, 2, 3, 4}, ((RDataA) results[0].getRdata()).getAddress());
+        assertEquals(1, results.length);
+        assertArrayEquals(new byte[] { 1, 2, 3, 4 }, ((RDataA) results[0].getRdata()).getAddress());
     }
 
     @Test
     void deleteTest() throws Exception {
-        ResourceRecord rr = new ResourceRecord();
-        rr.setName(new String[]{"delete", "example", "com"});
-        rr.setType(RRType.A);
-        rr.setRrclass(RRClass.IN);
-        rr.setTtl(300);
-        rr.setRdlength(4);
-        RDataA rdata = new RDataA();
-        rdata.setAddress(new byte[]{9, 8, 7, 6});
-        rr.setRdata(rdata);
-
-        handler.insert(rr);
+        handler.insert(makeA("delete.example.com", 300, new byte[] { 9, 8, 7, 6 }));
         handler.delete("delete.example.com", RRType.A);
 
-        ResourceRecord[] results = handler.lookup("delete.example.com", RRType.A);
-        assertEquals(0, results.length);
+        assertEquals(0, handler.lookup("delete.example.com", RRType.A).length);
     }
 
     @Test
     void clearAllTest() throws Exception {
-        ResourceRecord rr = new ResourceRecord();
-        rr.setName(new String[]{"clear", "example", "com"});
-        rr.setType(RRType.A);
-        rr.setRrclass(RRClass.IN);
-        rr.setTtl(300);
-        rr.setRdlength(4);
-        RDataA rdata = new RDataA();
-        rdata.setAddress(new byte[]{5, 6, 7, 8});
-        rr.setRdata(rdata);
-
-        handler.insert(rr);
+        handler.insert(makeA("clear.example.com", 300, new byte[] { 5, 6, 7, 8 }));
         handler.clearAll();
 
-        ResourceRecord[] results = handler.lookup("clear.example.com", RRType.A);
-        assertEquals(0, results.length);
+        assertEquals(0, handler.lookup("clear.example.com", RRType.A).length);
     }
 
     @Test
     void insertAllTest() throws Exception {
-        ResourceRecord rr1 = new ResourceRecord();
-        rr1.setName(new String[]{"bulk1", "example", "com"});
-        rr1.setType(RRType.A);
-        rr1.setRrclass(RRClass.IN);
-        rr1.setTtl(300);
-        rr1.setRdlength(4);
-        RDataA rdata1 = new RDataA();
-        rdata1.setAddress(new byte[]{10, 0, 0, 1});
-        rr1.setRdata(rdata1);
-
-        ResourceRecord rr2 = new ResourceRecord();
-        rr2.setName(new String[]{"bulk2", "example", "com"});
-        rr2.setType(RRType.A);
-        rr2.setRrclass(RRClass.IN);
-        rr2.setTtl(300);
-        rr2.setRdlength(4);
-        RDataA rdata2 = new RDataA();
-        rdata2.setAddress(new byte[]{10, 0, 0, 2});
-        rr2.setRdata(rdata2);
-
-        handler.insertAll(new ResourceRecord[]{rr1, rr2});
+        handler.insertAll(new ResourceRecord[] {
+                makeA("bulk1.example.com", 300, new byte[] { 10, 0, 0, 1 }),
+                makeA("bulk2.example.com", 300, new byte[] { 10, 0, 0, 2 })
+        });
 
         assertEquals(1, handler.lookup("bulk1.example.com", RRType.A).length);
         assertEquals(1, handler.lookup("bulk2.example.com", RRType.A).length);
+    }
 
+    @Test
+    void ttlExpiredRecordNotReturnedTest() throws Exception {
+        handler.insert(makeA("ttl.example.com", 0, new byte[] { 1, 2, 3, 4 }));
+
+        assertEquals(0, handler.lookup("ttl.example.com", RRType.A).length);
+    }
+
+    @Test
+    void insertReplacesExistingTest() throws Exception {
+        handler.insert(makeA("replace.example.com", 300, new byte[] { 1, 1, 1, 1 }));
+        handler.insert(makeA("replace.example.com", 300, new byte[] { 2, 2, 2, 2 }));
+
+        ResourceRecord[] results = handler.lookup("replace.example.com", RRType.A);
+        assertEquals(1, results.length);
+        assertArrayEquals(new byte[] { 2, 2, 2, 2 }, ((RDataA) results[0].getRdata()).getAddress());
+    }
+
+    @Test
+    void insertAllReplacesExistingTest() throws Exception {
+        handler.insertAll(new ResourceRecord[] { makeA("replace.example.com", 300, new byte[] { 1, 1, 1, 1 }) });
+        handler.insertAll(new ResourceRecord[] { makeA("replace.example.com", 300, new byte[] { 2, 2, 2, 2 }) });
+
+        ResourceRecord[] results = handler.lookup("replace.example.com", RRType.A);
+        assertEquals(1, results.length);
+        assertArrayEquals(new byte[] { 2, 2, 2, 2 }, ((RDataA) results[0].getRdata()).getAddress());
+    }
+
+    @Test
+    void caseInsensitiveLookupTest() throws Exception {
+        handler.insert(makeA("CASE.EXAMPLE.COM", 300, new byte[] { 1, 2, 3, 4 }));
+
+        assertEquals(1, handler.lookup("case.example.com", RRType.A).length);
+        assertEquals(1, handler.lookup("CASE.EXAMPLE.COM", RRType.A).length);
+    }
+
+    @Test
+    void deleteExpiredTest() throws Exception {
+        handler.insert(makeA("expired.example.com", 0, new byte[] { 1, 2, 3, 4 }));
+        handler.deleteExpired();
+
+        assertEquals(0, handler.lookup("expired.example.com", RRType.A).length);
     }
 }
