@@ -19,7 +19,7 @@ public class RDataCNAME implements RData {
 
     @Override
     public String toString(){
-        return Arrays.toString(cname);
+        return String.join(".", cname) + ".";
     }
 
     @Override

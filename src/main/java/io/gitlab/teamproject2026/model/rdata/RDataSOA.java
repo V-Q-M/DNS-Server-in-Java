@@ -45,13 +45,13 @@ public class RDataSOA implements RData {
 
     @Override
     public String toString(){
-        return "    mname: " + Arrays.toString(mname) + "\n    rname: "+ Arrays.toString(rname) + "\n    serial: " + serial  + ", refresh: " + refresh + ", retry: " + retry + ", expire: " + expire  + ", minimum: " + minimum;
+        return "    mname: " + String.join(".", mname) + "." + "\n    rname: "+ String.join(".", rname) + "." + "\n    serial: " + serial  + ", refresh: " + refresh + ", retry: " + retry + ", expire: " + expire  + ", minimum: " + minimum;
     }
 
     @Override
     public byte[] toBytes() {
-        byte[] mname   = encodeName(String.join(".", this.getMname()));
-        byte[] rname   = encodeName(String.join(".", this.getRname()));
+        byte[] mname   = encodeName(String.join(".", this.getMname()) + ".");
+        byte[] rname   = encodeName(String.join(".", this.getRname()) + ".");
         byte[] result  = new byte[mname.length + rname.length + 20]; // 5 x 4-byte ints
         int pos = 0;
 

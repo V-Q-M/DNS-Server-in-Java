@@ -20,12 +20,12 @@ public class RDataNS implements RData {
 
     @Override
     public String toString(){
-        return Arrays.toString(nsdname);
+        return String.join(".", nsdname) + ".";
     }
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", nsdname));
+        return encodeName(String.join(".", nsdname) + ".");
     }
 
     public static RDataNS fromBytes(byte[] bytes, int byteIndex) {

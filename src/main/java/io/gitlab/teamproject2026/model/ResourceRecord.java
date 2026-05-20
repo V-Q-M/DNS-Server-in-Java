@@ -56,7 +56,7 @@ public class ResourceRecord {
 
     @Override
     public String toString() {
-        return "\n    name: " + Arrays.toString(name) + "\n"
+        return "\n    name: " + String.join(".", this.name) + "." + "\n"
                 + "    rrtype: " + type + "\n"
                 + "    rrclass: " + rrclass + "\n"
                 + "    ttl: " + ttl + "s\n"
@@ -69,7 +69,7 @@ public class ResourceRecord {
      * @return byte array representing this answer section
      */
     public byte[] toBytes() {
-        byte[] name  = encodeName(String.join(".", this.name));
+        byte[] name  = encodeName(String.join(".", this.name) + ".");
         byte[] rdata = this.getRdata().toBytes();
         byte[] result = new byte[name.length + 10 + rdata.length];
 

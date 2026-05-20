@@ -20,12 +20,12 @@ public class RDataPTR implements RData {
 
     @Override
     public String toString(){
-        return Arrays.toString(ptrdname);
+        return String.join(".", ptrdname) + ".";
     }
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", ptrdname));
+        return encodeName(String.join(".", ptrdname) + ".");
     }
 
     public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {
