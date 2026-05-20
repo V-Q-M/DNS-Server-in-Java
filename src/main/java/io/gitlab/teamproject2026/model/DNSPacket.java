@@ -262,12 +262,12 @@ public class DNSPacket {
             answers[i] = this.getAnswerSections()[i].toBytes();
         }
 
-        byte[][] authorities = new byte[this.getAuthoritySections() != null ? this.getAuthoritySections().length : 0][];
+        byte[][] authorities = new byte[this.getAuthoritySections().length][];
         for (int i = 0; i < authorities.length; i++) {
             authorities[i] = this.getAuthoritySections()[i].toBytes();
         }
 
-        byte[][] additionals = new byte[this.getAdditionalSections() != null ? this.getAdditionalSections().length : 0][];
+        byte[][] additionals = new byte[this.getAdditionalSections().length][];
         for (int i = 0; i < additionals.length; i++) {
             additionals[i] = this.getAdditionalSections()[i].toBytes();
         }
