@@ -127,7 +127,10 @@ public class CacheHandler {
     }
 
     
-
+    /*
+     * Helper functions to fill in Record statements
+     */
+ 
     private void fillA(PreparedStatement stmt, ResourceRecord r) throws SQLException {
         stmt.setString(1, String.join(".", r.getName()).toLowerCase());
         stmt.setLong(2, r.getTtl());
@@ -311,6 +314,10 @@ public class CacheHandler {
         }
     }
 
+    /**
+     * Checks the Database tables for expired entries and deletes them
+     * @throws SQLException
+     */
     public void deleteExpired() throws SQLException {
         for (String table : ALL_RDATA_TABLES) {
             try (PreparedStatement stmt = conn.prepareStatement(
@@ -426,8 +433,5 @@ public class CacheHandler {
             conn.setAutoCommit(true);
         }
     }
-
-    
-
     
 }
