@@ -30,13 +30,13 @@ verifyResult() {
 }
 
 startServer() {
-    python3.10 dns-server.py 127.0.0.1 ${1} ${2} &
+    java -jar target 127.0.0.1 ${1} ${2} &
     echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
     sleep 2
-    if ps xa | grep "python3 dns-server.py 127.0.0.1 ${1} ${2}" | grep -v "grep"; then
+    if ps -p ${SERVER_PID} > /dev/null; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
         echo -e "${RED}ERROR: Server did not start properly${NC}" 
@@ -46,8 +46,9 @@ verifyServerRunning() {
 
 cleanUpAndResult() {
     #echo "Cleaning up..."
-    pkill python3
-    echo "----------------------------------------------------------------------"
+    if [ -n "${SERVER_PID}" ]; then
+      kill ${SERVER_PID} 2>/dev/null
+    fi
     if [ ${ERRCOUNT} -gt 0 ]; then
         echo -e "${RED}${ERRCOUNT} tests failed.${NC}"
         exit 1

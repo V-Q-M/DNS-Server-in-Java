@@ -1,8 +1,8 @@
 default:
-  image: python:3.10
+  image: sapmachine:26-jdk-ubuntu-noble
   before_script:
     - apt-get update -qy
-    - apt-get install -y dnsutils
+    - apt-get install -y maven dnsutils
     - chmod +x ./test_server.sh
 
 test:
