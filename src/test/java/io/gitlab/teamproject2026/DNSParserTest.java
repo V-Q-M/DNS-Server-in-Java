@@ -153,34 +153,50 @@ public class DNSParserTest {
 
 
     @Test
-    void testDecompessionWholeMessage() {
 
+    void testDecompessionWholeMessage() {
+        //tests:
+        // decompression for all Recource Record types having RData that can be compressed (fromBytes function)
+        // decompression in ResourceRecord name of A record
+        // decompression of message with multiple RRs
+        // pointers to full domain names
+        // pointers to labels+pointer as domain name
+        // pointers to question section
+        // pointers to answer section
+        // tests that more than 1 call to fromBytes and toBytes on one packet doesn't change anything
+
+        //notes
+        // on modifying the dns packet: 
+        //definitely adjust header fields (qdcount, ancount,...) in constructed RR and headerBytes
+        //depending on changes: adjust pointers in (all) RRs, QuestionSections
+        // in general: the an-, ar-, adsections are not necessarily connected to the question and the types in those sections don't necessarily make sense
+        
         QuestionSection question = new QuestionSection();
         question.setName(new String[]{"kn-mattermost","cs","uni-tuebingen", "de"});
         question.setQtype(RRType.A);
         question.setQclass(RRClass.IN);
         String questionBytes = "0d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001";
 
-        ResourceRecord cnameAnswer = new ResourceRecord();
-        cnameAnswer.setName(new String[]{"kn-mattermost","cs", "uni-tuebingen", "de"});
-        cnameAnswer.setType(RRType.CNAME);
-        cnameAnswer.setRrclass(RRClass.IN);
-        cnameAnswer.setTtl(86400);
+        ResourceRecord cname = new ResourceRecord();
+        cname.setName(new String[]{"kn-mattermost","cs", "uni-tuebingen", "de"});
+        cname.setType(RRType.CNAME);
+        cname.setRrclass(RRClass.IN);
+        cname.setTtl(86400);
         RDataCNAME cnameData = new RDataCNAME();
         cnameData.setCname(new String[]{"atlas","cs", "uni-tuebingen", "de"});
-        cnameAnswer.setRdata(cnameData);
-        cnameAnswer.setRdlength(27);
+        cname.setRdata(cnameData);
+        cname.setRdlength(27);
         String cnameBytes = "c00c000500010001518000080561746c6173c01a";
 
-        ResourceRecord cnameARR = new ResourceRecord();
-        cnameARR.setName(new String[]{"atlas","cs", "uni-tuebingen", "de"});
-        cnameARR.setType(RRType.A);
-        cnameARR.setRrclass(RRClass.IN);
-        cnameARR.setTtl(1200);
+        ResourceRecord a = new ResourceRecord();
+        a.setName(new String[]{"atlas","cs", "uni-tuebingen", "de"});
+        a.setType(RRType.A);
+        a.setRrclass(RRClass.IN);
+        a.setTtl(1200);
         RDataA cnameDataARR = new RDataA();
         cnameDataARR.setAddress(new byte[]{(byte) 134, (byte) 2, (byte) 10, (byte) 224});
-        cnameARR.setRdata(cnameDataARR);
-        cnameARR.setRdlength(4);
+        a.setRdata(cnameDataARR);
+        a.setRdlength(4);
         String aBytes = "c03f00010001000004b0000486020ae0" ;
 
         RDataSOA rData = new RDataSOA();
@@ -221,7 +237,30 @@ public class DNSParserTest {
         ptr.setTtl(21600);
         ptr.setRdata(ptrData);
         ptr.setRdlength(ptrData.toBytes().length);
-        String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c000100005460001b0561746c6173c01a";
+        String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c000100005460001bc03f"; //pointer to atlas.... in cname at the end
+
+        RDataNS nsData = new RDataNS();
+        nsData.setNsdname(new String[]{"dns4", "uni-tuebingen", "de"});
+        ResourceRecord ns = new ResourceRecord();
+        ns.setName(new String[]{"uni-tuebingen", "de"});
+        ns.setType(RRType.NS);
+        ns.setRrclass(RRClass.IN);
+        ns.setTtl(3050);
+        ns.setRdata(nsData);
+        ns.setRdlength(nsData.toBytes().length);
+        String nsBytes = "c01d0002000100000bea000704646e7334c01d";
+
+        RDataMX mxData = new RDataMX();
+        mxData.setPreference(500);
+        mxData.setExchange(new String[]{"a1541", "mx", "srv", "dfn", "de"});
+        ResourceRecord mx = new ResourceRecord();
+        mx.setName(new String[]{"uni-tuebingen", "de"});
+        mx.setType(RRType.MX);
+        mx.setRrclass(RRClass.IN);
+        mx.setTtl(9057);
+        mx.setRdata(mxData);
+        mx.setRdlength(mxData.toBytes().length);
+        String mxBytes = "c01d000f000100002361001501f4056131353431026d78037372760364666ec02b";
 
 
         // Build packet
@@ -236,25 +275,25 @@ public class DNSParserTest {
         packet.setRa(true);
         packet.setRcode(RCode.NOERROR);
         packet.setQdcount(1);
-        packet.setAncount(2);
-        packet.setNscount(1);
+        packet.setAncount(3);
+        packet.setNscount(2);
         packet.setArcount(2);
-        String headerBytes = "740685800001000200010002";
+        String headerBytes = "740685800001000300020002";
         packet.setQuestionSections(new QuestionSection[]{question});
-        packet.setAnswerSections(new ResourceRecord[]{cnameAnswer, cnameARR});
+        packet.setAnswerSections(new ResourceRecord[]{cname, a, mx});
 
-        packet.setAuthoritySections(new ResourceRecord[]{soa});
-        packet.setAdditionalSections(new ResourceRecord[]{cnameAnswer, ptr});
+        packet.setAuthoritySections(new ResourceRecord[]{soa, ns});
+        packet.setAdditionalSections(new ResourceRecord[]{cname, ptr});
 
         byte[] bytes = packet.toBytes();
         System.out.println(DNSPacket.fromBytes(bytes));
         
-        assertArrayEquals(bytes, DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + soaBytes + cnameBytes + ptrBytes)).toBytes());
+        assertArrayEquals(bytes, DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes)).toBytes());
         //test that also multiple parsings toBytes/fromBytes change nothing
         assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(bytes).toBytes()).toBytes(), bytes);
-        System.out.println(DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + soaBytes + cnameBytes + ptrBytes)).toString());
+        System.out.println(DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes)).toString());
         
-        assertEquals(packet.toString(), DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + soaBytes + cnameBytes + ptrBytes)).toString());
+        assertEquals(packet.toString(), DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes)).toString());
         }
 
 }
