@@ -18,7 +18,7 @@ tests:
   script:
     - echo "Running blackbox tests..."
     # Run blackbox tests
-     - ./test_server.sh
+    - ./test_server.sh
     # Run unittests
     # -
     - echo "Running unit tests..."
