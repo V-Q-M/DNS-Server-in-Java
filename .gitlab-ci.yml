@@ -15,6 +15,10 @@ tests:
   - shared
   stage: test
   image: maven:4.0.0-rc-5-eclipse-temurin-25-alpine
+    before_script:
+    - apt-get update -qy
+    - apt-get install -y dnsutils
+    - chmod +x ./test_server.sh
   script:
     - echo "Running blackbox tests..."
     # Run blackbox tests
