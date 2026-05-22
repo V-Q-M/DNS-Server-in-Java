@@ -124,6 +124,11 @@ NOCACHE=30
 PORT="1337"
 RESOLVER="127.0.0.1"
 
+# install necessary programms
+apt update
+apt install dnsutils
+apt install grep
+
 # Start server and tests
 startServer ${PORT}
 verifyServerRunning
