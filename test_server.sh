@@ -35,6 +35,7 @@ startServer() {
 
 verifyServerRunning() {
     sleep 2
+    ps xa
     if ps xa | grep "java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}" | grep -v "grep"; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
@@ -127,12 +128,6 @@ RESOLVER="127.0.0.1"
 # Start server and tests
 
 # testing what is available on CI
-grep --version
-sleep 5
-ps --version
-sleep 5
-sed --version
-sleep 5
 startServer ${PORT}
 verifyServerRunning
 testParser
