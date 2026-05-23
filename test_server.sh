@@ -125,6 +125,14 @@ PORT="1337"
 RESOLVER="127.0.0.1"
 
 # Start server and tests
+
+# testing what is available on CI
+grep --version
+sleep 5
+ps --version
+sleep 5
+sed --version
+sleep 5
 startServer ${PORT}
 verifyServerRunning
 testParser
