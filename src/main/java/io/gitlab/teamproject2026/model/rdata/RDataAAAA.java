@@ -1,11 +1,8 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import java.util.Arrays;
-
-
 import java.util.HexFormat;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+
 /**
  * Represents a DNS AAAA record.
  * Maps a domain name to an IPv6 address (128-bit).
