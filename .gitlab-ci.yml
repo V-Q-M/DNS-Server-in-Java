@@ -4,6 +4,8 @@ stages:
 
 # Building the project
 build:
+  tags:
+    - shared
   stage: build
   image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
   script:
