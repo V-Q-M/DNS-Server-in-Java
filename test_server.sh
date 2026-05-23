@@ -34,8 +34,9 @@ startServer() {
 }
 
 verifyServerRunning() {
-    sleep 2
-    ps xa
+    echo "wait 20 seconds to allow for server compilation"
+    echo "If the pipeline fails, you might need to increase line 39 in test_server.sh yo a higher value"
+    sleep 20
     if ps xa | grep "java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}" | grep -v "grep"; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
@@ -129,7 +130,6 @@ RESOLVER="127.0.0.1"
 
 # testing what is available on CI
 startServer ${PORT}
-sleep 20
 verifyServerRunning
 testParser
 # removing testCache as our Cache implementation cannot be tested in CI
