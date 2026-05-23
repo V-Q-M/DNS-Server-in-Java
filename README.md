@@ -100,7 +100,7 @@ The parameter `--testing` is used to enable testmode, which disables accessing o
 ```bash
 java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER --testing
 ``` 
-
+Internally, this sets a parameter in the ```DNS_SERVER``` class and can be accessed by calling the ```getTestingStatus``` function.
 
 ### Config file
 If a file named `config.properties` exists, it can be used to define a new default port and IP-Address.
