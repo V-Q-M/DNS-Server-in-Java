@@ -52,9 +52,23 @@ And start the server with your alias (and parameters)
 run -p 2222
 ```
 
+## Testing
+
+The Current project is tested using both Blackbox tests run via a bash Script and Unittests.
+
+### Unittests
+
+Every test added to ```./src/test/java/io/gitlab/teamproject2026/``` will be run in the pipeline and its results will be uploaded to Gitlab as artifacts.
+
+### Blackbox testing
+
+The CI will run the script test_server.sh. This script contains some Blackbox tests for the DNS-Server. 
+- Currently the script only tests the parser. To test the stubresolver, simply replace the ```testParser``` function with the ```testStubResolver``` function. 
+- The ```testCache``` function is an unused artifact and should not be used in CI, as the cache can only provided locally. It may therefore be used for local testing.
+- If the pipeline should fail, without apparent reason or changes to the ```.gitlab-ci.yml``` file or ```test_server.sh``` script, the compile time of the Server might have exceeded the time specified in the test script. In this case, simply increase the time.
 
 
-### Examples on tests for the current state of the project
+### Examples on manual tests for the current state of the project
 
 Testing hexdump and valid parsing:  `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
 
@@ -82,6 +96,11 @@ The parameter `-a` is used to specify a custom IP-Address.
 java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -a 0.0.0.0
 ```
 
+The parameter `--testing` is used to enable testmode, which disables accessing of external resources which cause errors in the CI-Pipeline.
+```bash
+java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER --testing
+``` 
+
 
 ### Config file
 If a file named `config.properties` exists, it can be used to define a new default port and IP-Address.
@@ -103,6 +122,6 @@ If no config file exists and no command line arguments are provided, the fallbac
 
 # Changelog
 ```diff
-~ DNS_SERVER.java
-~ DNSParser.java and fromBytes methods
+~ Enabled Pipeline testing using Unit- and Blackbox-Tests
+~ Added argument to enable testing Mode
 ```
