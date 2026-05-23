@@ -16,7 +16,7 @@ public class DNS_SERVER {
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0"; 
     //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
-    private static boolean testing=true;
+    private static boolean testing=false;
 
     static void main(String[] args) throws Exception {
 
@@ -125,5 +125,9 @@ public class DNS_SERVER {
         }
 
         return stringBuilder.toString().trim();
+    }
+
+    public static boolean getTestingStatus(){
+        return testing;
     }
 }
