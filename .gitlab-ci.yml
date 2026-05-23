@@ -17,6 +17,7 @@ tests:
   image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
   before_script:
     - apt-get update -qy
+    - apt-get upgrade -y
     - apt-get install -y dnsutils
     - chmod +x ./test_server.sh
   script:
