@@ -129,6 +129,7 @@ RESOLVER="127.0.0.1"
 
 # testing what is available on CI
 startServer ${PORT}
+sleep 20
 verifyServerRunning
 testParser
 # removing testCache as our Cache implementation cannot be tested in CI
