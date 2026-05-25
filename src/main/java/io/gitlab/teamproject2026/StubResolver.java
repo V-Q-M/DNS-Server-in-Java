@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026;
 
 import io.gitlab.teamproject2026.model.RCode;
+import java.io.IOException;
 
 import java.lang.reflect.Array;
 import java.net.DatagramPacket;

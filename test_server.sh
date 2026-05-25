@@ -30,25 +30,24 @@ verifyResult() {
 }
 
 startServer() {
-    java -jar target 127.0.0.1 ${1} ${2} &
+    java -jar target/Teamprojekt-1.0-SNAPSHOT.jar -p ${1} -a ${2} &
     echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
     sleep 2
-    if ps -p ${SERVER_PID} > /dev/null; then
+    if ps aux | grep -v grep | grep  "Teamprojekt-1.0-SNAPSHOT.jar"; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
-        echo -e "${RED}ERROR: Server did not start properly${NC}" 
+        echo -e "${RED}ERROR: Server did not start properly${NC}"
         ERRCOUNT=$((ERRCOUNT + 1))
     fi
 }
 
 cleanUpAndResult() {
-    #echo "Cleaning up..."
-    if [ -n "${SERVER_PID}" ]; then
-      kill ${SERVER_PID} 2>/dev/null
-    fi
+    echo "Cleaning up..."
+    pkill -f Teamprojekt-1.0-SNAPSHOT.jar 2>/dev/null
+    echo "----------------------------------------------------------------------"
     if [ ${ERRCOUNT} -gt 0 ]; then
         echo -e "${RED}${ERRCOUNT} tests failed.${NC}"
         exit 1
@@ -126,7 +125,7 @@ CACHETIME=15
 NSCACHE=300
 NOCACHE=30
 PORT="1337"
-RESOLVER="127.0.0.11"
+RESOLVER="127.0.0.1"
 
 # Start server and tests
 startServer ${PORT} ${RESOLVER}

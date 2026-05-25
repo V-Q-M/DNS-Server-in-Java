@@ -23,6 +23,7 @@ public class DNS_SERVER {
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
 
+
         // Layer 2: config file
         Properties props = new Properties();
         try (FileInputStream fis = new FileInputStream("config.properties")) {
@@ -46,6 +47,7 @@ public class DNS_SERVER {
                 bindIP = args[i + 1];
                 i++;
             }
+
         }
 
         // port check (delete later if 0-1024 ports are allowed)

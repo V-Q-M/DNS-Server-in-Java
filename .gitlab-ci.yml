@@ -2,7 +2,7 @@ default:
   image: sapmachine:26-jdk-ubuntu-noble
   before_script:
     - apt-get update -qy
-    - apt-get install -y maven dnsutils
+    - apt-get install -y dnsutils
     - chmod +x ./test_server.sh
 
 test:
