@@ -125,4 +125,28 @@ class CacheHandlerTest {
 
         assertEquals(0, handler.lookup("expired.example.com", RRType.A).length);
     }
+
+    @Test
+    void casePreservationTest() throws Exception {
+        handler.insert(makeA("CASE.EXAMPLE.COM", 300, new byte[] { 1, 2, 3, 4 }));
+
+        ResourceRecord[] results = handler.lookup("case.example.com", RRType.A);
+        assertEquals(1, results.length);
+        assertArrayEquals(new String[] { "CASE", "EXAMPLE", "COM" }, results[0].getName());
+    }
+
+    @Test
+    void insertAllRRsetTest() throws Exception {
+        handler.insertAll(new ResourceRecord[] {
+                makeA("rrset.example.com", 300, new byte[] { 1, 1, 1, 1 }),
+                makeA("rrset.example.com", 300, new byte[] { 2, 2, 2, 2 })
+        });
+        assertEquals(2, handler.lookup("rrset.example.com", RRType.A).length);
+
+        handler.insertAll(new ResourceRecord[] {
+                makeA("rrset.example.com", 300, new byte[] { 3, 3, 3, 3 })
+        });
+        assertEquals(1, handler.lookup("rrset.example.com", RRType.A).length);
+        assertArrayEquals(new byte[] { 3, 3, 3, 3 }, ((RDataA) handler.lookup("rrset.example.com", RRType.A)[0].getRdata()).getAddress());
+    }
 }
