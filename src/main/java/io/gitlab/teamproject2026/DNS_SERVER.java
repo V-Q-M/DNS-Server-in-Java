@@ -5,11 +5,17 @@ import java.io.IOException;
 
 import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.DNSPacket;
+import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.cache.CacheHandler;
+import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.Properties;
+import java.sql.SQLException;
 
 
 public class DNS_SERVER {
@@ -69,6 +75,20 @@ public class DNS_SERVER {
             bindAddress = InetAddress.getByName(DEFAULT_IP);
         }
 
+        // esthablish Cache Connection
+        CacheHandler cacheHandler;
+        if (true /** Later to be replaced with testing flag */){
+            try{
+                cacheHandler = new CacheHandler( new CacheConnectionProvider());
+            } catch (ClassNotFoundException e) {
+                System.err.println("JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?");
+                throw e;
+            } catch (SQLException e) {
+                System.err.println("Connection to the Database couldn't be esthablished, is the Docker-Server running?");
+                throw e;
+            }
+        }
+
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
             IO.println("UDP server listening on " + bindIP + ":" + portNumber);
             IO.println();
@@ -78,6 +98,14 @@ public class DNS_SERVER {
 
             // Server loop
             while (true) {
+                // validate Cache, if Cache cannot be validated, assume internal server error and crash
+                try{
+                    cacheHandler.deleteExpired();
+                } catch (SQLException e) {
+                    IO.println("Connection to cache Server has been lost, assume internal Server error");
+                    throw e;
+                }
+
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
