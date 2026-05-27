@@ -64,8 +64,10 @@ public class QuestionSection {
         String[] labels = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         questionSection.setName(labels);
+
         questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+
         questionSection.lastProcessedByte = byteIndex - 1;
         return questionSection;
     }

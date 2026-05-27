@@ -1,15 +1,39 @@
-default:
-  image: sapmachine:26-jdk-ubuntu-noble
-  before_script:
-    - apt-get update -qy
-    - apt-get install -y dnsutils
-    - chmod +x ./test_server.sh
+stages:
+  - build
+  - test
 
-test:
+# Building the project
+build:
   tags:
     - shared
+  stage: build
+  image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
   script:
+    - echo "Building the project..."
+    - mvn clean compile
+
+tests:
+  tags:
+    - shared
+  stage: test
+  image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
+  before_script:
+    - apt-get update -qy
+    - apt-get upgrade -y
+    - apt-get install -y dnsutils
+    - chmod +x ./test_server.sh
+  script:
+    - echo "Running blackbox tests..."
     # Run blackbox tests
     - ./test_server.sh
     # Run unittests
     # -
+    - echo "Running unit tests..."
+    - mvn test
+  artifacts:
+    when: always
+    paths:
+      - ./target/surefire-reports/*
+    reports:
+      junit:
+        - ./target/surefire-reports/*.xml

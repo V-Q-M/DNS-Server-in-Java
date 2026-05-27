@@ -53,7 +53,7 @@ class StubResolverTest {
     @Test
     void testSuccessfulResolution(){
         StubResolver.NameServer server= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(),
-        "MockLocal");
+                "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),1000,2,50,StubResolver.Strategy.FAILOVER);
         byte[] query= new byte[]{0x12, 0x34, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         byte[] response= resolver.resolve(query);

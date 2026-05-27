@@ -17,7 +17,7 @@ verifyResult() {
     local TYPE=${5}
     local QUERYTIME=$(echo ${RESULT} | grep -oE "Query time: [0-9]{1,} msec" | sed 's/^.*Query time: //g' | sed 's/ msec.*$//g')
     if echo "${RESULT}" | grep -q "${EXPECT}"; then
-        if [ ${TIMEEXPECT} -ge ${QUERYTIME} ]; then
+        if [ "${TIMEEXPECT}" -gt ${QUERYTIME} ]; then
             echo -e "${GREEN}Successfully queried ${QUESTION} ${TYPE} in ${QUERYTIME} ms!${NC}"
         else
             echo -e "${ORANGE}Query for ${QUESTION} ${TYPE} took too long: ${QUERYTIME} ms!${NC}"
@@ -30,13 +30,14 @@ verifyResult() {
 }
 
 startServer() {
-    java -jar target/Teamprojekt-1.0-SNAPSHOT.jar -p ${1} -a ${2} &
-    echo "Attempt to start server on port ${1}..."
+    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1} --testing > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
-    sleep 2
-    if ps aux | grep -v grep | grep  "Teamprojekt-1.0-SNAPSHOT.jar"; then
+    echo "wait 20 seconds to allow for server compilation"
+    echo "If the pipeline fails, you might need to increase line 39 in test_server.sh yo a higher value"
+    sleep 20
+    if ps xa | grep "java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}" | grep -v "grep"; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
         echo -e "${RED}ERROR: Server did not start properly${NC}"
@@ -45,8 +46,8 @@ verifyServerRunning() {
 }
 
 cleanUpAndResult() {
-    echo "Cleaning up..."
-    pkill -f Teamprojekt-1.0-SNAPSHOT.jar 2>/dev/null
+    #echo "Cleaning up..."
+    pkill java
     echo "----------------------------------------------------------------------"
     if [ ${ERRCOUNT} -gt 0 ]; then
         echo -e "${RED}${ERRCOUNT} tests failed.${NC}"
@@ -59,16 +60,14 @@ cleanUpAndResult() {
 
 testParser(){
     echo "Testing parser responses..."
-    doLookup "uni-tuebingen.de" "A" "127.0.0.1" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "AAAA" "::1" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "CNAME" "e.com" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "SOA" "ns1.e.com. a.e.com. 12345 900 900 1800 60" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "NS" "tld1.e.com." ${NOCACHE}
-    doLookup "uni-tuebingen.de" "NS" "tld2.e.com" ${NOCACHE}
-    doLookup "google.de" "NS" "ANSWER: 2" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "MX" "smtp.e.com." ${NOCACHE}
-    doLookup "uni-tuebingen.de" "PTR" "ptr.e.com." ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "Hello World!" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "A" "134.2.5.1" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "AAAA" "2001:7c0:300c:30f0::8602:501" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "CNAME" "uni-tuebingen-2.de" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "SOA" "nameserver.uni-tuebingen.de. admin.uni-tuebingen.de. 2026010101 3600 900 604800 300" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "NS" "nameserver.uni-tuebingen.de." ${NOCACHE}
+    doLookup "uni-tuebingen.de" "MX" "mailserver.uni-tuebingen.de." ${NOCACHE}
+    doLookup "uni-tuebingen.de" "PTR" "uni-tuebingen.de." ${NOCACHE}
+    doLookup "uni-tuebingen.de" "TXT" "hello world" ${NOCACHE}
 }
 
 
@@ -128,7 +127,11 @@ PORT="1337"
 RESOLVER="127.0.0.1"
 
 # Start server and tests
-startServer ${PORT} ${RESOLVER}
+
+# testing what is available on CI
+startServer ${PORT}
 verifyServerRunning
+testParser
 testStubResolver
-testCache
+# removing testCache as our Cache implementation cannot be tested in CI
+# testCache

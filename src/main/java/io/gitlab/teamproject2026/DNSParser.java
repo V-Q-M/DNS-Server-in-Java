@@ -81,6 +81,7 @@ public class DNSParser{
         if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
             throw new UnsupportedOperationException("Message compression not implemented yet");
         }
+
         while (bytes[byteIndex] != 0) {
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;
