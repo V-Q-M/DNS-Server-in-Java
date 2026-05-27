@@ -15,7 +15,9 @@ CREATE TABLE ResourceRecord (
     rrtype RRTypeEnum,
     rrclass RRClassEnum,
     TTL uint,
-    rdlength usmallint
+    rdlength usmallint,
+    inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at TIMESTAMPTZ
 );
 
 CREATE TABLE ns_rdata (
