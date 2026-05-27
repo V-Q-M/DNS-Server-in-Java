@@ -5,28 +5,32 @@ import java.io.IOException;
 
 import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.DNSPacket;
+import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.cache.CacheHandler;
+import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Properties;
+import java.sql.SQLException;
+
 
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
-    private static final String DEFAULT_IP = "0.0.0.0";
+    private static final String DEFAULT_IP = "0.0.0.0"; 
     //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
     private static boolean testing=false;
 
-    public static void main(String[] args) throws Exception {
+    static void main(String[] args) throws Exception {
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
 
-
-        // Layer 2: config file
+         // Layer 2: config file
         Properties props = new Properties();
         try (FileInputStream fis = new FileInputStream("config.properties")) {
             props.load(fis);
@@ -52,11 +56,10 @@ public class DNS_SERVER {
             if (args[i].equals("--testing")) {
                 testing = true;
             }
-
         }
 
         // port check (delete later if 0-1024 ports are allowed)
-        if (portNumber<0 || portNumber > 65535) {
+        if (portNumber > 65535) {
             IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default " + DEFAULT_PORT);
             portNumber = DEFAULT_PORT;
         }
@@ -78,12 +81,26 @@ public class DNS_SERVER {
 
         // Open UDP socket
         InetAddress bindAddress;
-        try { bindAddress= InetAddress.getByName(bindIP);
-
+        try {
+            bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
             IO.println("Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP);
             bindIP = DEFAULT_IP;
             bindAddress = InetAddress.getByName(DEFAULT_IP);
+        }
+
+        // esthablish Cache Connection
+        CacheHandler cacheHandler;
+        if (true /** Later to be replaced with testing flag */){
+            try{
+                cacheHandler = new CacheHandler( new CacheConnectionProvider());
+            } catch (ClassNotFoundException e) {
+                System.err.println("JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?");
+                throw e;
+            } catch (SQLException e) {
+                System.err.println("Connection to the Database couldn't be esthablished, is the Docker-Server running?");
+                throw e;
+            }
         }
 
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
@@ -91,11 +108,18 @@ public class DNS_SERVER {
             IO.println();
 
             // Buffer necessary to store the packet
-            //byte[] buffer = new byte[StubResolver.MAX_UDP_SIZE];
+            byte[] buffer = new byte[1024];
 
             // Server loop
             while (true) {
-                byte[] buffer = new byte[StubResolver.MAX_UDP_SIZE];
+                // validate Cache, if Cache cannot be validated, assume internal server error and crash
+                try{
+                    cacheHandler.deleteExpired();
+                } catch (SQLException e) {
+                    IO.println("Connection to cache Server has been lost, assume internal Server error");
+                    throw e;
+                }
+
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -105,7 +129,6 @@ public class DNS_SERVER {
                 // Store the client IP and client Port for further use
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
-                try{
                 IO.println("Received packet from " + clientAddress + ":" + clientPort);
 
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
@@ -143,16 +166,8 @@ public class DNS_SERVER {
                 IO.println("Send response to: " + clientAddress + ":" + clientPort);
                 IO.println("OUT: " + toHex(response));
                 IO.println();
-            } catch(Exception e){
-                IO.println("Error handling packet from " + clientAddress + ":" + clientPort + "-" + e.getMessage());
             }
         }
-    }
-}
-
-
-    public static boolean getTestingStatus(){
-        return testing;
     }
 
     // Small helper method to convert byte packets into hex
@@ -164,5 +179,9 @@ public class DNS_SERVER {
         }
 
         return stringBuilder.toString().trim();
+    }
+
+    public static boolean getTestingStatus(){
+        return testing;
     }
 }
