@@ -29,9 +29,10 @@ public class RDataTXT implements RData {
         return result;
     }
 
-    public static RDataTXT fromBytes(byte[] bytes) {
+    public static RDataTXT fromBytes(byte[] bytes, int byteIndex) {
         RDataTXT rDataTXT = new RDataTXT();
-        rDataTXT.setTxtdata(new String(Arrays.copyOfRange(bytes, 1, bytes.length), StandardCharsets.US_ASCII));
+        int txtLength = bytes[byteIndex] & 0xFF;
+        rDataTXT.setTxtdata(new String(Arrays.copyOfRange(bytes, 1+byteIndex, 1+ byteIndex + txtLength), StandardCharsets.US_ASCII));
         return rDataTXT;
     }
 }

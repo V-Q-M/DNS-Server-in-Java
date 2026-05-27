@@ -20,17 +20,17 @@ public class RDataPTR implements RData {
 
     @Override
     public String toString(){
-        return Arrays.toString(ptrdname);
+        return String.join(".", ptrdname) + ".";
     }
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", ptrdname));
+        return encodeName(String.join(".", ptrdname) + ".");
     }
 
-    public static RDataPTR fromBytes(byte[] bytes) {
+    public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {
         RDataPTR rDataPTR = new RDataPTR();
-        rDataPTR.setPtrdname(DNSParser.parseName(bytes, 0));
+        rDataPTR.setPtrdname(DNSParser.parseName(bytes, byteIndex));
         return rDataPTR;
     }
 }

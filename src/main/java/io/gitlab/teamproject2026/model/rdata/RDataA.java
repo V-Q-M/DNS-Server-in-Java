@@ -14,9 +14,18 @@ public class RDataA implements RData {
     public byte[] getAddress() { return address; }
     public void setAddress(byte[] address) { this.address = address; }
 
+    /**
+     * @return the Ipv4 address as UNSIGNED decimal
+     */
     @Override
     public String toString(){
-        return Arrays.toString(address);
+        if (this.address == null || this.address.length < 4) {
+        return "0.0.0.0";
+        }
+        return (this.address[0] & 0xFF) + "." +
+            (this.address[1] & 0xFF) + "." +
+            (this.address[2] & 0xFF) + "." +
+            (this.address[3] & 0xFF);
     }
 
     @Override
@@ -24,9 +33,9 @@ public class RDataA implements RData {
         return address;
     }
 
-    public static RDataA fromBytes(byte[] bytes) {
+    public static RDataA fromBytes(byte[] bytes, int byteIndex) {
         RDataA rDataA = new RDataA();
-        rDataA.setAddress(bytes);
+        rDataA.setAddress(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 4));
         return rDataA;
     }
 }

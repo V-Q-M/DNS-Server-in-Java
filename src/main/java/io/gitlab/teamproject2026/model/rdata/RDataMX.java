@@ -25,12 +25,12 @@ public class RDataMX implements RData {
 
     @Override
     public String toString(){
-        return "preference: " + preference + ", exchange: " + Arrays.toString(exchange);
+        return "preference: " + preference + ", exchange: " + String.join(".", exchange) +".";
     }
 
     @Override
     public byte[] toBytes() {
-        byte[] name = encodeName(String.join(".", exchange));
+        byte[] name = encodeName(String.join(".", exchange) + ".");
         byte[] result = new byte[2 + name.length];
         result[0] = (byte) (preference >> 8);
         result[1] = (byte) (preference);
@@ -38,10 +38,10 @@ public class RDataMX implements RData {
         return result;
     }
 
-    public static RDataMX fromBytes(byte[] bytes) {
+    public static RDataMX fromBytes(byte[] bytes, int byteIndex) {
         RDataMX rDataMX = new RDataMX();
-        rDataMX.setPreference(DNSParser.as16BitInt(bytes[0], bytes[1]));
-        rDataMX.setExchange(DNSParser.parseName(bytes, 2));
+        rDataMX.setPreference(DNSParser.as16BitInt(bytes[byteIndex], bytes[1+byteIndex]));
+        rDataMX.setExchange(DNSParser.parseName(bytes, 2+byteIndex));
         return rDataMX;
     }
 }
