@@ -11,9 +11,11 @@
 - Name, Firstname, Mat-Nr, Email
 
 ## About
-- Receive and send correctly assembled DNS packets (with mock responses)
-- Store the packets in a robust OOP model
-- Use a Config file or command line parameters to configure the server
+- Forward DNS queries to upstrean nameservers using UDP packets
+- Handle network timeouts and I/O errors by generating standard-compliant SERVFAIL response
+- Support multiple load balancing and redundancy strategy
+- Utilize a thread-safe configuration model with randomized jitter delays for retries
+
 ## Requirements
 The project uses Java 25, which can be downloaded from the internet.
 
@@ -47,6 +49,11 @@ And start the server with your alias (and parameters)
 ```PowerShell
 run -p 2222
 ```
+###Testing
+`testSuccessfulResolution`Überprüft, ob gültige DNS-Pakete korrekt gesendet und Antworten ohne Datenverlust verarbeitet werden.
+`testTimoutAndServFail`Simuliert eine Netzwerkzögerung. Es wird überprüft, ob der Resolver die Anfrage rechtzeitig abbricht und korrekt DNS-Paket generiert.
+`testFailoverSwitchesServer`Testet das Verhalten bei mehreren Servern.
+`testRoundRobinStrategy`Überprüft die zyklische Verteilung der Anfragen auf die Nameserver zur Lastverteilung.
 
 
 
@@ -66,6 +73,7 @@ Testing valid response packets:
 
 
 ## Configuration parameters
+Die Funktionsweiswe des Stub Resolver wird initial beim Erstellen des Objekt übergeben.
 
 ### Command line
 The parameter `-p` is used in the command line to specify a custom port. 
@@ -80,25 +88,24 @@ java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -a 0.0.0.0
 
 
 ### Config file
-If a file named `config.properties` exists, it can be used to define a new default port and IP-Address.
+In der `config.properties` können die standard Nameserver für Routing hinterlegt werden.
 
-Example config;
+Beispiel für den StubResolver;
 ```aiignore
-# DNS Server Configuration
-# These values are overridden by command-line arguments if provided.
-server.port=1337
-server.ip=127.0.0.1
+# Stub Resolver Upstream configuration
+resolver.timeout=1000
+resolver.max_retries=2
+resolver.strategy=FAILOVER
 ```
-This example specifies a default port `1337` and default IP-Address `127.0.0.1`.
-
-If no config file exists and no command line arguments are provided, the fallback port `4242` and fallback IP-Address `0.0.0.0` is used.
 
 
 ## Known issues and bugs
-- It is unclear wether port numbers below `1024` are supposed to be supported. Allowing them would require `sudo` rights and risk a crash, should the necessary rights not be provided.
+- 
 
 # Changelog
 ```diff
 ~ DNS_SERVER.java
-~ DNSParser.java and fromBytes methods
+~ StubResolver.java
+~ StubResolverTest.java
+~ config.properties
 ```
