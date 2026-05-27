@@ -61,7 +61,13 @@ public class DNSParser{
         int countPointers = 0;
         LinkedList<String> labels = new LinkedList<>();
         int currentIndex = byteIndex;
-        while (bytes[currentIndex] != 0) {
+        while (true) {
+            if (currentIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("false label length or false pointer");
+            }
+            if (bytes[currentIndex] == 0) {
+                break;
+            }
             if((bytes[currentIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bits = 1
                 countPointers += 2;
                 if (countPointers >= 257){
@@ -86,7 +92,13 @@ public class DNSParser{
     public static int countNameLength(byte[] bytes, int startIndex){
         int byteIndex = startIndex;
         
-        while (bytes[byteIndex] != 0) {
+        while (true) {
+            if (byteIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("false label length or false pointer");
+            }
+            if (bytes[byteIndex] == 0){
+                break;
+            }
             if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
                 return byteIndex - startIndex + 2;  //pointer always 2 bytes
             }
@@ -105,7 +117,13 @@ public class DNSParser{
     public static int countNameLengthDecomp(byte[] bytes, int startIndex){
         int byteIndex = startIndex;
         
-        while (bytes[byteIndex] != 0) {
+        while (true) {
+            if (byteIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("false label length or false pointer");
+            }
+            if (bytes[byteIndex] == 0) {
+                break;
+            }
             if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
                 int notCompressedLength = byteIndex - startIndex;
                 int pointStartIndex = getPointerTarget(bytes, byteIndex);
@@ -128,9 +146,6 @@ public class DNSParser{
             throw new IndexOutOfBoundsException("pointer points out of bounds");
         }
         byte labelLengthOrPointer = bytes[pointerIndex];
-        if (pointerIndex+1 >= bytes.length){
-            throw new IndexOutOfBoundsException("pointer points out of bounds");
-        }
         int pointerTarget = (0x3FFF & as16BitInt(labelLengthOrPointer, bytes[pointerIndex+1])); //extract pointer offset
         if (pointerTarget >= bytes.length){
             throw new IndexOutOfBoundsException("pointer points out of bounds");

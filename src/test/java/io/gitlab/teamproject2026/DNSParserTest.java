@@ -154,7 +154,7 @@ public class DNSParserTest {
 
     @Test
 
-    void testDecompessionWholeMessage() {
+    void testDecompressionWholeMessage() {
         //tests:
         // decompression for all Recource Record types having RData that can be compressed (fromBytes function)
         // decompression in ResourceRecord name of A record
