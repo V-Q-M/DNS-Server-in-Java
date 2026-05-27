@@ -57,7 +57,7 @@ public class DNSParser{
      * @param byteIndex the index, where the domain name is supposed to start
      * @return an array of labels, sourced from the bytes
      */
-    public static String[] parseName(byte[] bytes, int byteIndex){
+    public static String[] parseName(byte[] bytes, int byteIndex) throws IndexOutOfBoundsException {
         int countPointers = 0;
         LinkedList<String> labels = new LinkedList<>();
         int currentIndex = byteIndex;
@@ -114,7 +114,7 @@ public class DNSParser{
      * @param startIndex the index, where the domain name is supposed to start
      * @return the total amount of bytes of a domain name in its decompressed version.
      */
-    public static int countNameLengthDecomp(byte[] bytes, int startIndex){
+    public static int countNameLengthDecomp(byte[] bytes, int startIndex) throws IndexOutOfBoundsException {
         int byteIndex = startIndex;
         
         while (true) {
@@ -141,7 +141,7 @@ public class DNSParser{
      * @param pointerIndex the index, where the pointer starts
      * @return target of the pointer where referred labels can be found
      */
-    public static int getPointerTarget(byte[] bytes, int pointerIndex){
+    public static int getPointerTarget(byte[] bytes, int pointerIndex) throws IndexOutOfBoundsException {
         if (pointerIndex >= bytes.length){
             throw new IndexOutOfBoundsException("pointer points out of bounds");
         }
