@@ -395,7 +395,7 @@ public class DNSParserTest {
                                             "c01d" + //mname pointer to question section uni-tuebingen.de
                                              "c04f"+ //"0d756e692d74756562696e67656ec02b" + //rname
                                             "0000000200000002000000020000000200000002";
-    private static final String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c000100005460001bc03f";
+    private static final String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c0001000054600002c03f";
     private static final String nsBytes = "c01d0002000100000bea000704646e7334c01d";
     private static final String mxBytes = "c01d000f000100002361001501f4056131353431026d78037372760364666ec02b";
 
@@ -464,7 +464,7 @@ public class DNSParserTest {
                     assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(generatedBytes).toBytes()).toBytes(), generatedBytes);
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
-            ),*/
+            ),*/ //adjust c04f pointer!!!!!
 
             //Test2: test resolution of pointer pointing on pointer, only questionSections
 
@@ -481,7 +481,7 @@ public class DNSParserTest {
             ),
 
             //Test 3: tests if domain name consisting of labels+pointer gets parsed correctly (c01a pointer in cname), 
-            // A RR name decompression
+            // A RR name, cname decompression
             //decompression with a pointer to answer section (so not only pointer to question section get tested)
 
             Arguments.of(
@@ -494,17 +494,31 @@ public class DNSParserTest {
                 }
             ),
         
-            //Test 4: Core verification of the Authority Section decompression using SOA and NS RRs
-            // Validates multiple multi-field pointers pointing from authority fields back to the question zone definition.
+            //Test 4: test if names in authority section get parsed correctly
+            // soa and ns RR
+            // pointer as rname points into OWN RR to mname
+            //pointer to section other than question section (authority section)
             Arguments.of(
                 "Decompression Authority Section Test (SOA and NS)",
                 createAuthoritySectionPacket(),
                 "740685800001000000020000" + questionBytes + soaBytes + nsBytes, // qd=1, an=0, ns=2, ar=0
                 (DecompressionAssertion) (packet, hexBytes) -> {
-                    // asserts that the authority records are parsed correctly by fromBytes and match the expected packet layout
                     byte[] generatedBytes = packet.toBytes();
+                    // asserts that the authority records are parsed correctly by fromBytes and then converted to toBytes as expected:
                     assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
+                }
+            ),
+
+            // Test 5: test if ptr RR in additional section gets decompressed and parsed correctly
+            Arguments.of(
+                "Decompression PTR",
+                createPtrSectionPacket(),
+                "740685800001000100000001" + questionBytes + cnameBytes + ptrBytes, //qd=1,an=1(cname),ar=0,ad=1(ptr)
+                (DecompressionAssertion) (packet, hexBytes) -> {
+                    byte[] generatedBytes = packet.toBytes();
+                    // asserts that ptr RR is parsed correctly by fromBytes and then converted to toBytes as expected:
+                     assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
                 }
             )
         );
@@ -562,6 +576,19 @@ public class DNSParserTest {
         packet.setAnswerSections(new ResourceRecord[0]);
         packet.setAuthoritySections(new ResourceRecord[]{soa, ns});
         packet.setAdditionalSections(new ResourceRecord[0]);
+        return packet;
+    }
+
+    private static DNSPacket createPtrSectionPacket() {
+        QuestionSection question = createQuestion();
+        ResourceRecord ptr = createPtrRecord();
+        ResourceRecord cname = createCnameRecord();
+
+        DNSPacket packet = createPacket(1, 1, 0, 1); // qd=1, an=1, ns=0, ar=1
+        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setAnswerSections(new ResourceRecord[]{cname});
+        packet.setAuthoritySections(new ResourceRecord[0]);
+        packet.setAdditionalSections(new ResourceRecord[]{ptr});
         return packet;
     }
 
