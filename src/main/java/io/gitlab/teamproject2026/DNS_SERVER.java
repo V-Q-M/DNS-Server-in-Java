@@ -6,6 +6,7 @@ import java.io.IOException;
 import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.cache.CacheHandler;
 import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -163,8 +164,26 @@ public class DNS_SERVER {
                             if (cachedRecords.length != 0) {
                                 for (ResourceRecord record: cachedRecords){
                                     switch (record.getType()){
-                                        case NS : authority.add(record);
-                                        case A,AAAA,MX,TXT,SOA,PTR,CNAME : answer.add(record);
+                                        case NS : {authority.add(record);
+                                            
+                                            // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
+                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
+                                                additional.add(adress);
+                                            }
+                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
+                                                additional.add(adress);
+                                            }
+                                        };
+                                        case MX : {answer.add(record);
+                                            // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
+                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
+                                                additional.add(adress);
+                                            }
+                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
+                                                additional.add(adress);
+                                            }
+                                        };
+                                        case A,AAAA,TXT,SOA,PTR,CNAME : answer.add(record);
                                     }
                                 }
 
