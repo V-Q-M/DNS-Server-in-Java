@@ -15,7 +15,9 @@ import java.util.Properties;
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
-    private static final String DEFAULT_IP = "0.0.0.0";
+    private static final String DEFAULT_IP = "0.0.0.0"; 
+    //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
+    private static boolean testing=false;
 
     static void main(String[] args) throws Exception {
 
@@ -45,6 +47,9 @@ public class DNS_SERVER {
             if (args[i].equals("-a") && i + 1 < args.length) {
                 bindIP = args[i + 1];
                 i++;
+            }
+            if (args[i].equals("--testing")) {
+                testing = true;
             }
         }
 
@@ -121,5 +126,9 @@ public class DNS_SERVER {
         }
 
         return stringBuilder.toString().trim();
+    }
+
+    public static boolean getTestingStatus(){
+        return testing;
     }
 }

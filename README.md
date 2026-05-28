@@ -66,16 +66,23 @@ And start the server with your alias (and parameters)
 run -p 2222
 ```
 
-### Monitoring
+## Testing
 
-Along with the Database, the ```compose.yaml``` file also starts a GUI for the Database. This GUI can be accessed [here](http://localhost:8080). To log in you must select PostgreSQL as the Database-Server type. The Login credentials are: 
-- Username: Postgres 
-- Password: example
-- Database: dns
+The Current project is tested using both Blackbox tests run via a bash Script and Unittests.
+
+### Unittests
+
+Every test added to ```./src/test/java/io/gitlab/teamproject2026/``` will be run in the pipeline and its results will be uploaded to Gitlab as artifacts.
+
+### Blackbox testing
+
+The CI will run the script test_server.sh. This script contains some Blackbox tests for the DNS-Server. 
+- Currently the script only tests the parser. To test the stubresolver, simply replace the ```testParser``` function with the ```testStubResolver``` function. 
+- The ```testCache``` function is an unused artifact and should not be used in CI, as the cache can only provided locally. It may therefore be used for local testing.
+- If the pipeline should fail, without apparent reason or changes to the ```.gitlab-ci.yml``` file or ```test_server.sh``` script, the compile time of the Server might have exceeded the time specified in the test script. In this case, simply increase the time.
 
 
-
-### Examples on tests for the current state of the project
+### Examples on manual tests for the current state of the project
 
 Testing hexdump and valid parsing:  `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
 
@@ -88,6 +95,14 @@ Testing valid response packets:
 - `dig @127.0.0.1 uni-tuebingen.de +noedns NS`
 - `dig @127.0.0.1 uni-tuebingen.de +noedns PTR`
 - `dig @127.0.0.1 uni-tuebingen.de +noedns MX`
+
+
+### Monitoring
+
+Along with the Database, the ```compose.yaml``` file also starts a GUI for the Database. This GUI can be accessed [here](http://localhost:8080). To log in you must select PostgreSQL as the Database-Server type. The Login credentials are: 
+- Username: Postgres 
+- Password: example
+- Database: dns
 
 
 ## Configuration parameters
@@ -103,6 +118,11 @@ The parameter `-a` is used to specify a custom IP-Address.
 java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -a 0.0.0.0
 ```
 
+The parameter `--testing` is used to enable testmode, which disables accessing of external resources which cause errors in the CI-Pipeline.
+```bash
+java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER --testing
+``` 
+Internally, this sets a parameter in the ```DNS_SERVER``` class and can be accessed by calling the ```getTestingStatus``` function.
 
 ### DNS-Server Config file
 If a file named `config.properties` exists, it can be used to define a new default port and IP-Address.
@@ -131,6 +151,6 @@ Finally, you can configure the inital state fo the Database by mounting scripts 
 
 # Changelog
 ```diff
-~ CacheConnectionProvider 
-~ Cache implemented using a PostgreSQL Server
+~ Enabled Pipeline testing using Unit- and Blackbox-Tests
+~ Added argument to enable testing Mode
 ```
