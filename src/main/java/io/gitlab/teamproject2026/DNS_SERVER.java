@@ -13,7 +13,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
-import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 import java.sql.SQLException;
 
@@ -91,7 +91,7 @@ public class DNS_SERVER {
         }
 
         // esthablish Cache Connection
-        CacheHandler cacheHandler;
+        CacheHandler cacheHandler = null;
         if (!testing){
             try{
                 cacheHandler = new CacheHandler( new CacheConnectionProvider());
