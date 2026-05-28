@@ -28,6 +28,13 @@ public class DNS_SERVER {
     //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
     private static boolean testing=false;
 
+    private record dnsPayload(
+        LinkedList<ResourceRecord> answer,
+        LinkedList<ResourceRecord> authority,
+        LinkedList<ResourceRecord> additional,
+        LinkedList<QuestionSection> notCached
+    ){};
+
     static void main(String[] args) throws Exception {
 
         // Layer 1: defaults
@@ -145,74 +152,27 @@ public class DNS_SERVER {
 
                 // Respond: If requested RR is cached, return RR else return mock Response
 
-                // Sections to be filled
-                LinkedList<ResourceRecord> answer = new LinkedList<>();
-                LinkedList<ResourceRecord> authority = new LinkedList<>();
-                LinkedList<ResourceRecord> additional= new LinkedList<>();
-                LinkedList<QuestionSection> notCached = new LinkedList<>();
-
+                dnsPayload payload = new dnsPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), new LinkedList<>());
 
                 if (!testing){
-                    try{
-
-
-                        // for each query, check if the requested RR is cached, if not add to the Queries sent to the Stubresolver/Mockresolver
-                        for (QuestionSection request:oopPacket.getQuestionSections()) {
-                            ResourceRecord[] cachedRecords = cacheHandler.lookup(String.join(".",request.getName()), request.getQtype());
-
-                            // if RRs are cached, add them to the corresponding sections, else add them to a non resolved list to be resolved later
-                            if (cachedRecords.length != 0) {
-                                for (ResourceRecord record: cachedRecords){
-                                    switch (record.getType()){
-                                        case NS : {authority.add(record);
-                                            
-                                            // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
-                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
-                                                additional.add(adress);
-                                            }
-                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
-                                                additional.add(adress);
-                                            }
-                                        };
-                                        case MX : {answer.add(record);
-                                            // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
-                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
-                                                additional.add(adress);
-                                            }
-                                            for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
-                                                additional.add(adress);
-                                            }
-                                        };
-                                        case A,AAAA,TXT,SOA,PTR,CNAME : answer.add(record);
-                                    }
-                                }
-
-                            } else {
-                                notCached.add(request);
-                            }
-
-
-                        }
-                    } catch (SQLException e) {
-                        System.err.println("Connection to Server couldn't be esthablished. Assume internal Server error. Is the Postgres-Docker running?");
-                        throw e;
-                    }
+                    // query cache and safe results in payload
+                    payload = queryCache(oopPacket, cacheHandler);
                 } else {
-                    // if testing is active, do not check cache
+                    // if testing is active, do not check cache 
                     for (QuestionSection request:oopPacket.getQuestionSections()) {
-                        notCached.add(request);
+                        payload.notCached.add(request);
                     };
                 }
 
-
+                
                 // MockResponder/ Stubresolver should only be queried if there are queries not answered by the cache
-                if (notCached.size() > 0){
+                if (payload.notCached.size() > 0){
 
                     // Build packet to be send to either Mock resolver or Stub resolver
                     // The ID should not have to be changed, as the Server should not recieve any other packages using this ID from the original sender
                     DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
-                    uncachedOOPacket.setQuestionSections(notCached.toArray(new QuestionSection[notCached.size()]));
-                    uncachedOOPacket.setQdcount(notCached.size());
+                    uncachedOOPacket.setQuestionSections(payload.notCached.toArray(new QuestionSection[payload.notCached.size()]));
+                    uncachedOOPacket.setQdcount(payload.notCached.size());
 
 
                     // Get Mock response, later needs to be stub response
@@ -228,33 +188,18 @@ public class DNS_SERVER {
 
                     // extracting and adding to answers
                     for (ResourceRecord answers:mockResponse.getAnswerSections()){
-                        answer.add(answers);
+                        payload.answer.add(answers);
                     }
                     for (ResourceRecord authorities:mockResponse.getAuthoritySections()){
-                        authority.add(authorities);
+                        payload.authority.add(authorities);
                     }
                     for (ResourceRecord additionals:mockResponse.getAdditionalSections()){
-                        additional.add(additionals);
+                        payload.additional.add(additionals);
                     }
                 }
 
                 //Build response packet
-                DNSPacket response = new DNSPacket();
-                response.setId(oopPacket.getId());
-                response.setQr(true);
-                response.setOpcode(oopPacket.getOpcode());
-                response.setAa(false); // cannot be authoratative as our server doesn't have a zone just yet
-                response.setTc(false); // checked later on again to make sure the package doesn't exceed max udp payload size
-                response.setRa(true); // at this point our server handels every request recursively
-                response.setZ((byte)0);
-                response.setQdcount(oopPacket.getQdcount());
-                response.setAncount(answer.size());
-                response.setNscount(authority.size());
-                response.setArcount(additional.size());
-                response.setQuestionSections(oopPacket.getQuestionSections());
-                response.setAnswerSections(answer.toArray(new ResourceRecord[answer.size()]));
-                response.setAuthoritySections(authority.toArray(new ResourceRecord[authority.size()]));
-                response.setAdditionalSections(additional.toArray(new ResourceRecord[additional.size()]));
+                DNSPacket response = buildResponsePacket(payload, oopPacket);
 
                 // convert response packet to Bytes
                 byte[] byteResponse = response.toBytes();
@@ -297,4 +242,95 @@ public class DNS_SERVER {
     public static boolean getTestingStatus(){
         return testing;
     }
+
+    /** Queries the Cache using a given cacheHandler and a dns query. If the Cache contains the requested records, it returns them in the corresponding section of the Record.
+     * Also Returns A and AAAA records for NS and MX records
+     * Packets that couldn't be resolved with the cache itself are stored in the notCached part of the record
+     *
+     * @param query the DNS query which is to be resolved
+     * @param cacheHandler the CacheHandler with which the function accesses teh cache
+     * @return A dnsPayload record containing the resolved Reccords and the Records that have yet to be resolved
+     * @throws SQLException if the cache cannot be accessed
+     */
+    private static dnsPayload queryCache(DNSPacket query, CacheHandler cacheHandler) throws SQLException{
+
+        LinkedList<ResourceRecord> answer = new LinkedList<>();
+        LinkedList<ResourceRecord> authority = new LinkedList<>();
+        LinkedList<ResourceRecord> additional= new LinkedList<>();
+        LinkedList<QuestionSection> notCached = new LinkedList<>();
+
+        try{
+
+
+            // for each query, check if the requested RR is cached, if not add to the Queries sent to the Stubresolver/Mockresolver
+            for (QuestionSection request:query.getQuestionSections()) {
+                ResourceRecord[] cachedRecords = cacheHandler.lookup(String.join(".",request.getName()), request.getQtype());
+
+                // if RRs are cached, add them to the corresponding sections, else add them to a non resolved list to be resolved later
+                if (cachedRecords.length != 0) {
+                    for (ResourceRecord record: cachedRecords){
+                        switch (record.getType()){
+                            case NS : {authority.add(record);
+
+                                // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
+                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
+                                    additional.add(adress);
+                                }
+                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
+                                    additional.add(adress);
+                                }
+                            };
+                            case MX : {answer.add(record);
+                                // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
+                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
+                                    additional.add(adress);
+                                }
+                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
+                                    additional.add(adress);
+                                }
+                            };
+                            case A,AAAA,TXT,SOA,PTR,CNAME : answer.add(record);
+                        }
+                    }
+                } else {
+                    notCached.add(request);
+                }
+
+
+            }
+        } catch (SQLException e) {
+            System.err.println("Connection to Server couldn't be esthablished. Assume internal Server error. Is the Postgres-Docker running?");
+            throw e;
+        }
+
+        return new dnsPayload(answer, authority, additional, notCached);
+    }
+
+    /** Build a response packet given a Payload for a given query
+     *
+     * @param payload The Payload that is to be put into the response packet
+     * @param query The Query that is to be answered
+     * @return a DNS-Packet in oop format
+     */
+    private static DNSPacket buildResponsePacket(dnsPayload payload, DNSPacket query){
+        DNSPacket response = new DNSPacket();
+        response.setId(query.getId());
+        response.setQr(true);
+        response.setOpcode(query.getOpcode());
+        response.setAa(false); // cannot be authoratative as our server doesn't have a zone just yet
+        response.setTc(false); // checked later on again to make sure the package doesn't exceed max udp payload size
+        response.setRa(true); // at this point our server handels every request recursively
+        response.setZ((byte)0);
+        response.setQdcount(query.getQdcount());
+        response.setAncount(payload.answer.size());
+        response.setNscount(payload.authority.size());
+        response.setArcount(payload.additional.size());
+        response.setQuestionSections(query.getQuestionSections());
+        response.setAnswerSections(payload.answer.toArray(new ResourceRecord[payload.answer.size()]));
+        response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[payload.authority.size()]));
+        response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[payload.additional.size()]));
+        return response;
+    }
+
+
 }
