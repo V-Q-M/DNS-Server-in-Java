@@ -127,7 +127,7 @@ public class DNSParser{
             if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
                 int notCompressedLength = byteIndex - startIndex;
                 int pointStartIndex = getPointerTarget(bytes, byteIndex);
-                return countNameLength(bytes, pointStartIndex) + notCompressedLength; //namelength = (labels at normal place)+(labels at pointer)
+                return countNameLengthDecomp(bytes, pointStartIndex) + notCompressedLength; //namelength = (labels at normal place)+(labels at pointer)
             }
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;

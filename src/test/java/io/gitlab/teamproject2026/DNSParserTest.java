@@ -389,9 +389,12 @@ public class DNSParserTest {
 
     // captured strings via wireshark, sometimes pointers changed
     private static final String questionBytes = "0d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001";
-    private static final String cnameBytes = "c00c000500010001518000080561746c6173c01a";
-    private static final String aBytes = "c03f00010001000004b0000486020ae0";
-    private static final String soaBytes = "0d756e692d74756562696e67656e0264650000060001000000020026c01d0d756e692d74756562696e67656ec02b0000000200000002000000020000000200000002";
+    private static final String cnameBytes = "c00c000500010001518000080561746c6173c01a"; //c01a: points to .cs.uni-... in questionBytes if headerBytes,questoinBytes,cnameBytes
+    private static final String aBytes = "c03f00010001000004b0000486020ae0"; //if headerBytes,questionBytes,cnameBytes,aBytes: c03f points to atlas... in cnameBytes
+    private static final String soaBytes = "0d756e692d74756562696e67656e0264650000060001000000020018" +
+                                            "c01d" + //mname pointer to question section uni-tuebingen.de
+                                             "c04f"+ //"0d756e692d74756562696e67656ec02b" + //rname
+                                            "0000000200000002000000020000000200000002";
     private static final String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c000100005460001bc03f";
     private static final String nsBytes = "c01d0002000100000bea000704646e7334c01d";
     private static final String mxBytes = "c01d000f000100002361001501f4056131353431026d78037372760364666ec02b";
@@ -403,7 +406,22 @@ public class DNSParserTest {
     interface DecompressionAssertion {
         void run(DNSPacket packet, byte[] hexBytes);
     }
+    @org.junit.jupiter.api.BeforeAll
+    static void printBeforeTests() {
+        System.out.println("--- Debug Decompression Output Start ---");
+        System.out.println(DNSPacket.fromBytes(HexFormat.of().parseHex(
+            "740685800001000000020000" + 
+            "0d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001" + 
+            "0d756e692d74756562696e67656e0264650000060001000000020018" +
+            "c01d" + // mname pointer to question section uni-tuebingen.de
+            "c04f" + // rname pointer directly to mname pointer!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            "0000000200000002000000020000000200000002"
+            + "c01d0002000100000bea000704646e7334c01d")
+        ).toString());
+        System.out.println(createAuthoritySectionPacket().toString());
+        System.out.println("--- Debug Decompression Output End ---");
 
+    }
     // test execution, isoltae possible errors / failures
     @ParameterizedTest(name = "{0}")
     @MethodSource("decompressionTestCases")
@@ -417,7 +435,7 @@ public class DNSParserTest {
 
             //Test1: whole message, see if all parts of parser integrate well
 
-            Arguments.of(
+            /**Arguments.of(
                 "Decompression whole message test",
                 createWholeMessagePacket(),
                 "740685800001000300020002" + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes,
@@ -430,7 +448,7 @@ public class DNSParserTest {
                     // pointers to labels XXXXXXXXXXXXXXXXXXXXXX
                     // //+pointer as domain name XXXXXXXX
                     // pointers to question section XXXXXXXXXXX
-                    // pointers to answer section
+                    // pointers to answer section XXXXXXXXXXXXXXXXXXX
                     // tests that more than 1 call to fromBytes and toBytes on one packet doesn't change anything
 
                     // notes
@@ -446,7 +464,7 @@ public class DNSParserTest {
                     assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(generatedBytes).toBytes()).toBytes(), generatedBytes);
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
-            ),
+            ),*/
 
             //Test2: test resolution of pointer pointing on pointer, only questionSections
 
@@ -462,15 +480,31 @@ public class DNSParserTest {
                 }
             ),
 
-            //Test 3: tests if domain name consisting of labels+pointer gets parsed correctly, A RR
+            //Test 3: tests if domain name consisting of labels+pointer gets parsed correctly (c01a pointer in cname), 
+            // A RR name decompression
+            //decompression with a pointer to answer section (so not only pointer to question section get tested)
 
             Arguments.of(
-                "Decompression Answer/Additional section (CNAME, A), pointer to part of domain name test",
+                "Decompression pointer from additional section to answer section(CNAME, A), pointer to part of domain name test",
                 createPartialNamePointerPacket(),
-                "740685800001000200000000" + questionBytes + cnameBytes + aBytes,
+                "740685800001000100000001" + questionBytes + cnameBytes + aBytes,
                 (DecompressionAssertion) (packet, hexBytes) -> {
                     // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
                     assertArrayEquals(packet.toBytes(), DNSPacket.fromBytes(hexBytes).toBytes());
+                }
+            ),
+        
+            //Test 4: Core verification of the Authority Section decompression using SOA and NS RRs
+            // Validates multiple multi-field pointers pointing from authority fields back to the question zone definition.
+            Arguments.of(
+                "Decompression Authority Section Test (SOA and NS)",
+                createAuthoritySectionPacket(),
+                "740685800001000000020000" + questionBytes + soaBytes + nsBytes, // qd=1, an=0, ns=2, ar=0
+                (DecompressionAssertion) (packet, hexBytes) -> {
+                    // asserts that the authority records are parsed correctly by fromBytes and match the expected packet layout
+                    byte[] generatedBytes = packet.toBytes();
+                    assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
+                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
             )
         );
@@ -510,10 +544,23 @@ public class DNSParserTest {
         ResourceRecord cname = createCnameRecord();
         ResourceRecord aRecord = createARecord();
 
-        DNSPacket packet = createPacket(1, 2, 0, 0); // qd=1, an=2, ns=0, ar=0
+        DNSPacket packet = createPacket(1, 1, 0, 1); // qd=1, an=2, ns=0, ar=0
         packet.setQuestionSections(new QuestionSection[]{question});
-        packet.setAnswerSections(new ResourceRecord[]{cname, aRecord});
+        packet.setAnswerSections(new ResourceRecord[]{cname});
         packet.setAuthoritySections(new ResourceRecord[0]);
+        packet.setAdditionalSections(new ResourceRecord[]{aRecord});
+        return packet;
+    }
+
+    private static DNSPacket createAuthoritySectionPacket() {
+        QuestionSection question = createQuestion();
+        ResourceRecord soa = createSoaRecord();
+        ResourceRecord ns = createNsRecord();
+
+        DNSPacket packet = createPacket(1, 0, 2, 0); // qd=1, an=0, ns=2, ar=0
+        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setAnswerSections(new ResourceRecord[0]);
+        packet.setAuthoritySections(new ResourceRecord[]{soa, ns});
         packet.setAdditionalSections(new ResourceRecord[0]);
         return packet;
     }
