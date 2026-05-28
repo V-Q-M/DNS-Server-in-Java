@@ -13,6 +13,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 import java.sql.SQLException;
@@ -22,6 +23,7 @@ public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0"; 
+    private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol#UDP_datagram_structure
     //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
     private static boolean testing=false;
 
@@ -122,7 +124,6 @@ public class DNS_SERVER {
                         throw e;
                     }
                 }
-
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -141,24 +142,108 @@ public class DNS_SERVER {
                 DNSPacket oopPacket = DNSPacket.fromBytes(data);
                 IO.println("Assembled Packet:\n" + oopPacket);
 
-                // Return mock response here as bytes
-                byte[] response;
-                if(testing ){
-                    if(oopPacket.getQuestionSections()== null || oopPacket.getQuestionSections().length==0){
-                        throw new IllegalStateException("no question section");
+                // Respond: If requested RR is cached, return RR else return mock Response
+
+                // Sections to be filled
+                LinkedList<ResourceRecord> answer = new LinkedList<>();
+                LinkedList<ResourceRecord> authority = new LinkedList<>();
+                LinkedList<ResourceRecord> additional= new LinkedList<>();
+                LinkedList<QuestionSection> notCached = new LinkedList<>();
+
+
+                if (!testing){
+                    try{
+
+
+                        // for each query, check if the requested RR is cached, if not add to the Queries sent to the Stubresolver/Mockresolver
+                        for (QuestionSection request:oopPacket.getQuestionSections()) {
+                            ResourceRecord[] cachedRecords = cacheHandler.lookup(String.join(".",request.getName()), request.getQtype());
+
+                            // if RRs are cached, add them to the corresponding sections, else add them to a non resolved list to be resolved later
+                            if (cachedRecords.length != 0) {
+                                for (ResourceRecord record: cachedRecords){
+                                    switch (record.getType()){
+                                        case NS : authority.add(record);
+                                        case A,AAAA,MX,TXT,SOA,PTR,CNAME : answer.add(record);
+                                    }
+                                }
+
+                            } else {
+                                notCached.add(request);
+                            }
+
+
+                        }
+                    } catch (SQLException e) {
+                        System.err.println("Connection to Server couldn't be esthablished. Assume internal Server error. Is the Postgres-Docker running?");
+                        throw e;
                     }
-                    DNSPacket MockPacket= MockResponses.respond(oopPacket);
-                    response=MockPacket.toBytes();
-                    IO.println("[Router] Intercepted query locally");
                 } else {
-                    response= stubResolver.resolve(data);
+                    // if testing is active, do not check cache
+                    for (QuestionSection request:oopPacket.getQuestionSections()) {
+                        notCached.add(request);
+                    };
                 }
 
 
+                // MockResponder/ Stubresolver should only be queried if there are queries not answered by the cache
+                if (notCached.size() > 0){
+
+                    // Build packet to be send to either Mock resolver or Stub resolver
+                    // The ID should not have to be changed, as the Server should not recieve any other packages using this ID from the original sender
+                    DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
+                    uncachedOOPacket.setQuestionSections(notCached.toArray(new QuestionSection[notCached.size()]));
+                    uncachedOOPacket.setQdcount(notCached.size());
+
+
+                    // Get Mock response, later needs to be stub response
+                    DNSPacket mockResponse = MockResponses.respond(uncachedOOPacket);
+
+                    // Extract RRs from Mock Response and cache them if testing mode is not enabled
+
+                    // extracting and adding to answers
+                    for (ResourceRecord answers:mockResponse.getAnswerSections()){
+                        answer.add(answers);
+                    }
+                    for (ResourceRecord authorities:mockResponse.getAuthoritySections()){
+                        authority.add(authorities);
+                    }
+                    for (ResourceRecord additionals:mockResponse.getAdditionalSections()){
+                        additional.add(additionals);
+                    }
+                }
+
+                //Build response packet
+                DNSPacket response = new DNSPacket();
+                response.setId(oopPacket.getId());
+                response.setQr(true);
+                response.setOpcode(oopPacket.getOpcode());
+                response.setAa(false); // cannot be authoratative as our server doesn't have a zone just yet
+                response.setTc(false); // checked later on again to make sure the package doesn't exceed max udp payload size
+                response.setRa(true); // at this point our server handels every request recursively
+                response.setZ((byte)0);
+                response.setQdcount(oopPacket.getQdcount());
+                response.setAncount(answer.size());
+                response.setNscount(authority.size());
+                response.setArcount(additional.size());
+                response.setQuestionSections(oopPacket.getQuestionSections());
+                response.setAnswerSections(answer.toArray(new ResourceRecord[answer.size()]));
+                response.setAuthoritySections(authority.toArray(new ResourceRecord[authority.size()]));
+                response.setAdditionalSections(additional.toArray(new ResourceRecord[additional.size()]));
+
+                // convert response packet to Bytes
+                byte[] byteResponse = response.toBytes();
+
+                // if DNS-Packet exceeds maximum UDP Payload size, truncate it and set the tc flag
+                if (byteResponse.length >= UDP_MAX_PAYLOAD_SIZE){
+                     System.arraycopy(byteResponse, 0, byteResponse, 0, UDP_MAX_PAYLOAD_SIZE);
+                     response.setTc(true);
+                }
+
                 // Build UDP packet
                 DatagramPacket responsePacket = new DatagramPacket(
-                        response,
-                        response.length,
+                        byteResponse,
+                        byteResponse.length,
                         clientAddress,
                         clientPort
                 );
@@ -167,7 +252,7 @@ public class DNS_SERVER {
                 socket.send(responsePacket);
 
                 IO.println("Send response to: " + clientAddress + ":" + clientPort);
-                IO.println("OUT: " + toHex(response));
+                IO.println("OUT: " + toHex(byteResponse));
                 IO.println();
             }
         }
