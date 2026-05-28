@@ -77,7 +77,7 @@ public class DNS_SERVER {
 
         // esthablish Cache Connection
         CacheHandler cacheHandler;
-        if (true /** Later to be replaced with testing flag */){
+        if (!testing){
             try{
                 cacheHandler = new CacheHandler( new CacheConnectionProvider());
             } catch (ClassNotFoundException e) {
@@ -98,14 +98,15 @@ public class DNS_SERVER {
 
             // Server loop
             while (true) {
-                // validate Cache, if Cache cannot be validated, assume internal server error and crash
-                try{
-                    cacheHandler.deleteExpired();
-                } catch (SQLException e) {
-                    IO.println("Connection to cache Server has been lost, assume internal Server error");
-                    throw e;
+                // validate Cache, if Cache cannot be validated, assume internal server error and crash. Disable during testing
+                if (!testing){
+                    try{
+                        cacheHandler.deleteExpired();
+                    } catch (SQLException e) {
+                        IO.println("Connection to cache Server has been lost, assume internal Server error");
+                        throw e;
+                    }
                 }
-
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
