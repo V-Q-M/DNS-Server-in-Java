@@ -76,7 +76,7 @@ public class DNS_SERVER {
         }
 
         // esthablish Cache Connection
-        CacheHandler cacheHandler;
+        CacheHandler cacheHandler = null;
         if (!testing){
             try{
                 cacheHandler = new CacheHandler( new CacheConnectionProvider());
