@@ -39,6 +39,9 @@ public class ResourceRecord {
                 int rnameIndex = byteIndex + DNSParser.countNameLength(bytes, byteIndex);
                  this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex) + DNSParser.countNameLengthDecomp(bytes, rnameIndex) + 20; // mname.length + rname.length + 20 bytes (serial,...:fixed length)
             }  
+            else if (this.type == RRType.MX){
+                 this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex+2) +2; // first 2 bytes: preference + mxdomainname.length 
+            }  
             else { this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex);}
         }
         else { this.rdlength = rdlength;} 

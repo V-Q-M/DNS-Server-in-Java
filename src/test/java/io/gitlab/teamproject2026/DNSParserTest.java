@@ -162,26 +162,7 @@ public class DNSParserTest {
         assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getMinimum());
     }
 
-    /**
-     * genrerates RR with values 
-     * @param qname query domain name
-     * @param qtype queried type of RR
-     * @param ttl
-     * @param rdata RData of specific RR type e.g. RDataMX
-     * @param rdlength Rdlength of rdata
-     * @return new ResourceRecord
-     */
-    public static ResourceRecord createRr(String[] qname, RRType qtype, int ttl, RData rdata, int rdlength) {
-        ResourceRecord rr = new ResourceRecord();
-        rr.setName(qname);
-        rr.setType(qtype);
-        rr.setRrclass(RRClass.IN);
-        rr.setTtl(ttl);
-        rr.setRdata(rdata);
-        rr.setRdlength(rdlength);
-        return rr;
     
-    }
 
     
 
@@ -384,7 +365,7 @@ public class DNSParserTest {
 
 
 
-
+    
 
 
     // captured strings via wireshark, sometimes pointers changed
@@ -406,22 +387,7 @@ public class DNSParserTest {
     interface DecompressionAssertion {
         void run(DNSPacket packet, byte[] hexBytes);
     }
-    @org.junit.jupiter.api.BeforeAll
-    static void printBeforeTests() {
-        System.out.println("--- Debug Decompression Output Start ---");
-        System.out.println(DNSPacket.fromBytes(HexFormat.of().parseHex(
-            "740685800001000000020000" + 
-            "0d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001" + 
-            "0d756e692d74756562696e67656e0264650000060001000000020018" +
-            "c01d" + // mname pointer to question section uni-tuebingen.de
-            "c04f" + // rname pointer directly to mname pointer!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            "0000000200000002000000020000000200000002"
-            + "c01d0002000100000bea000704646e7334c01d")
-        ).toString());
-        System.out.println(createAuthoritySectionPacket().toString());
-        System.out.println("--- Debug Decompression Output End ---");
-
-    }
+    
     // test execution, isoltae possible errors / failures
     @ParameterizedTest(name = "{0}")
     @MethodSource("decompressionTestCases")
@@ -477,6 +443,8 @@ public class DNSParserTest {
                     // 3 times same question section
                     // pointer on pointer resolution (pointer to the full domain name)
                     assertArrayEquals(packet.toBytes(), DNSPacket.fromBytes(hexBytes).toBytes());
+                    // asserts that message including question sections is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
+                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
             ),
 
@@ -489,6 +457,8 @@ public class DNSParserTest {
                 createPartialNamePointerPacket(),
                 "740685800001000100000001" + questionBytes + cnameBytes + aBytes,
                 (DecompressionAssertion) (packet, hexBytes) -> {
+                    // asserts that message including cname and A RR are parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
+                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                     // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
                     assertArrayEquals(packet.toBytes(), DNSPacket.fromBytes(hexBytes).toBytes());
                 }
@@ -506,6 +476,7 @@ public class DNSParserTest {
                     byte[] generatedBytes = packet.toBytes();
                     // asserts that the authority records are parsed correctly by fromBytes and then converted to toBytes as expected:
                     assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
+                    // asserts that message including soa and ns RR is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
             ),
@@ -517,8 +488,25 @@ public class DNSParserTest {
                 "740685800001000100000001" + questionBytes + cnameBytes + ptrBytes, //qd=1,an=1(cname),ar=0,ad=1(ptr)
                 (DecompressionAssertion) (packet, hexBytes) -> {
                     byte[] generatedBytes = packet.toBytes();
-                    // asserts that ptr RR is parsed correctly by fromBytes and then converted to toBytes as expected:
+                    // asserts that message including ptr RR is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
+                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
+                    // asserts that message including ptr RR is parsed correctly by fromBytes and then converted to toBytes as expected:
                      assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
+                }
+            ),
+
+            // Test 6: test if mx RR in answer section gets decompressed and parsed correctly
+            Arguments.of(
+                "Decompression MX Record Target Suffix Test",
+                createMxSectionPacket(),
+                // Header (qd=1, an=1, ns=0, ar=0) + Question + MX Record
+                "740685800001000100000000" + questionBytes + mxBytes,
+                (DecompressionAssertion) (packet, hexBytes) -> {
+                    byte[] generatedBytes = packet.toBytes();
+                    // asserts that message including mx RR is parsed correctly by fromBytes and then converted to toBytes as expected:
+                    assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
+                    // asserts that message including mx RR is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
+                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
             )
         );
@@ -592,6 +580,18 @@ public class DNSParserTest {
         return packet;
     }
 
+    private static DNSPacket createMxSectionPacket() {
+    QuestionSection question = createQuestion();
+    ResourceRecord mx = createMxRecord();
+
+    DNSPacket packet = createPacket(1, 1, 0, 0); // qd=1, an=1, ns=0, ar=0
+    packet.setQuestionSections(new QuestionSection[]{question});
+    packet.setAnswerSections(new ResourceRecord[]{mx});
+    packet.setAuthoritySections(new ResourceRecord[0]);
+    packet.setAdditionalSections(new ResourceRecord[0]);
+    return packet;
+    }
+
         //helper mehtods to avoid repetitive creation of same RRs and of packet creation
 
     private static DNSPacket createPacket(int qd, int an, int ns, int ar) {
@@ -658,4 +658,24 @@ public class DNSParserTest {
         return createRr(new String[]{"uni-tuebingen", "de"}, RRType.MX, 9057, mxData, mxData.toBytes().length);
     }
 
+    /**
+     * genrerates RR with values 
+     * @param qname query domain name
+     * @param qtype queried type of RR
+     * @param ttl
+     * @param rdata RData of specific RR type e.g. RDataMX
+     * @param rdlength Rdlength of rdata
+     * @return new ResourceRecord
+     */
+    public static ResourceRecord createRr(String[] qname, RRType qtype, int ttl, RData rdata, int rdlength) {
+        ResourceRecord rr = new ResourceRecord();
+        rr.setName(qname);
+        rr.setType(qtype);
+        rr.setRrclass(RRClass.IN);
+        rr.setTtl(ttl);
+        rr.setRdata(rdata);
+        rr.setRdlength(rdlength);
+        return rr;
+    
+    }
 }
