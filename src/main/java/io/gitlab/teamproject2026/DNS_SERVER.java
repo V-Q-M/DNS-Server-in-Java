@@ -200,6 +200,12 @@ public class DNS_SERVER {
                     DNSPacket mockResponse = MockResponses.respond(uncachedOOPacket);
 
                     // Extract RRs from Mock Response and cache them if testing mode is not enabled
+                    // caching
+                    if (!testing){
+                        cacheHandler.insertAll(mockResponse.getAnswerSections());
+                        cacheHandler.insertAll(mockResponse.getAuthoritySections());
+                        cacheHandler.insertAll(mockResponse.getAdditionalSections());
+                    }
 
                     // extracting and adding to answers
                     for (ResourceRecord answers:mockResponse.getAnswerSections()){
