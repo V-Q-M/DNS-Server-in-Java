@@ -190,8 +190,10 @@ public class DNS_SERVER {
 
                 // if DNS-Packet exceeds maximum UDP Payload size, truncate it and set the tc flag
                 if (byteResponse.length >= UDP_MAX_PAYLOAD_SIZE){
-                     System.arraycopy(byteResponse, 0, byteResponse, 0, UDP_MAX_PAYLOAD_SIZE);
-                     response.setTc(true);
+                    byte[] byteResponsetruncated = new byte[UDP_MAX_PAYLOAD_SIZE];
+                    response.setTc(true);
+                    System.arraycopy(response.toBytes(), 0, byteResponsetruncated, 0, UDP_MAX_PAYLOAD_SIZE);
+                    byteResponse = byteResponsetruncated;
                 }
 
                 // Build UDP packet
