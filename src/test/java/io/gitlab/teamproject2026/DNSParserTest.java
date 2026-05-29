@@ -184,9 +184,9 @@ public class DNSParserTest {
                                             "c01d" + //mname pointer to question section uni-tuebingen.de
                                              "c04f"+ //"0d756e692d74756562696e67656ec02b" + //rname
                                             "0000000200000002000000020000000200000002";
-    private static final String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c0001000054600002c03f";
-    private static final String nsBytes = "c01d0002000100000bea000704646e7334c01d";
-    private static final String mxBytes = "c01d000f000100002361001501f4056131353431026d78037372760364666ec02b";
+    private static final String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c0001000054600002c03f"; //c03f at the end is pointer: points to atlas... in cnameBytes
+    private static final String nsBytes = "c01d0002000100000bea000704646e7334c01d"; //c01d: pointer to uni-tuebingen.de. in question section
+    private static final String mxBytes = "c01d000f000100002361001501f4056131353431026d78037372760364666ec02b"; //c02b: pointer to ".de." in question section
 
     /**
      * interface used for assertions
@@ -196,13 +196,23 @@ public class DNSParserTest {
         void run(DNSPacket packet, byte[] hexBytes);
     }
     
-    // test execution, isoltae possible errors / failures of SubTests
+    // test execution, isoltae possible errors / failures of SubTests (TestCases)
     @ParameterizedTest(name = "{0}")
     @MethodSource("decompressionTestCases")
     void testDnsDecompression(String testName, DNSPacket packet, String completeBytes, DecompressionAssertion assertion) {
         byte[] hexBytes = HexFormat.of().parseHex(completeBytes);
         assertion.run(packet, hexBytes);
     }
+
+    // standard assertions used by TestCases $1,2,3,4,5
+    private static final DecompressionAssertion standardAssertions = (packet, hexBytes) -> {
+        DNSPacket parsed = DNSPacket.fromBytes(hexBytes);
+        // asserts that message including cname and A RR are parsed correctly by fromBytes
+        // due to different hashes it's not possible to compare the actual packet and the parsed but instead stringCompare
+        assertEquals(packet.toString(), parsed.toString());
+        // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
+        assertArrayEquals(packet.toBytes(), parsed.toBytes());
+    };
 
     private static Stream<Arguments> decompressionTestCases() {
         return Stream.of(
@@ -212,11 +222,12 @@ public class DNSParserTest {
             Arguments.of(
                 "Decompression whole message test",
                 createWholeMessagePacket(),
-                "740685800001000300020002" + questionBytes + cnameBytes + aBytes + mxBytes + 
+                "740685800001000300020002" + //header bytes, slightly different in every TestCase (different qdcount, ancount,...)
+                questionBytes + cnameBytes + aBytes + mxBytes + 
                 "0d756e692d74756562696e67656e0264650000060001000000020018" +
                                             "c01d" + //mname pointer to question section uni-tuebingen.de
-                                             "c01d"+  //rname, other 
-                                            "0000000200000002000000020000000200000002" //soaBytes, other rname pointer compared to Test4 necessary due to other RRs in between
+                                             "c01d"+  //rname
+                                            "0000000200000002000000020000000200000002" //soaBytes (4 lines), other rname pointer compared to Test4 necessary due to other RRs in between
                                              + nsBytes + cnameBytes + ptrBytes,
                 (DecompressionAssertion) (packet, hexBytes) -> {   
                     byte[] generatedBytes = packet.toBytes();
@@ -236,13 +247,7 @@ public class DNSParserTest {
                 createPointerOnPointerPacket(),
                 "740685800003000000000000" + questionBytes + "c00c00010001" + "c03300010001", //c00c: pointer on domain name in questionBytes, c033: pointer on pointer in question "c00c..."
                                                                             //3 times question section with same contents but different pointers
-                (DecompressionAssertion) (packet, hexBytes) -> {
-                    // pointer on pointer resolution (pointer to the full domain name)
-                    // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
-                    assertArrayEquals(packet.toBytes(), DNSPacket.fromBytes(hexBytes).toBytes());
-                    // asserts that message including question sections is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
-                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
-                }
+                standardAssertions
             ),
 
             //-------------------TestCase$2: tests if domain name consisting of labels+pointer gets parsed correctly ----------------------------------------
@@ -252,31 +257,20 @@ public class DNSParserTest {
             Arguments.of(
                 "Decompression pointer from additional section to answer section(CNAME, A), pointer to part of domain name test",
                 createPartialNamePointerPacket(),
-                "740685800001000100000001" + questionBytes + cnameBytes + aBytes,
-                (DecompressionAssertion) (packet, hexBytes) -> {
-                    // asserts that message including cname and A RR are parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
-                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
-                    // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
-                    assertArrayEquals(packet.toBytes(), DNSPacket.fromBytes(hexBytes).toBytes());
-                }
+                "740685800001000100000001" + questionBytes + cnameBytes + aBytes, // qd=1, an=1, ns=0, ar=1
+                                                                                //partial pointer from cname to question section, pointer from a to cname
+                standardAssertions
             ),
         
             //---------------------TestCase$3: test if names in authority section get parsed correctly---------------------------------------
             // soa and ns RR
-            // pointer as rname points into OWN RR to mname
-            //pointer to section other than question section (authority section)
-
+            //pointer to section other than question section (authority section): from rname to mname 
             Arguments.of(
-                "Decompression Authority Section Test (SOA and NS)",
+                "Decompression authority section test (SOA and NS)",
                 createAuthoritySectionPacket(),
                 "740685800001000000020000" + questionBytes + soaBytes + nsBytes, // qd=1, an=0, ns=2, ar=0
-                (DecompressionAssertion) (packet, hexBytes) -> {
-                    byte[] generatedBytes = packet.toBytes();
-                    // asserts that the authority records are parsed correctly by fromBytes and then converted to toBytes as expected:
-                    assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
-                    // asserts that message including soa and ns RR is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
-                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
-                }
+                                                                                // pointer as rname points into OWN RR to mname
+                standardAssertions
             ),
 
             //---------------------- TestCase$4: test if ptr RR in additional section gets decompressed and parsed correctly------------------------------------------------------
@@ -284,29 +278,16 @@ public class DNSParserTest {
                 "Decompression PTR",
                 createPtrSectionPacket(),
                 "740685800001000100000001" + questionBytes + cnameBytes + ptrBytes, //qd=1,an=1(cname),ar=0,ad=1(ptr)
-                (DecompressionAssertion) (packet, hexBytes) -> {
-                    byte[] generatedBytes = packet.toBytes();
-                    // asserts that message including ptr RR is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
-                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
-                    // asserts that message including ptr RR is parsed correctly by fromBytes and then converted to toBytes as expected:
-                     assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
-                }
+                standardAssertions
             ),
 
             //--------------------------- TestCase$5: test if mx RR in answer section gets decompressed and parsed correctly----------------------------------------
 
             Arguments.of(
-                "Decompression MX Record Target Suffix Test",
+                "Decompression MX record test",
                 createMxSectionPacket(),
-                // Header (qd=1, an=1, ns=0, ar=0) + Question + MX Record
-                "740685800001000100000000" + questionBytes + mxBytes,
-                (DecompressionAssertion) (packet, hexBytes) -> {
-                    byte[] generatedBytes = packet.toBytes();
-                    // asserts that message including mx RR is parsed correctly by fromBytes and then converted to toBytes as expected:
-                    assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
-                    // asserts that message including mx RR is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
-                    assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
-                }
+                "740685800001000100000000" + questionBytes + mxBytes, //qd=1,an=1(mx),ar=0,ad=0
+                standardAssertions
             )
         );
     }
