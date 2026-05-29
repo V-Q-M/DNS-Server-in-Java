@@ -162,210 +162,18 @@ public class DNSParserTest {
         assertEquals(2, ((RDataSOA) resourceRecord.getRdata()).getMinimum());
     }
 
-    
-
-    
-
-    @Test
-
-    void decompressionWholeMessageTest() {
-
-    
-        //tests:
-        // decompression for all Recource Record types having RData that can be compressed (fromBytes function)
-        // decompression in ResourceRecord name of A record
-        // decompression of message with multiple RRs
-        // pointers to full domain names XXXXXXXXXXXXX
-        // pointers to labels
-        // //+pointer as domain name XXXXXXXX
-        // pointers to question section XXXXXXXXXXX
-        // pointers to answer section
-        // tests that more than 1 call to fromBytes and toBytes on one packet doesn't change anything
-
-        //notes
-        // on modifying the dns packet: 
-        //definitely adjust header fields (qdcount, ancount,...) in constructed RR and headerBytes
-        //depending on changes: adjust pointers in (all) RRs, QuestionSections
-        // in general: the an-, ar-, adsections are not necessarily connected to the question and the types in those sections don't necessarily make sense
-    
-        QuestionSection question = new QuestionSection();
-        question.setName(new String[]{"kn-mattermost","cs","uni-tuebingen", "de"});
-        question.setQtype(RRType.A);
-        question.setQclass(RRClass.IN);
-        String questionBytes = "0d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e0264650000010001";
-
-        //cname RR:
-        RDataCNAME cnameData = new RDataCNAME();
-        cnameData.setCname(new String[]{"atlas","cs", "uni-tuebingen", "de"});
-
-        ResourceRecord cname = createRr(
-        new String[]{"kn-mattermost", "cs", "uni-tuebingen", "de"}, 
-        RRType.CNAME, 
-        86400,
-        cnameData,
-        27);
-
-        String cnameBytes = "c00c000500010001518000080561746c6173c01a"; //captured bytes with pointers
 
 
-        // A RR:
-        RDataA cnameDataARR = new RDataA();
-        cnameDataARR.setAddress(new byte[]{(byte) 134, (byte) 2, (byte) 10, (byte) 224});
+    //----------------------DECOMPRESSION TESTS-----------------------------------------------------------
 
-        ResourceRecord a = createRr(new String[]{"atlas","cs", "uni-tuebingen", "de"},
-        RRType.A,
-        1200,
-        cnameDataARR,
-        4);
+    // decompression for all Resource Record types having RData that can be compressed and A RRs (fromBytes function)
 
-        String aBytes = "c03f00010001000004b0000486020ae0" ; //captured bytes
+    // notes
+    // on modifying the dns packet: 
+    // definitely adjust header fields (qdcount, ancount,...) in constructed RR and headerBytes
+    // depending on changes: adjust pointers in (all) RRs, QuestionSections
+    // in general: the an-, ar-, adsections are not necessarily connected to the question and the types in those sections don't necessarily make sense
 
-
-        //soa RR:
-        RDataSOA soaData = new RDataSOA();
-        soaData.setMname(new String[] {"uni-tuebingen", "de"});
-        soaData.setRname(new String[] {"uni-tuebingen", "de"});
-        soaData.setSerial(2);
-        soaData.setRefresh(2);
-        soaData.setRetry(2);
-        soaData.setExpire(2);
-        soaData.setMinimum(2);
-        ResourceRecord soa = createRr(new String[]{"uni-tuebingen", "de"},
-        RRType.SOA,
-        2,
-        soaData,
-        soaData.toBytes().length);
-        //hex version of soa record
-        String soaBytes = "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (name)
-            + "0006" // SOA (type)
-            + "0001" // IN (class)
-            + "00000002" // 2s (ttl)
-            + "0026" // 38 (rdlength) 
-            + "c01d" // uni-tuebingen.de (Mname), completely compressed
-            + "0d756e692d74756562696e67656ec02b" // uni-tuebingen.de (Rname), only ".de" compressed
-            + "00000002" // 2 (serial)
-            + "00000002" // 2 (refresh)
-            + "00000002" // 2 (retry)
-            + "00000002" // 2 (expire)
-            + "00000002"; // 2 (minimum)
-
-
-        // ptr RR
-        RDataPTR ptrData = new RDataPTR();
-        ptrData.setPtrdname(new String[]{"atlas", "cs", "uni-tuebingen", "de"});
-
-        ResourceRecord ptr = createRr(
-        new String[]{"224", "10", "2", "134", "in-addr", "arpa"},
-        RRType.PTR,
-        21600,
-        ptrData,
-        ptrData.toBytes().length);
-
-        String ptrBytes = "0332323402313001320331333407696e2d61646472046172706100000c000100005460001bc03f"; //pointer to atlas.... in cname at the end
-
-
-        //NS RR
-        RDataNS nsData = new RDataNS();
-        nsData.setNsdname(new String[]{"dns4", "uni-tuebingen", "de"});
-        ResourceRecord ns = createRr(
-        new String[]{"uni-tuebingen", "de"},
-        RRType.NS,
-        3050,
-        nsData,
-        nsData.toBytes().length);
-        String nsBytes = "c01d0002000100000bea000704646e7334c01d";
-
-        RDataMX mxData = new RDataMX();
-        mxData.setPreference(500);
-        mxData.setExchange(new String[]{"a1541", "mx", "srv", "dfn", "de"});
-        ResourceRecord mx = createRr(
-        new String[]{"uni-tuebingen", "de"},
-        RRType.MX,
-        9057,
-        mxData,
-        mxData.toBytes().length);
-        String mxBytes = "c01d000f000100002361001501f4056131353431026d78037372760364666ec02b";
-
-
-        // Build packet
-        DNSPacket packet = new DNSPacket();
-
-        packet.setId(new byte[]{0x74, 0x06});
-        packet.setQr(true);
-        packet.setOpcode(OpCode.QUERY);
-        packet.setAa(true);
-        packet.setTc(false);
-        packet.setRd(true);
-        packet.setRa(true);
-        packet.setRcode(RCode.NOERROR);
-        packet.setQdcount(1);
-        packet.setAncount(3);
-        packet.setNscount(2);
-        packet.setArcount(2);
-        String headerBytes = "740685800001000300020002";
-        packet.setQuestionSections(new QuestionSection[]{question});
-        packet.setAnswerSections(new ResourceRecord[]{cname, a, mx});
-
-        packet.setAuthoritySections(new ResourceRecord[]{soa, ns});
-        packet.setAdditionalSections(new ResourceRecord[]{cname, ptr});
-
-        byte[] bytes = packet.toBytes();
-        //System.out.println(DNSPacket.fromBytes(bytes));
-
-
-        assertArrayEquals(bytes, DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes)).toBytes());
-        //test that also multiple parsings toBytes/fromBytes change nothing
-        assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(bytes).toBytes()).toBytes(), bytes);
-        //System.out.println(DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes)).toString());
-        
-        assertEquals(packet.toString(), DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes)).toString());
-    }
-
-
-    @Test
-    void decompressionMultipleQuestionsPointerOnPointer() {
-        QuestionSection question = new QuestionSection();
-        question.setName(new String[]{"kn-mattermost","cs","uni-tuebingen", "de"});
-        question.setQtype(RRType.A);
-        question.setQclass(RRClass.IN);
-        String questionBytes1 = "0d6b6e2d6d61747465726d6f73740263730d756e692d74756562696e67656e02646500" + //kn-mattermost... qname
-                                "00010001";   // qtype, qclass
-                                // this Byte string was aptured via wireshark
-        String questionBytes2 = "c00c00010001"; //points to domain name in questionBytes1, manually created byte string
-        String questionBytes3 = "c03300010001"; //Points to pointer in questoinBytes2 (pointer pointing to another pointer pointing to the domain name)
-                                                // manually created byte string
-        DNSPacket packet = new DNSPacket();
-
-        packet.setId(new byte[]{0x74, 0x06});
-        packet.setQr(true);
-        packet.setOpcode(OpCode.QUERY);
-        packet.setAa(true);
-        packet.setTc(false);
-        packet.setRd(true);
-        packet.setRa(true);
-        packet.setRcode(RCode.NOERROR);
-        packet.setQdcount(3);
-        packet.setAncount(0);
-        packet.setNscount(0);
-        packet.setArcount(0);
-        String headerBytes = "74068580" + 
-                            "0003000000000000"; //qdcount, ancont, nscount, arcount: each 2 bytes
-        packet.setQuestionSections(new QuestionSection[]{question, question, question});
-        packet.setAnswerSections(new ResourceRecord[0]); // set on empty array because null pointer exception otherwise in toBytes
-        packet.setAuthoritySections(new ResourceRecord[0]);
-        packet.setAdditionalSections(new ResourceRecord[0]);
-
-        byte[] bytes = packet.toBytes();
-        //asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
-        // 3 times same question section
-        // pointer on pointer resolution (pointer to the full domain name)
-        assertArrayEquals(bytes, DNSPacket.fromBytes(HexFormat.of().parseHex(headerBytes + questionBytes1 + questionBytes2 + questionBytes3)).toBytes());
-       ////////////////////////string convert nur from bytes
-    }
-
-
-
-    
 
 
     // captured strings via wireshark, sometimes pointers changed
@@ -388,7 +196,7 @@ public class DNSParserTest {
         void run(DNSPacket packet, byte[] hexBytes);
     }
     
-    // test execution, isoltae possible errors / failures
+    // test execution, isoltae possible errors / failures of SubTests
     @ParameterizedTest(name = "{0}")
     @MethodSource("decompressionTestCases")
     void testDnsDecompression(String testName, DNSPacket packet, String completeBytes, DecompressionAssertion assertion) {
@@ -399,58 +207,47 @@ public class DNSParserTest {
     private static Stream<Arguments> decompressionTestCases() {
         return Stream.of(
 
-            //Test1: whole message, see if all parts of parser integrate well
+            //-------TestCase$0: whole message, see if big message with multiple RRs works (combination of specific tests below)------------------------------------------
 
-            /**Arguments.of(
+            Arguments.of(
                 "Decompression whole message test",
                 createWholeMessagePacket(),
-                "740685800001000300020002" + questionBytes + cnameBytes + aBytes + mxBytes + soaBytes + nsBytes + cnameBytes + ptrBytes,
-                (DecompressionAssertion) (packet, hexBytes) -> {
-                    // tests:
-                    // decompression for all Resource Record types having RData that can be compressed (fromBytes function)
-                    // decompression in ResourceRecord name of A record XXXXXXXXXXXXXXX
-                    // decompression of message with multiple RRs XXXXXXXXXXX
-                    // pointers to full domain names XXXXXXXXXXXXX
-                    // pointers to labels XXXXXXXXXXXXXXXXXXXXXX
-                    // //+pointer as domain name XXXXXXXX
-                    // pointers to question section XXXXXXXXXXX
-                    // pointers to answer section XXXXXXXXXXXXXXXXXXX
-                    // tests that more than 1 call to fromBytes and toBytes on one packet doesn't change anything
-
-                    // notes
-                    // on modifying the dns packet: 
-                    // definitely adjust header fields (qdcount, ancount,...) in constructed RR and headerBytes
-                    // depending on changes: adjust pointers in (all) RRs, QuestionSections
-                    // in general: the an-, ar-, adsections are not necessarily connected to the question and the types in those sections don't necessarily make sense
-
+                "740685800001000300020002" + questionBytes + cnameBytes + aBytes + mxBytes + 
+                "0d756e692d74756562696e67656e0264650000060001000000020018" +
+                                            "c01d" + //mname pointer to question section uni-tuebingen.de
+                                             "c01d"+  //rname, other 
+                                            "0000000200000002000000020000000200000002" //soaBytes, other rname pointer compared to Test4 necessary due to other RRs in between
+                                             + nsBytes + cnameBytes + ptrBytes,
+                (DecompressionAssertion) (packet, hexBytes) -> {   
                     byte[] generatedBytes = packet.toBytes();
-
-                    // Run structural assertions
-                    assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
-                    assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(generatedBytes).toBytes()).toBytes(), generatedBytes);
+                    // asserts that message with multiple sections including most types of RRs is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
+                    // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
+                    assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
+                    //asserts that multiple calls to fromBytes and toBytes don't corrupt parsing:
+                    assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(generatedBytes).toBytes()).toBytes(), generatedBytes);    
                 }
-            ),*/ //adjust c04f pointer!!!!!
+            ), 
 
-            //Test2: test resolution of pointer pointing on pointer, only questionSections
+            //--------------TestCase$1: test resolution of pointer pointing on pointer, only questionSections------------------------------------------
 
             Arguments.of(
                 "Decompression multiple questions, pointer on pointer test",
                 createPointerOnPointerPacket(),
-                "740685800003000000000000" + questionBytes + "c00c00010001" + "c03300010001", //c00c: pointer on domain name in questionBytes, c033: pointer on pointer in questionBytes2
+                "740685800003000000000000" + questionBytes + "c00c00010001" + "c03300010001", //c00c: pointer on domain name in questionBytes, c033: pointer on pointer in question "c00c..."
+                                                                            //3 times question section with same contents but different pointers
                 (DecompressionAssertion) (packet, hexBytes) -> {
-                    // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
-                    // 3 times same question section
                     // pointer on pointer resolution (pointer to the full domain name)
+                    // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
                     assertArrayEquals(packet.toBytes(), DNSPacket.fromBytes(hexBytes).toBytes());
                     // asserts that message including question sections is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                 }
             ),
 
-            //Test 3: tests if domain name consisting of labels+pointer gets parsed correctly (c01a pointer in cname), 
-            // A RR name, cname decompression
-            //decompression with a pointer to answer section (so not only pointer to question section get tested)
+            //-------------------TestCase$2: tests if domain name consisting of labels+pointer gets parsed correctly ----------------------------------------
+            // A RR name, cname decompression ((c01a pointer in cname))
+            //decompression with a pointer to answer section (so not only pointers to question section get tested)
 
             Arguments.of(
                 "Decompression pointer from additional section to answer section(CNAME, A), pointer to part of domain name test",
@@ -464,10 +261,11 @@ public class DNSParserTest {
                 }
             ),
         
-            //Test 4: test if names in authority section get parsed correctly
+            //---------------------TestCase$3: test if names in authority section get parsed correctly---------------------------------------
             // soa and ns RR
             // pointer as rname points into OWN RR to mname
             //pointer to section other than question section (authority section)
+
             Arguments.of(
                 "Decompression Authority Section Test (SOA and NS)",
                 createAuthoritySectionPacket(),
@@ -481,7 +279,7 @@ public class DNSParserTest {
                 }
             ),
 
-            // Test 5: test if ptr RR in additional section gets decompressed and parsed correctly
+            //---------------------- TestCase$4: test if ptr RR in additional section gets decompressed and parsed correctly------------------------------------------------------
             Arguments.of(
                 "Decompression PTR",
                 createPtrSectionPacket(),
@@ -495,7 +293,8 @@ public class DNSParserTest {
                 }
             ),
 
-            // Test 6: test if mx RR in answer section gets decompressed and parsed correctly
+            //--------------------------- TestCase$5: test if mx RR in answer section gets decompressed and parsed correctly----------------------------------------
+
             Arguments.of(
                 "Decompression MX Record Target Suffix Test",
                 createMxSectionPacket(),
