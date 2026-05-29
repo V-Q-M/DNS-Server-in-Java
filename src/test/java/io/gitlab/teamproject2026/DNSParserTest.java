@@ -164,8 +164,10 @@ public class DNSParserTest {
 
 
 
-    //----------------------DECOMPRESSION TESTS-----------------------------------------------------------
+    //========================DECOMPRESSION TESTS====================================================================================
 
+
+    //---------------------TEST WELL-FORMED MESSAGES--------------------------------------------------------------------------------
     // decompression for all Resource Record types having RData that can be compressed and A RRs (fromBytes function)
 
     // notes
@@ -458,4 +460,105 @@ public class DNSParserTest {
         return rr;
     
     }
+
+
+
+
+//----------------------------TEST MALFORMED BYTES---------------------------------------------------------------------------
+
+// ---------------------------------parseName exception tests---------------------------------------------------------------
+
+    @Test
+    void parseNameTruncatedData() {
+        // 036162: expects 3 char label but only 2 bytes label
+        byte[] truncatedBytes = HexFormat.of().parseHex("036162");
+        //asserts right type of exception
+        IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
+            DNSParser.parseName(truncatedBytes, 0);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("false label length or false pointer", exception.getMessage());
+    }
+
+    @Test
+    void parseNameCompressionLoop() {
+        // c000 is pointer to index 0 so it points to itself (compression loop)
+        byte[] loopBytes = HexFormat.of().parseHex("c000");
+        //asserts right type of exception
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            DNSParser.parseName(loopBytes, 0);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("Compression loop detected", exception.getMessage());
+    }
+
+    // ----------------------countNameLength, countNameLengthDecomp exception tests--------------------------------------
+
+    @Test
+    void countNameLengthTruncatedLabel() {
+        // labellength bigger than actual label
+        byte[] truncatedLabel = HexFormat.of().parseHex("05616263"); 
+        //asserts right type of exception
+        IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
+            DNSParser.countNameLength(truncatedLabel, 0);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("false label length or false pointer", exception.getMessage());
+    }
+
+    @Test
+    void countNameLengthDecompTruncatedLabel() {
+        // labellength bigger than actual label
+        byte[] truncatedLabel = HexFormat.of().parseHex("0A61");
+        //asserts right type of exception
+        IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
+            DNSParser.countNameLengthDecomp(truncatedLabel, 0);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("false label length or false pointer", exception.getMessage());
+    }
+
+
+
+    //-----------getPointerTarget Exception Tests------------------------------------------------------------------
+
+    @Test
+    void getPointerTargetPointerTruncated() {
+        // only first half of pointer offset
+        byte[] pointer = new byte[]{(byte) 0xC0};
+        //asserts right type of exception
+        IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
+            DNSParser.getPointerTarget(pointer, 0);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("Index 1 out of bounds for length 1", exception.getMessage()); //java bulit-in exception
+    }
+
+    @Test
+    void getPointerTargetPointerTargetOutOfBounds() {
+        // 0xff offset, array length is only 4
+        byte[] pointerTargetOutOfBounds = HexFormat.of().parseHex("c0ff1234");
+        //asserts right type of exception
+        IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
+            DNSParser.getPointerTarget(pointerTargetOutOfBounds, 0);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("pointer points out of bounds", exception.getMessage());
+    }
+
+    @Test
+    void getPointerTargetStartIndexOutOfBounds() {
+        // array length is 4, set startIndex for getPointerTarget to 4 (out of boundaries of array)
+        byte[] bytes = HexFormat.of().parseHex("c0ff1234");
+        //asserts right type of exception
+        IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
+            DNSParser.getPointerTarget(bytes, 4);
+        });
+        //asserts right exception message -> exact exception
+        assertEquals("startIndex for pointer out of bounds", exception.getMessage());
+    }
+
+
+
+
 }
