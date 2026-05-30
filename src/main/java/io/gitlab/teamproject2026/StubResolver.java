@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-
 public class StubResolver {
     public enum Status{SUCCESS, TIMEOUT, IO_ERROR}
     public enum Strategy{FAILOVER, ROUND_ROBIN}
@@ -41,6 +40,13 @@ public class StubResolver {
         this.strategy=strategy;
     }
 
+    /**
+     * Attempts to forward the query to an upstream server, 
+     * retrying according to the configured strategy.
+     * Returns SERVFAIL if all attempts fail.
+     * @param query
+     * @return response
+     */
     public byte[] resolve(byte[] query){
         int totalServers =nameServers.size();
         int maxAttempts= maxRetries+1;
@@ -57,25 +63,32 @@ public class StubResolver {
                     if (attempt+1 < maxAttempts){
                         if(strategy==Strategy.FAILOVER){
                             IO.println("[Stub] switching to next available nameserver..");
+                            startIndex=(startIndex+1)%totalServers;
                         } else{
                             IO.println("[Stub] retrying current configuration target..");
-                            startIndex=(startIndex+1)%totalServers;
                         }
                         sleep(retryDelay);
                     }}
                 case IO_ERROR -> {IO.println("[Stub] I/O error from "+server+ " after "
                         + ": "+ result.errorMessage());
                     if(attempt+1 < maxAttempts){
-                        if(strategy != Strategy.FAILOVER){
+                        if(strategy==Strategy.FAILOVER){
                             startIndex=(startIndex+1)%totalServers;}
                         sleep(retryDelay);
                     }
                 }
             }}
-        IO.println("[Stub] All "+maxAttempts+ " attemp(s) exhausted - returning SERVFAIL");
+        IO.println("[Stub] All "+maxAttempts+ " attempt(s) exhausted - returning SERVFAIL");
         return buildServFail(query);
     }
 
+    /**
+     *  Sends the query to a single server via a new UDP socket and returns the result,
+     *  verifying the response source IP and transaction ID.
+     * @param query 
+     * @param server
+     * @return
+     */
     private ForwardResult forwardOnce(byte[] query, NameServer server){
         long start= System.currentTimeMillis();
         try(DatagramSocket socket= new DatagramSocket()){socket.setSoTimeout(timeoutMs);
@@ -88,6 +101,12 @@ public class StubResolver {
             socket.receive(inPacket);
 
             byte[] response= Arrays.copyOf(inPacket.getData(), inPacket.getLength());
+            if (!inPacket.getAddress().equals(address))
+                return new ForwardResult(Status.IO_ERROR, null, "response from unexpected source", System.currentTimeMillis()- start);
+            if (response.length < 12)
+                return new ForwardResult(Status.IO_ERROR, null, "response too short", System.currentTimeMillis() - start);
+            if (response[0] != query[0] || response[1] != query[1])
+                return new ForwardResult(Status.IO_ERROR, null, "transaction ID mismatch", System.currentTimeMillis() - start);
             return new ForwardResult(Status.SUCCESS, response, null,System.currentTimeMillis()- start);
         } catch (SocketTimeoutException e){
             return new ForwardResult(Status.TIMEOUT, null, "timed out",System.currentTimeMillis()- start);
@@ -96,6 +115,12 @@ public class StubResolver {
         }
     }
 
+    /**
+     * Returns the index of the next server to try,
+     * rotating for ROUND_ROBIN or always returning 0 for FAILOVER.
+     * @param total
+     * @return
+     */
     private synchronized int nextStartIndex(int total){
         if(strategy== Strategy.ROUND_ROBIN){
             int index=RRindex;
@@ -105,11 +130,19 @@ public class StubResolver {
         return 0;
     }
 
+    /**
+     * Constructs a SERVFAIL response from the original query by setting QR=1, preserving RD and setting RCODE=2
+     * Also clears all answer/authority/additional record counts
+     * @param query
+     * @return
+     */
     static byte[] buildServFail(byte[] query){
+        if (query.length < 12)
+            throw new IllegalArgumentException("query too short to build a valid DNS response");
         byte[] r= Arrays.copyOf(query, query.length);
 
-        r[2]=(byte) (r[2] | 0x80);
-        r[3]=(byte) ((r[3] & 0xF0) | 0x02);
+        r[2]=(byte) ((r[2] & 0x01) | 0x80);
+        r[3]=(byte) 0x02; // set RA (0x82) once recursion is available
         r[6]=0;
         r[7]=0;
         r[8]=0;
@@ -119,6 +152,10 @@ public class StubResolver {
         return r;
     }
 
+    /**
+     * Pauses execution for the given duration plus a small random jitter to avoid synchronized retries.
+     * @param ms
+     */
     private static void sleep(long ms){
         if (ms <= 0) return;
         try{

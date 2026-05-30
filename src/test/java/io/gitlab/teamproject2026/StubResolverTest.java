@@ -55,7 +55,7 @@ class StubResolverTest {
         StubResolver.NameServer server= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(),
                 "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),1000,2,50,StubResolver.Strategy.FAILOVER);
-        byte[] query= new byte[]{0x12, 0x34, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        byte[] query= new byte[]{0x12, 0x34, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         byte[] response= resolver.resolve(query);
         assertNotNull(response);
         assertArrayEquals(query, response, "Should perfectly echo back the simulated success response");
@@ -91,4 +91,57 @@ class StubResolverTest {
         resolver.resolve(query);
         assertEquals(0, requestCount.get());
     }
+
+    @Test
+    void testShortResponse() throws Exception {
+        DatagramSocket shortServer = new DatagramSocket(0);
+        Thread t = new Thread(() -> {
+            byte[] buffer = new byte[1024];
+            try {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                shortServer.receive(packet);
+                byte[] shortResponse = new byte[]{0x12, 0x34, 0x00, 0x00}; // only 4 bytes, invalid DNS
+                shortServer.send(new DatagramPacket(shortResponse, shortResponse.length, packet.getAddress(), packet.getPort()));
+            } catch (Exception ignored) {}
+        });
+        t.start();
+        try {
+            StubResolver.NameServer server = new StubResolver.NameServer("127.0.0.1", shortServer.getLocalPort(), "ShortResponse");
+            StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolver.Strategy.FAILOVER);
+            byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            byte[] response = resolver.resolve(query);
+            assertEquals(0x02, response[3] & 0x0F, "Response shorter than 12 bytes should result in SERVFAIL");
+        } finally {
+            shortServer.close();
+            t.interrupt();
+        }
+    }
+
+    @Test
+    void testBadTransactionId() throws Exception {
+        DatagramSocket badIdServer = new DatagramSocket(0);
+        Thread t = new Thread(() -> {
+            byte[] buffer = new byte[1024];
+            try {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                badIdServer.receive(packet);
+                byte[] responseData = new byte[packet.getLength()];
+                System.arraycopy(packet.getData(), 0, responseData, 0, packet.getLength());
+                responseData[0] = (byte) ~responseData[0]; // flip transaction ID byte 0
+                badIdServer.send(new DatagramPacket(responseData, responseData.length, packet.getAddress(), packet.getPort()));
+            } catch (Exception ignored) {}
+        });
+        t.start();
+        try {
+            StubResolver.NameServer server = new StubResolver.NameServer("127.0.0.1", badIdServer.getLocalPort(), "BadId");
+            StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolver.Strategy.FAILOVER);
+            byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            byte[] response = resolver.resolve(query);
+            assertEquals(0x02, response[3] & 0x0F, "Transaction ID mismatch should result in SERVFAIL");
+        } finally {
+            badIdServer.close();
+            t.interrupt();
+        }
+    }
+
 }
