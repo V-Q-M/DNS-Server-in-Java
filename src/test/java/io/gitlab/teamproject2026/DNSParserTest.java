@@ -6,21 +6,12 @@ import io.gitlab.teamproject2026.model.rdata.*;
 import org.junit.jupiter.api.Test;
 import java.util.HexFormat;
 
+//for parameterized tests (testing decompression):
 import static org.junit.jupiter.api.Assertions.*;
-
-import org.junit.jupiter.api.DynamicTest;
-import org.junit.jupiter.api.TestFactory;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.DynamicTest.dynamicTest;
-
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import java.util.stream.Stream;
 
 public class DNSParserTest {
     @Test
@@ -198,15 +189,19 @@ public class DNSParserTest {
         void run(DNSPacket packet, byte[] hexBytes);
     }
     
-    // test execution, isoltae possible errors / failures of SubTests (TestCases)
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("decompressionTestCases")
+    // executes tests for the 6 SubTests 
+    @ParameterizedTest()
+    @MethodSource("decompressionSubTests")
     void testDnsDecompression(String testName, DNSPacket packet, String completeBytes, DecompressionAssertion assertion) {
+         try {
         byte[] hexBytes = HexFormat.of().parseHex(completeBytes);
         assertion.run(packet, hexBytes);
+    } catch (AssertionError e) {
+        throw new AssertionError("Failed test: " + testName, e);
+    }
     }
 
-    // standard assertions used by TestCases $1,2,3,4,5
+    // standard assertions used by SubTests 2,3,4,5,6
     private static final DecompressionAssertion standardAssertions = (packet, hexBytes) -> {
         DNSPacket parsed = DNSPacket.fromBytes(hexBytes);
         // asserts that message including cname and A RR are parsed correctly by fromBytes
@@ -216,10 +211,10 @@ public class DNSParserTest {
         assertArrayEquals(packet.toBytes(), parsed.toBytes());
     };
 
-    private static Stream<Arguments> decompressionTestCases() {
+    private static Stream<Arguments> decompressionSubTests() {
         return Stream.of(
 
-            //-------TestCase$0: whole message, see if big message with multiple RRs works (combination of specific tests below)------------------------------------------
+            //-------SubTest[1]: whole message, see if big message with multiple RRs works (combination of specific tests below)------------------------------------------
 
             Arguments.of(
                 "Decompression whole message test",
@@ -242,7 +237,7 @@ public class DNSParserTest {
                 }
             ), 
 
-            //--------------TestCase$1: test resolution of pointer pointing on pointer, only questionSections------------------------------------------
+            //--------------SubTest[2]: test resolution of pointer pointing on pointer, only questionSections------------------------------------------
 
             Arguments.of(
                 "Decompression multiple questions, pointer on pointer test",
@@ -252,7 +247,7 @@ public class DNSParserTest {
                 standardAssertions
             ),
 
-            //-------------------TestCase$2: tests if domain name consisting of labels+pointer gets parsed correctly ----------------------------------------
+            //-------------------SubTest[3]: tests if domain name consisting of labels+pointer gets parsed correctly ----------------------------------------
             // A RR name, cname decompression ((c01a pointer in cname))
             //decompression with a pointer to answer section (so not only pointers to question section get tested)
 
@@ -264,7 +259,7 @@ public class DNSParserTest {
                 standardAssertions
             ),
         
-            //---------------------TestCase$3: test if names in authority section get parsed correctly---------------------------------------
+            //---------------------SubTest[4]: test if names in authority section get parsed correctly---------------------------------------
             // soa and ns RR
             //pointer to section other than question section (authority section): from rname to mname 
             Arguments.of(
@@ -275,7 +270,7 @@ public class DNSParserTest {
                 standardAssertions
             ),
 
-            //---------------------- TestCase$4: test if ptr RR in additional section gets decompressed and parsed correctly------------------------------------------------------
+            //----------------------SubTest[5]: test if ptr RR in additional section gets decompressed and parsed correctly------------------------------------------------------
             Arguments.of(
                 "Decompression PTR",
                 createPtrSectionPacket(),
@@ -283,7 +278,7 @@ public class DNSParserTest {
                 standardAssertions
             ),
 
-            //--------------------------- TestCase$5: test if mx RR in answer section gets decompressed and parsed correctly----------------------------------------
+            //---------------------------SubTest[6]: test if mx RR in answer section gets decompressed and parsed correctly----------------------------------------
 
             Arguments.of(
                 "Decompression MX record test",
@@ -464,7 +459,7 @@ public class DNSParserTest {
 
 
 
-//----------------------------TEST MALFORMED BYTES---------------------------------------------------------------------------
+//----------------------------TEST MALFORMED BYTES (decompression functions)---------------------------------------------------------------------------
 
 // ---------------------------------parseName exception tests---------------------------------------------------------------
 
