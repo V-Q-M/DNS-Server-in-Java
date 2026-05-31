@@ -1,5 +1,5 @@
 stages:
-  - build 
+  - build
   - test
 
 # Building the project
@@ -14,7 +14,7 @@ build:
 
 tests:
   tags:
-  - shared
+    - shared
   stage: test
   image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
   before_script:
@@ -32,8 +32,8 @@ tests:
     - mvn test
   artifacts:
     when: always
-    paths: 
+    paths:
       - ./target/surefire-reports/*
     reports:
-      junit: 
-      - ./target/surefire-reports/*.xml
+      junit:
+        - ./target/surefire-reports/*.xml

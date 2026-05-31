@@ -9,23 +9,24 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
-
 
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
-    private static final String DEFAULT_IP = "0.0.0.0"; 
+    private static final String DEFAULT_IP = "0.0.0.0";
     //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
     private static boolean testing=false;
 
-    static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception {
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
 
-         // Layer 2: config file
+
+        // Layer 2: config file
         Properties props = new Properties();
         try (FileInputStream fis = new FileInputStream("config.properties")) {
             props.load(fis);
@@ -51,18 +52,34 @@ public class DNS_SERVER {
             if (args[i].equals("--testing")) {
                 testing = true;
             }
+
         }
 
         // port check (delete later if 0-1024 ports are allowed)
-        if (portNumber > 65535) {
+        if (portNumber<0 || portNumber > 65535) {
             IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default " + DEFAULT_PORT);
             portNumber = DEFAULT_PORT;
         }
 
+        String upstreamRaw = props.getProperty("dns.upstreams", "8.8.8.8, 1.1.1.1");
+        int dnsTimeout = Integer.parseInt(props.getProperty("dns.timeout.ms", "2000").trim());
+        int maxRetries = Integer.parseInt(props.getProperty("dns.max.retries", "2").trim());
+        long retryDelay = Long.parseLong(props.getProperty("dns.retry.delay.ms", "100").trim());
+        String strategyString = props.getProperty("dns.strategy", "FAILOVER").replaceAll("\\r", "").trim().toUpperCase();
+
+        StubResolver.Strategy strategy = StubResolver.Strategy.valueOf(strategyString);
+        List<StubResolver.NameServer> nameServers = Arrays.stream(upstreamRaw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(ip -> new StubResolver.NameServer(ip, 53, ip))
+                .toList();
+        StubResolver stubResolver = new StubResolver(nameServers, dnsTimeout, maxRetries, retryDelay, strategy);
+
+
         // Open UDP socket
         InetAddress bindAddress;
-        try {
-            bindAddress = InetAddress.getByName(bindIP);
+        try { bindAddress= InetAddress.getByName(bindIP);
+
         } catch (Exception e) {
             IO.println("Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP);
             bindIP = DEFAULT_IP;
@@ -74,10 +91,11 @@ public class DNS_SERVER {
             IO.println();
 
             // Buffer necessary to store the packet
-            byte[] buffer = new byte[1024];
+            //byte[] buffer = new byte[StubResolver.MAX_UDP_SIZE];
 
             // Server loop
             while (true) {
+                byte[] buffer = new byte[StubResolver.MAX_UDP_SIZE];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -87,6 +105,7 @@ public class DNS_SERVER {
                 // Store the client IP and client Port for further use
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
+                try{
                 IO.println("Received packet from " + clientAddress + ":" + clientPort);
 
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
@@ -97,7 +116,18 @@ public class DNS_SERVER {
                 IO.println("Assembled Packet:\n" + oopPacket);
 
                 // Return mock response here as bytes
-                byte[] response = MockResponses.respond(oopPacket).toBytes();
+                byte[] response;
+                if(testing ){
+                    if(oopPacket.getQuestionSections()== null || oopPacket.getQuestionSections().length==0){
+                        throw new IllegalStateException("no question section");
+                    }
+                    DNSPacket MockPacket= MockResponses.respond(oopPacket);
+                    response=MockPacket.toBytes();
+                    IO.println("[Router] Intercepted query locally");
+                } else {
+                    response= stubResolver.resolve(data);
+                }
+
 
                 // Build UDP packet
                 DatagramPacket responsePacket = new DatagramPacket(
@@ -113,8 +143,16 @@ public class DNS_SERVER {
                 IO.println("Send response to: " + clientAddress + ":" + clientPort);
                 IO.println("OUT: " + toHex(response));
                 IO.println();
+            } catch(Exception e){
+                IO.println("Error handling packet from " + clientAddress + ":" + clientPort + "-" + e.getMessage());
             }
         }
+    }
+}
+
+
+    public static boolean getTestingStatus(){
+        return testing;
     }
 
     // Small helper method to convert byte packets into hex
@@ -126,9 +164,5 @@ public class DNS_SERVER {
         }
 
         return stringBuilder.toString().trim();
-    }
-
-    public static boolean getTestingStatus(){
-        return testing;
     }
 }

@@ -18,6 +18,11 @@
 - Receive and send correctly assembled DNS packets (with mock responses)
 - Store the packets in a robust OOP model
 - Use a Config file or command line parameters to configure the server
+- Forward DNS queries to upstrean nameservers using UDP packets
+- Handle network timeouts and I/O errors by generating standard-compliant SERVFAIL response
+- Support multiple load balancing and redundancy strategy
+- Utilize a thread-safe configuration model with randomized jitter delays for retries
+
 ## Requirements
 The project uses Java 25, which can be downloaded from the internet.
 Either the Docker CLI Tools, especially Docker Compose, or Docker Desktop
@@ -73,6 +78,11 @@ The Current project is tested using both Blackbox tests run via a bash Script an
 ### Unittests
 
 Every test added to ```./src/test/java/io/gitlab/teamproject2026/``` will be run in the pipeline and its results will be uploaded to Gitlab as artifacts.
+
+`testSuccessfulResolution`Überprüft, ob gültige DNS-Pakete korrekt gesendet und Antworten ohne Datenverlust verarbeitet werden.
+`testTimoutAndServFail`Simuliert eine Netzwerkzögerung. Es wird überprüft, ob der Resolver die Anfrage rechtzeitig abbricht und korrekt DNS-Paket generiert.
+`testFailoverSwitchesServer`Testet das Verhalten bei mehreren Servern.
+`testRoundRobinStrategy`Überprüft die zyklische Verteilung der Anfragen auf die Nameserver zur Lastverteilung.
 
 ### Blackbox testing
 
@@ -138,6 +148,17 @@ This example specifies a default port `1337` and default IP-Address `127.0.0.1`.
 
 If no config file exists and no command line arguments are provided, the fallback port `4242` and fallback IP-Address `0.0.0.0` is used.
 
+### StubResolver Config file
+In der `config.properties` können die standard Nameserver für Routing hinterlegt werden.
+
+Beispiel für den StubResolver;
+```aiignore
+# Stub Resolver Upstream configuration
+resolver.timeout=1000
+resolver.max_retries=2
+resolver.strategy=FAILOVER
+```
+
 ### Database Config Files
 You can change the configuration of the PostgreSQL Server both in the ```compose.yaml``` and the ```postgres/postgres.conf``` files.  
 - ```compose.yaml``` determines how the Docker Container is created and initialised. For example, it configures the container such that, the ```postgres.conf```  file is mounted in the container to ```/etc/postgresql/postgresql.conf``` directory and used as the main config file for the PostgreSQL server. 
@@ -153,4 +174,8 @@ Finally, you can configure the inital state fo the Database by mounting scripts 
 ```diff
 ~ Enabled Pipeline testing using Unit- and Blackbox-Tests
 ~ Added argument to enable testing Mode
+~ DNS_SERVER.java
+~ StubResolver.java
+~ StubResolverTest.java
+~ config.properties
 ```

@@ -17,7 +17,7 @@ verifyResult() {
     local TYPE=${5}
     local QUERYTIME=$(echo ${RESULT} | grep -oE "Query time: [0-9]{1,} msec" | sed 's/^.*Query time: //g' | sed 's/ msec.*$//g')
     if echo "${RESULT}" | grep -q "${EXPECT}"; then
-        if [ ${TIMEEXPECT} -ge ${QUERYTIME} ]; then
+        if [ "${TIMEEXPECT}" -gt ${QUERYTIME} ]; then
             echo -e "${GREEN}Successfully queried ${QUESTION} ${TYPE} in ${QUERYTIME} ms!${NC}"
         else
             echo -e "${ORANGE}Query for ${QUESTION} ${TYPE} took too long: ${QUERYTIME} ms!${NC}"
@@ -40,7 +40,7 @@ verifyServerRunning() {
     if ps xa | grep "java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}" | grep -v "grep"; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
-        echo -e "${RED}ERROR: Server did not start properly${NC}" 
+        echo -e "${RED}ERROR: Server did not start properly${NC}"
         ERRCOUNT=$((ERRCOUNT + 1))
     fi
 }
