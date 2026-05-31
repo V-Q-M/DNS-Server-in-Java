@@ -131,7 +131,7 @@ public class StubResolver {
     }
 
     /**
-     * Constructs a SERVFAIL response from the original query by setting QR=1, preserving RD and setting RCODE=2
+     * Constructs a SERVFAIL DNS response from the original query, used when all upstream attempts are exhausted.
      * Also clears all answer/authority/additional record counts
      * @param query
      * @return
@@ -140,9 +140,11 @@ public class StubResolver {
         if (query.length < 12)
             throw new IllegalArgumentException("query too short to build a valid DNS response");
         byte[] r= Arrays.copyOf(query, query.length);
-
-        r[2]=(byte) ((r[2] & 0x01) | 0x80);
+        r[2]=(byte) ((r[2] & 0x01) | 0x80); 
+        // r[2]: QR=1 (response), Opcode=0, AA=0 (not authoritative), TC=0 (no upstream response to copy from), RD=preserved from query
         r[3]=(byte) 0x02; // set RA (0x82) once recursion is available
+        // r[3]: RA=0 (no recursion implemented yet), Z=0 (reserved 0), AD=0 (no DNSSEC validation), CD=0 (DNSSEC client flag so irrelevant for response), RCODE=2 (SERVFAIL)
+        // since this is a failure response there are no records to return, so the rest is 0 
         r[6]=0;
         r[7]=0;
         r[8]=0;
