@@ -12,6 +12,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import io.gitlab.teamproject2026.logging.LoggingFeature;
+
+
 public class StubResolver {
     public enum Status{SUCCESS, TIMEOUT, IO_ERROR}
     public enum Strategy{FAILOVER, ROUND_ROBIN}
@@ -51,9 +54,11 @@ public class StubResolver {
         int totalServers =nameServers.size();
         int maxAttempts= maxRetries+1;
         int startIndex= nextStartIndex(totalServers);
+        int id = ((query[0] & 0xFF) << 8) | (query[1] & 0xFF);
         for(int attempt=0; attempt<maxAttempts;attempt++){
             NameServer server=nameServers.get(startIndex);
-            IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
+            LoggingFeature.logAttempt(attempt + 1, maxAttempts, server, id, query);
+            //IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
             ForwardResult result= forwardOnce(query, server);
             switch (result.status()) {
                 case SUCCESS -> {IO.println("[Stub] reply from "+ server+ "in"+ result.latencyMs()+"ms");
