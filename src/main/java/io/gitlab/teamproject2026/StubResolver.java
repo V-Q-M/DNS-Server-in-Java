@@ -1,6 +1,8 @@
 package io.gitlab.teamproject2026;
 
 import io.gitlab.teamproject2026.model.RCode;
+import io.gitlab.teamproject2026.model.*;
+
 import java.io.IOException;
 
 import java.net.DatagramPacket;
@@ -13,7 +15,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import io.gitlab.teamproject2026.logging.LoggingFeature;
-
+import io.gitlab.teamproject2026.logging.DNSEvent;
+import io.gitlab.teamproject2026.logging.DNSEventType;
+import io.gitlab.teamproject2026.logging.DNSQueryInfo;
 
 public class StubResolver {
     public enum Status{SUCCESS, TIMEOUT, IO_ERROR}
@@ -51,38 +55,108 @@ public class StubResolver {
      * @return response
      */
     public byte[] resolve(byte[] query){
+        
+        
+        DNSPacket packet = DNSPacket.fromBytes(query);
+        byte[] idBytes = packet.getId();
+        String id = String.format("%16s", Integer.toBinaryString(((idBytes[0] & 0xFF) << 8) | (idBytes[1] & 0xFF))).replace(" ", "0");
+        
+        QuestionSection question = packet.getQuestionSections()[0];//for now, add all qs
+        String domain = question.nameToString(); 
+        RRType qType = question.getQtype();
+        
+
         int totalServers =nameServers.size();
         int maxAttempts= maxRetries+1;
         int startIndex= nextStartIndex(totalServers);
-        int id = ((query[0] & 0xFF) << 8) | (query[1] & 0xFF);
+        long startTime = System.currentTimeMillis();
+        NameServer server=nameServers.get(startIndex);
         for(int attempt=0; attempt<maxAttempts;attempt++){
-            NameServer server=nameServers.get(startIndex);
-            LoggingFeature.logAttempt(attempt + 1, maxAttempts, server, id, query);
-            //IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
+            
+            
+            IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
+            // QUERY_SENT Event at the start of every loop attempt
+            LoggingFeature.log(new DNSEvent(
+                DNSEventType.QUERY_SENT,
+                id,
+                domain,
+                qType,
+                server.host(),
+                0,
+                null
+            ));
+
             ForwardResult result= forwardOnce(query, server);
             switch (result.status()) {
-                case SUCCESS -> {IO.println("[Stub] reply from "+ server+ "in"+ result.latencyMs()+"ms");
+                case SUCCESS -> {
+                    // SUCCESS Event (rcvd answer)
+                    LoggingFeature.log(new DNSEvent(
+                        DNSEventType.SUCCESS,
+                        id,
+                        domain,
+                        qType,
+                        server.host(),
+                        result.latencyMs(),
+                        null
+                    ));
+
+                    IO.println("[Stub] reply from " + server + " in " + result.latencyMs() + "ms");
                     return result.response();
                 }
-                case TIMEOUT -> {IO.println("[Stub] timeout from "+server+" after "+result.latencyMs()+ " ms");
-                    if (attempt+1 < maxAttempts){
-                        if(strategy==Strategy.FAILOVER){
+                case TIMEOUT -> {
+                    //  TIMEOUT Event
+                    LoggingFeature.log(new DNSEvent(
+                        DNSEventType.TIMEOUT,
+                        id,
+                        domain,
+                        qType,
+                        server.host(),
+                        result.latencyMs(),
+                        result.errorMessage() != null ? result.errorMessage() : "timed out"
+                    ));
+
+                    IO.println("[Stub] timeout from " + server + " after " + result.latencyMs() + " ms");
+                    if (attempt + 1 < maxAttempts) {
+                        if (strategy == Strategy.FAILOVER) {
                             IO.println("[Stub] switching to next available nameserver..");
-                            startIndex=(startIndex+1)%totalServers;
-                        } else{
+                            startIndex = (startIndex + 1) % totalServers;
+                        } else {
                             IO.println("[Stub] retrying current configuration target..");
                         }
                         sleep(retryDelay);
-                    }}
-                case IO_ERROR -> {IO.println("[Stub] I/O error from "+server+ " after "
-                        + ": "+ result.errorMessage());
-                    if(attempt+1 < maxAttempts){
-                        if(strategy==Strategy.FAILOVER){
-                            startIndex=(startIndex+1)%totalServers;}
+                    }
+                }
+                case IO_ERROR -> {
+                    //IO_ERROR Event
+                    LoggingFeature.log(new DNSEvent(
+                        DNSEventType.IO_ERROR,
+                        id,
+                        domain,
+                        qType,
+                        server.host(),
+                        result.latencyMs(),
+                        result.errorMessage()
+                    ));
+
+                    IO.println("[Stub] I/O error from " + server + " after: " + result.errorMessage());
+                    if (attempt + 1 < maxAttempts) {
+                        if (strategy == Strategy.FAILOVER) {
+                            startIndex = (startIndex + 1) % totalServers;
+                        }
                         sleep(retryDelay);
                     }
                 }
             }}
+        // exhausted  attempts failure Event
+        LoggingFeature.log(new DNSEvent(
+            DNSEventType.ATTEMPTS_EXHAUSTED,
+            id,
+            domain,
+            qType,
+            nameServers.get(startIndex).host(),
+            System.currentTimeMillis() - startTime,
+            "All structural retries exhausted. Returning SERVFAIL."
+        ));
         IO.println("[Stub] All "+maxAttempts+ " attempt(s) exhausted - returning SERVFAIL");
         return buildServFail(query);
     }

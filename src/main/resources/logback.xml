@@ -1,13 +1,13 @@
 <configuration>
-
+<!--
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level - %msg%n</pattern>
         </encoder>
     </appender>
-
+-->
     <appender name="TRAFFIC_FILE" class="ch.qos.logback.core.FileAppender">
-        <file>logs/dns-traffic.log</file>
+        <file>logs/dnsTraffic.log</file>
         <append>true</append>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level - %msg%n</pattern>
@@ -15,7 +15,7 @@
     </appender>
 
     <root level="INFO">
-        <appender-ref ref="STDOUT" />
+        <!--<appender-ref ref="STDOUT" /> -->
         <appender-ref ref="TRAFFIC_FILE" />
     </root>
 
