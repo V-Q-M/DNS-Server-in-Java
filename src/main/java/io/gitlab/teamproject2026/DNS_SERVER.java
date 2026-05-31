@@ -35,7 +35,7 @@ public class DNS_SERVER {
         LinkedList<QuestionSection> notCached
     ){};
 
-    static void main(String[] args) throws Exception {
+     static void main(String[] args) throws Exception {
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
@@ -166,7 +166,8 @@ public class DNS_SERVER {
 
                 
                 // MockResponder/ Stubresolver should only be queried if there are queries not answered by the cache
-                if (payload.notCached.size() > 0){
+                if (payload.notCached.size() > 0) {
+                    //if (testing){
 
                     // Build packet to be send to either Mock resolver or Stub resolver
                     // The ID should not have to be changed, as the Server should not recieve any other packages using this ID from the original sender
@@ -180,23 +181,53 @@ public class DNS_SERVER {
 
                     // Extract RRs from Mock Response and cache them if testing mode is not enabled
                     // caching
-                    if (!testing){
+                    // ----------------------------------
+                    if (!testing) {
                         cacheHandler.insertAll(mockResponse.getAnswerSections());
                         cacheHandler.insertAll(mockResponse.getAuthoritySections());
                         cacheHandler.insertAll(mockResponse.getAdditionalSections());
                     }
+                    //--------------------------------------------------------
 
                     // extracting and adding to answers
-                    for (ResourceRecord answers:mockResponse.getAnswerSections()){
+                    for (ResourceRecord answers : mockResponse.getAnswerSections()) {
                         payload.answer.add(answers);
                     }
-                    for (ResourceRecord authorities:mockResponse.getAuthoritySections()){
+                    for (ResourceRecord authorities : mockResponse.getAuthoritySections()) {
                         payload.authority.add(authorities);
                     }
-                    for (ResourceRecord additionals:mockResponse.getAdditionalSections()){
+                    for (ResourceRecord additionals : mockResponse.getAdditionalSections()) {
                         payload.additional.add(additionals);
                     }
+                /*} else{
+                    for(QuestionSection question : payload.notCached){
+
+                        DNSPacket singleQuestion= DNSPacket.fromBytes(data);
+                        singleQuestion.setQuestionSections(new QuestionSection[]{question});
+                        singleQuestion.setQdcount(1);
+                        byte[] rawResponse= stubResolver.resolve(singleQuestion.toBytes());
+                        DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
+
+                        // Extract RRs from Mock Response and cache them if testing mode is not enabled
+                        // caching
+                        cacheHandler.insertAll(stubResponse.getAnswerSections());
+                        cacheHandler.insertAll(stubResponse.getAuthoritySections());
+                        cacheHandler.insertAll(stubResponse.getAdditionalSections());
+
+                        // extracting and adding to answers
+                        for (ResourceRecord answers :stubResponse.getAnswerSections()){
+                            payload.answer.add(answers);
+                        }
+                        for (ResourceRecord authorities:stubResponse.getAuthoritySections()){
+                            payload.authority.add(authorities);
+                        }
+                        for (ResourceRecord additionals:stubResponse.getAdditionalSections()){
+                            payload.additional.add(additionals);
+                        }}
+                    }*/
                 }
+
+
 
                 //Build response packet
                 DNSPacket response = buildResponsePacket(payload, oopPacket);
