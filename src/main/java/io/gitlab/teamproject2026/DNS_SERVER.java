@@ -16,13 +16,14 @@ public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
+    //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
+    private static boolean testing=false;
 
     public static void main(String[] args) throws Exception {
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
-        boolean isTesting=false;
 
 
         // Layer 2: config file
@@ -44,11 +45,13 @@ public class DNS_SERVER {
                 portNumber = Integer.parseInt(args[i + 1]);
                 i++;
             }
-            else if (args[i].equals("-a") && i + 1 < args.length) {
+            if (args[i].equals("-a") && i + 1 < args.length) {
                 bindIP = args[i + 1];
                 i++;
             }
-            else if (args[i].equals("--testing")){isTesting=true;}
+            if (args[i].equals("--testing")) {
+                testing = true;
+            }
 
         }
 
@@ -114,7 +117,7 @@ public class DNS_SERVER {
 
                 // Return mock response here as bytes
                 byte[] response;
-                if(isTesting ){
+                if(testing ){
                     if(oopPacket.getQuestionSections()== null || oopPacket.getQuestionSections().length==0){
                         throw new IllegalStateException("no question section");
                     }
@@ -147,6 +150,10 @@ public class DNS_SERVER {
     }
 }
 
+
+    public static boolean getTestingStatus(){
+        return testing;
+    }
 
     // Small helper method to convert byte packets into hex
     private static String toHex(byte[] bytes){

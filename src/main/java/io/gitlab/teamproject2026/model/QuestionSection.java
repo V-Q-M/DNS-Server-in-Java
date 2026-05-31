@@ -30,7 +30,7 @@ public class QuestionSection {
     public int getLastProcessedByte(){return lastProcessedByte; }
     @Override
     public String toString() {
-        return "\n    name: " + String.join(".", getName()) + "\n    qtype: " + getQtype() + "\n    qclass: " + getQclass();
+        return "\n    name: " + String.join(".", getName()) + "." + "\n    qtype: " + getQtype() + "\n    qclass: " + getQclass();
     }
     /**
      * Serializes this question section into DNS wire format.
@@ -38,7 +38,7 @@ public class QuestionSection {
      * @return byte array representing this question section
      */
     public byte[] toBytes() {
-        byte[] name = encodeName(String.join(".", this.getName()));
+        byte[] name = encodeName(String.join(".", this.getName())+ ".");
         byte[] result = new byte[name.length + 4];
 
         System.arraycopy(name, 0, result, 0, name.length);
@@ -64,11 +64,9 @@ public class QuestionSection {
         String[] labels = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         questionSection.setName(labels);
-
         questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
-
-        questionSection.lastProcessedByte = byteIndex - 1;
+        questionSection.lastProcessedByte = byteIndex;
         return questionSection;
     }
 }

@@ -57,35 +57,100 @@ public class DNSParser{
      * @param byteIndex the index, where the domain name is supposed to start
      * @return an array of labels, sourced from the bytes
      */
-    public static String[] parseName(byte[] bytes, int byteIndex){
-        if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
-            throw new UnsupportedOperationException("Message compression not implemented yet");
-        }
+    public static String[] parseName(byte[] bytes, int byteIndex) throws IndexOutOfBoundsException {
+        int countPointers = 0;
         LinkedList<String> labels = new LinkedList<>();
-        while (bytes[byteIndex] != 0) {
-            int labelLength = bytes[byteIndex++] & 0xFF;
-            labels.add(new String(Arrays.copyOfRange(bytes, byteIndex, byteIndex + labelLength), StandardCharsets.US_ASCII));
-            byteIndex += labelLength;
+        int currentIndex = byteIndex;
+        while (true) {
+            if (currentIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("false label length or false pointer");
+            }
+            if (bytes[currentIndex] == 0) {
+                break;
+            }
+            if((bytes[currentIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bits = 1
+                countPointers += 2;
+                if (countPointers >= 257){
+                throw new IllegalArgumentException("Compression loop detected");  //name restricted to max 255 label octets including label length octets
+                }
+                currentIndex = getPointerTarget(bytes, currentIndex);
+                continue;
+            }
+            int labelLength = bytes[currentIndex++] & 0xFF;
+            labels.add(new String(Arrays.copyOfRange(bytes, currentIndex, currentIndex + labelLength), StandardCharsets.US_ASCII));
+            currentIndex += labelLength;
         }
         return labels.toArray(new String[0]);
     }
 
     /**
-     * Finds the amount of bytes used within this domain name byte array
+     * Finds the amount of bytes used within this domain name byte array (compressed)
      * @param bytes the full array of bytes
      * @param startIndex the index, where the domain name is supposed to start
-     * @return the amount of bytes until a length 0 byte is found.
+     * @return the amount of bytes until a length 0 byte or pointer is found.
      */
     public static int countNameLength(byte[] bytes, int startIndex){
         int byteIndex = startIndex;
-        if((bytes[byteIndex] & 0xFF) >= 32+64){ // Message compression, first 2 bytes = 1
-            throw new UnsupportedOperationException("Message compression not implemented yet");
-        }
-
-        while (bytes[byteIndex] != 0) {
+        
+        while (true) {
+            if (byteIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("false label length or false pointer");
+            }
+            if (bytes[byteIndex] == 0){
+                break;
+            }
+            if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
+                return byteIndex - startIndex + 2;  //pointer always 2 bytes
+            }
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;
         }
         return byteIndex - startIndex + 1;
     }
+
+    /**
+     * Finds the amount of bytes used within this domain name byte array (decompressed)
+     * @param bytes the full array of bytes
+     * @param startIndex the index, where the domain name is supposed to start
+     * @return the total amount of bytes of a domain name in its decompressed version.
+     */
+    public static int countNameLengthDecomp(byte[] bytes, int startIndex) throws IndexOutOfBoundsException {
+        int byteIndex = startIndex;
+        
+        while (true) {
+            if (byteIndex >= bytes.length){
+                throw new IndexOutOfBoundsException("false label length or false pointer");
+            }
+            if (bytes[byteIndex] == 0) {
+                break;
+            }
+            if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
+                int notCompressedLength = byteIndex - startIndex;
+                int pointStartIndex = getPointerTarget(bytes, byteIndex);
+                return countNameLength(bytes, pointStartIndex) + notCompressedLength; //namelength = (labels at normal place)+(labels at pointer)
+            }
+            int labelLength = bytes[byteIndex++] & 0xFF;
+            byteIndex += labelLength;
+        }
+        return byteIndex - startIndex + 1;
+    }
+
+    /**
+     * resolves pointer to the location of the label(s) being pointed to
+     * @param bytes the full array of bytes
+     * @param pointerIndex the index, where the pointer starts
+     * @return target of the pointer where referred labels can be found
+     */
+    public static int getPointerTarget(byte[] bytes, int pointerIndex) throws IndexOutOfBoundsException {
+        if (pointerIndex >= bytes.length){
+            throw new IndexOutOfBoundsException("pointer points out of bounds");
+        }
+        byte labelLengthOrPointer = bytes[pointerIndex];
+        int pointerTarget = (0x3FFF & as16BitInt(labelLengthOrPointer, bytes[pointerIndex+1])); //extract pointer offset
+        if (pointerTarget >= bytes.length){
+            throw new IndexOutOfBoundsException("pointer points out of bounds");
+        }
+        return pointerTarget;
+    }
+
 }

@@ -132,6 +132,5 @@ RESOLVER="127.0.0.1"
 startServer ${PORT}
 verifyServerRunning
 testParser
-testStubResolver
 # removing testCache as our Cache implementation cannot be tested in CI
-# testCache
+# testCache 

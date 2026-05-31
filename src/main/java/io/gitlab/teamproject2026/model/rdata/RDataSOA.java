@@ -45,13 +45,13 @@ public class RDataSOA implements RData {
 
     @Override
     public String toString(){
-        return "    mname: " + Arrays.toString(mname) + "\n    rname: "+ Arrays.toString(rname) + "\n    serial: " + serial  + ", refresh: " + refresh + ", retry: " + retry + ", expire: " + expire  + ", minimum: " + minimum;
+        return "    mname: " + String.join(".", mname) + "." + "\n    rname: "+ String.join(".", rname) + "." + "\n    serial: " + serial  + ", refresh: " + refresh + ", retry: " + retry + ", expire: " + expire  + ", minimum: " + minimum;
     }
 
     @Override
     public byte[] toBytes() {
-        byte[] mname   = encodeName(String.join(".", this.getMname()));
-        byte[] rname   = encodeName(String.join(".", this.getRname()));
+        byte[] mname   = encodeName(String.join(".", this.getMname()) + ".");
+        byte[] rname   = encodeName(String.join(".", this.getRname()) + ".");
         byte[] result  = new byte[mname.length + rname.length + 20]; // 5 x 4-byte ints
         int pos = 0;
 
@@ -72,10 +72,10 @@ public class RDataSOA implements RData {
         return result;
     }
 
-    public static RDataSOA fromBytes(byte[] bytes) {
+    public static RDataSOA fromBytes(byte[] bytes, int byteIndex) {
         RDataSOA rDataSOA = new RDataSOA();
-        rDataSOA.setMname(DNSParser.parseName(bytes, 0));
-        int byteIndex = DNSParser.countNameLength(bytes, 0);
+        rDataSOA.setMname(DNSParser.parseName(bytes, byteIndex));
+        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         rDataSOA.setRname(DNSParser.parseName(bytes, byteIndex));
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         rDataSOA.setSerial(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
