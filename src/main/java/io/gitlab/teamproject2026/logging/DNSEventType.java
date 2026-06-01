@@ -7,7 +7,7 @@ public enum DNSEventType {
     TIMEOUT,
     IO_ERROR,
     ATTEMPTS_EXHAUSTED,
-    
+    CACHE_ERROR,
     CACHE_HIT,
     CACHE_MISS
 }
