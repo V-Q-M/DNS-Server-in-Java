@@ -63,7 +63,13 @@ public class StubResolver {
         int startIndex= nextStartIndex(totalServers);
         long startTime = System.currentTimeMillis();
         //parse query
-        DNSPacket queryPacket = DNSPacket.fromBytes(query);
+        //DNSPacket queryPacket = DNSPacket.fromBytes(query);
+        DNSPacket queryPacket;
+        try {
+            queryPacket = DNSPacket.fromBytes(query);
+        } catch (Exception e) {
+            return buildServFail(query);
+        }
         for(int attempt=0; attempt<maxAttempts;attempt++){
             NameServer server=nameServers.get(startIndex);
             //log QUERY_SENT for every question section seperately (usually different qType or domain queried)
@@ -77,7 +83,22 @@ public class StubResolver {
                     // SUCCESS Event (only means that an answer was rcvd,
                     // not necessarily answer to query,
                     // different RCodes (NXDOMAIN,NO_ERROR,...) indicate if rcvd answer actually resolves query)
-                    DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
+                    if (result.response() == null || result.response().length < 12) {
+                        logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
+                                result.latencyMs(), server, attempt,
+                                "invalid DNS response", null);
+                        break; // retry
+                    }
+                    //DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
+                    DNSPacket responsePacket;
+                    try {
+                        responsePacket = DNSPacket.fromBytes(result.response());
+                    } catch (Exception e) {
+                        logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
+                            result.latencyMs(), server, attempt,
+                            "invalid DNS response", null);
+                        break; // retry next server
+                    }
                     RCode rCode = responsePacket.getRcode();
                     //log SUCCESS for every question section seperately
                     logQuestionEvents(DNSEventType.SUCCESS, responsePacket, result.latencyMs(), server, attempt, result.errorMessage(), rCode);
