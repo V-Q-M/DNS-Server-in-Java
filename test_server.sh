@@ -111,6 +111,26 @@ testCache(){
 }
 
 
+testZone(){
+    echo "Testing authoritative zones..."
+    doLookup "example.com" "A" "129.0.0.1" ${CACHETIME}
+    doLookup "www.example.com" "CNAME" "example.com" ${CACHETIME}
+    doLookup "www.example.com" "A" "example.com" ${CACHETIME}
+    doLookup "www.example.com" "A" "129.0.0.1" ${CACHETIME}
+    doLookup "mx1.example.com" "A" "129.0.0.4" ${CACHETIME}
+    doLookup "example.com" "MX" "mx1.example.com." ${CACHETIME}
+    doLookup "example.com" "MX" "mx2.example.com." ${CACHETIME}
+    doLookup "example.com" "NS" "ns0.example.com" ${CACHETIME}
+    doLookup "ns0.example.com" "A" "129.0.0.2" ${CACHETIME}
+    doLookup "example.com" "AAAA" "2001:db8::1" ${CACHETIME}
+    doLookup "example.com" "TXT" "Hello, world!" ${CACHETIME}
+    doLookup "1.0.0.129.in-addr.arpa." "PTR" "example.com." ${CACHETIME}
+
+    doLookup "example.com" "SOA" "ns0.example.com. admin.example.com." ${CACHETIME}
+}
+
+
+
 trap cleanUpAndResult SIGINT
 trap cleanUpAndResult EXIT
 
@@ -136,3 +156,6 @@ dig @127.0.0.1 -p ${PORT} +nodnssec +noedns uni-tuebingen.de A
 testStubResolver
 # removing testCache as our Cache implementation cannot be tested in CI
 #testCache
+
+# Activate once Name Server exists
+# testZone
