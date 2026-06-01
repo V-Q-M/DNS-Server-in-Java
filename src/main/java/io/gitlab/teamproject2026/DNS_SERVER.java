@@ -176,30 +176,8 @@ public class DNS_SERVER {
                     uncachedOOPacket.setQdcount(payload.notCached.size());
 
 
-                    // Get Mock response, later needs to be stub response
-                    DNSPacket mockResponse = MockResponses.respond(uncachedOOPacket);
-
-                    // Extract RRs from Mock Response and cache them if testing mode is not enabled
-                    // caching
-                    // ----------------------------------
-                    if (!testing) {
-                        cacheHandler.insertAll(mockResponse.getAnswerSections());
-                        cacheHandler.insertAll(mockResponse.getAuthoritySections());
-                        cacheHandler.insertAll(mockResponse.getAdditionalSections());
-                    }
-                    //--------------------------------------------------------
-
-                    // extracting and adding to answers
-                    for (ResourceRecord answers : mockResponse.getAnswerSections()) {
-                        payload.answer.add(answers);
-                    }
-                    for (ResourceRecord authorities : mockResponse.getAuthoritySections()) {
-                        payload.authority.add(authorities);
-                    }
-                    for (ResourceRecord additionals : mockResponse.getAdditionalSections()) {
-                        payload.additional.add(additionals);
-                    }
-                /*} else{
+                    // Get Stub response, later needs to be stub response
+                
                     for(QuestionSection question : payload.notCached){
 
                         DNSPacket singleQuestion= DNSPacket.fromBytes(data);
@@ -210,9 +188,11 @@ public class DNS_SERVER {
 
                         // Extract RRs from Mock Response and cache them if testing mode is not enabled
                         // caching
-                        cacheHandler.insertAll(stubResponse.getAnswerSections());
-                        cacheHandler.insertAll(stubResponse.getAuthoritySections());
-                        cacheHandler.insertAll(stubResponse.getAdditionalSections());
+                        if (!testing) {
+                            cacheHandler.insertAll(stubResponse.getAnswerSections());
+                            cacheHandler.insertAll(stubResponse.getAuthoritySections());
+                            cacheHandler.insertAll(stubResponse.getAdditionalSections());
+                        }
 
                         // extracting and adding to answers
                         for (ResourceRecord answers :stubResponse.getAnswerSections()){
@@ -223,8 +203,9 @@ public class DNS_SERVER {
                         }
                         for (ResourceRecord additionals:stubResponse.getAdditionalSections()){
                             payload.additional.add(additionals);
-                        }}
-                    }*/
+                        }
+                    }
+                    
                 }
 
 
