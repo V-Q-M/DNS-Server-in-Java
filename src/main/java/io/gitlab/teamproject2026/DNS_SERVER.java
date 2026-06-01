@@ -176,37 +176,31 @@ public class DNS_SERVER {
                     uncachedOOPacket.setQdcount(payload.notCached.size());
 
 
-                    // Get Stub response, later needs to be stub response
-                
-                    for(QuestionSection question : payload.notCached){
+                    // Get Stub response
+                    byte[] rawResponse= stubResolver.resolve(uncachedOOPacket.toBytes());
+                    DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
 
-                        DNSPacket singleQuestion= DNSPacket.fromBytes(data);
-                        singleQuestion.setQuestionSections(new QuestionSection[]{question});
-                        singleQuestion.setQdcount(1);
-                        byte[] rawResponse= stubResolver.resolve(singleQuestion.toBytes());
-                        DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
-
-                        // Extract RRs from Mock Response and cache them if testing mode is not enabled
-                        // caching
-                        if (!testing) {
-                            cacheHandler.insertAll(stubResponse.getAnswerSections());
-                            cacheHandler.insertAll(stubResponse.getAuthoritySections());
-                            cacheHandler.insertAll(stubResponse.getAdditionalSections());
-                        }
-
-                        // extracting and adding to answers
-                        for (ResourceRecord answers :stubResponse.getAnswerSections()){
-                            payload.answer.add(answers);
-                        }
-                        for (ResourceRecord authorities:stubResponse.getAuthoritySections()){
-                            payload.authority.add(authorities);
-                        }
-                        for (ResourceRecord additionals:stubResponse.getAdditionalSections()){
-                            payload.additional.add(additionals);
-                        }
+                    // Extract RRs from Mock Response and cache them if testing mode is not enabled
+                    // caching
+                    if (!testing) {
+                        cacheHandler.insertAll(stubResponse.getAnswerSections());
+                        cacheHandler.insertAll(stubResponse.getAuthoritySections());
+                        cacheHandler.insertAll(stubResponse.getAdditionalSections());
                     }
-                    
+
+                    // extracting and adding to answers
+                    for (ResourceRecord answers :stubResponse.getAnswerSections()){
+                        payload.answer.add(answers);
+                    }
+                    for (ResourceRecord authorities:stubResponse.getAuthoritySections()){
+                        payload.authority.add(authorities);
+                    }
+                    for (ResourceRecord additionals:stubResponse.getAdditionalSections()){
+                        payload.additional.add(additionals);
+                    }
                 }
+                    
+                
 
 
 
