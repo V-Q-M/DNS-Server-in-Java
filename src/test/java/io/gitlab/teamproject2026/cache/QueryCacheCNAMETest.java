@@ -98,7 +98,9 @@ class QueryCacheCNAMETest {
 
         DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
-        assertEquals(0, payload.answer().size());
+        // CNAME is cached so it goes in the answer; only the target is forwarded to stub
+        assertEquals(1, payload.answer().size());
+        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
         assertEquals(1, payload.notCached().size());
     }
 

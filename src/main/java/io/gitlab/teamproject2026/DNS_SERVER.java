@@ -13,6 +13,7 @@ import java.util.Properties;
 
 import java.util.LinkedList;
 import java.sql.SQLException;
+import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
@@ -330,8 +331,9 @@ public class DNS_SERVER {
                         }
                     }
                 } else if (request.getQtype() != RRType.CNAME) {
-                    // skip CNAME queries
-                    if (!resolveCnameFromCache(qname, request.getQtype(), answer, cacheHandler)) {
+                    // CNAME-type queries are handled by the direct lookup above — this branch
+                    // only follows an alias when a different record type was requested
+                    if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached, cacheHandler)) {
                         notCached.add(request);
                     }
                 } else {
@@ -350,19 +352,27 @@ public class DNS_SERVER {
     // Returns false if the CNAME or its target is not cached, so the caller can
     // forward to the stub.
     private static boolean resolveCnameFromCache(
-            String name, RRType targetType,
+            String name, RRType targetType, RRClass targetClass,
             LinkedList<ResourceRecord> answer,
+            LinkedList<QuestionSection> notCached,
             CacheHandler cacheHandler) throws SQLException {
         ResourceRecord[] cnames = cacheHandler.lookup(name, RRType.CNAME);
         if (cnames.length == 0)
             return false;
         String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname());
         ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
-        if (targetRecords.length == 0)
-            return false;
         answer.add(cnames[0]);
-        for (ResourceRecord record : targetRecords)
-            answer.add(record);
+        if (targetRecords.length == 0) {
+            // CNAME cached but target is not — forward only the target to the stub
+            QuestionSection targetQuestion = new QuestionSection();
+            targetQuestion.setName(target.split("\\."));
+            targetQuestion.setQtype(targetType);
+            targetQuestion.setQclass(targetClass);
+            notCached.add(targetQuestion);
+        } else {
+            for (ResourceRecord record : targetRecords)
+                answer.add(record);
+        }
         return true;
     }
 
