@@ -77,7 +77,7 @@ public class StubResolver {
                     if (LoggingFeature.isDebug()) {
                         LoggingFeature.logDebug(DNSEvent.debug(
                             DNSEventType.QUERY_SENT, id, domain, qType, 0L,
-                            strategy.name(), server.name(), server.host(), attempt + 1, false, null, null));//debug fields. cacheHit, errorMessage and rCode don't make sense for query
+                            strategy.name(), server.name(), server.host(), attempt + 1, null, null));//debug fields. cacheHit, errorMessage and rCode don't make sense for query
                     }
             
             IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
@@ -100,7 +100,7 @@ public class StubResolver {
                     if (LoggingFeature.isDebug()) {
                         LoggingFeature.logDebug(DNSEvent.debug(
                             DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs(),
-                            strategy.name(), server.name(), server.host(), attempt + 1, false, result.errorMessage(), rCode));//debug fields
+                            strategy.name(), server.name(), server.host(), attempt + 1, result.errorMessage(), rCode));//debug fields
                     }
                     IO.println("[Stub] reply from " + server + " in " + result.latencyMs() + "ms");
                     return result.response();
@@ -112,8 +112,7 @@ public class StubResolver {
                         String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
                         LoggingFeature.logDebug(DNSEvent.debug(
                             DNSEventType.TIMEOUT, id, domain, qType, result.latencyMs(),
-                            strategy.name(), server.name(), server.host(), attempt + 1, 
-                            false,   // cacheHit
+                            strategy.name(), server.name(), server.host(), attempt + 1,// cacheHit
                             error,   // error message of ForwardResult
                             null // RCode is null since response is null
                         ));
@@ -137,8 +136,7 @@ public class StubResolver {
                         String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
                         LoggingFeature.logDebug(DNSEvent.debug(
                             DNSEventType.IO_ERROR, id, domain, qType, result.latencyMs(),
-                            strategy.name(), server.name(), server.host(), attempt + 1, 
-                            false,   // cacheHit
+                            strategy.name(), server.name(), server.host(), attempt + 1,
                             error,   // error message of ForwardResult
                             null // RCode is null since response is null
                         ));
@@ -159,8 +157,7 @@ public class StubResolver {
                         String error = "All structural retries exhausted. Returning SERVFAIL.";
                         LoggingFeature.logDebug(DNSEvent.debug(
                             DNSEventType.ATTEMPTS_EXHAUSTED, id, domain, qType, System.currentTimeMillis() - startTime,
-                            strategy.name(), nameServers.get(startIndex).name(), nameServers.get(startIndex).host(), maxAttempts, 
-                            false,   // cacheHit
+                            strategy.name(), nameServers.get(startIndex).name(), nameServers.get(startIndex).host(), maxAttempts,
                             error,   // error message of ForwardResult
                             RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
                         ));

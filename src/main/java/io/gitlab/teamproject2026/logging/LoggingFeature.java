@@ -14,10 +14,10 @@ public class LoggingFeature {
     }//set in lobgack.xml for root
 
     public static void logInfo(DNSEvent event) {
-        log.info("DNS Summary", fields(event));
+        log.info("Summary", fields(event));
     }
 
     public static void logDebug(DNSEvent event) {
-        log.debug("DNS Detailed", fields(event));
+        log.debug("Detailed", fields(event));
     }
 }

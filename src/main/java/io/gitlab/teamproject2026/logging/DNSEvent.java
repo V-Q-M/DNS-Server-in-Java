@@ -13,19 +13,18 @@ public record DNSEvent(
     String strategy, 
     String nameserver, 
     String upstream, 
-    Integer attempt, 
-    Boolean cacheHit, 
+    Integer attempt,
     String error, 
     RCode rCode
 ) {
     // For simple INFO logging
     public static DNSEvent info(DNSEventType type, String id, String domain, RRType qType, long latencyMs) {
-        return new DNSEvent(type, id, domain, qType, latencyMs, null, null, null, null, null, null, null);
+        return new DNSEvent(type, id, domain, qType, latencyMs, null, null, null, null, null, null);
     }
 
     // For detailed DEBUG logging
     public static DNSEvent debug(DNSEventType type, String id, String domain, RRType qType, long latencyMs,
-                                 String strategy, String nsName, String nsHost, int attempt, Boolean cacheHit, String error, RCode rCode) {
-        return new DNSEvent(type, id, domain, qType, latencyMs, strategy, nsName, nsHost, attempt, cacheHit, error, rCode);
+                                 String strategy, String nsName, String nsHost, int attempt, String error, RCode rCode) {
+        return new DNSEvent(type, id, domain, qType, latencyMs, strategy, nsName, nsHost, attempt, error, rCode);
     }
 }
