@@ -13,7 +13,6 @@ import java.util.Properties;
 
 import java.util.LinkedList;
 import java.sql.SQLException;
-import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
@@ -22,12 +21,14 @@ import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.cache.CacheHandler;
 import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
 import io.gitlab.teamproject2026.model.ResourceRecord;
+import io.gitlab.teamproject2026.model.RRClass;
 
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
+    private static final int MAX_CNAME_HOPS = 8;
     // mustn't be changed anywhere in the Server loop, as it dictates whether we are
     // testing in the CI
     private static boolean testing = false;
@@ -331,8 +332,8 @@ public class DNS_SERVER {
                         }
                     }
                 } else if (request.getQtype() != RRType.CNAME) {
-                    // CNAME-type queries are handled by the direct lookup above — this branch
-                    // only follows an alias when a different record type was requested
+                    // CNAME-type queries are handled by the direct lookup above 
+                    // this branch only follows an alias when a different record type was requested
                     if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached, cacheHandler)) {
                         notCached.add(request);
                     }
@@ -356,23 +357,36 @@ public class DNS_SERVER {
             LinkedList<ResourceRecord> answer,
             LinkedList<QuestionSection> notCached,
             CacheHandler cacheHandler) throws SQLException {
-        ResourceRecord[] cnames = cacheHandler.lookup(name, RRType.CNAME);
-        if (cnames.length == 0)
-            return false;
-        String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname());
-        ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
-        answer.add(cnames[0]);
-        if (targetRecords.length == 0) {
-            // CNAME cached but target is not — forward only the target to the stub
-            QuestionSection targetQuestion = new QuestionSection();
-            targetQuestion.setName(target.split("\\."));
-            targetQuestion.setQtype(targetType);
-            targetQuestion.setQclass(targetClass);
-            notCached.add(targetQuestion);
-        } else {
-            for (ResourceRecord record : targetRecords)
-                answer.add(record);
+        String current = name.toLowerCase();
+        LinkedList<ResourceRecord> chain = new LinkedList<>();
+
+        for (int hop = 0; hop < MAX_CNAME_HOPS; hop++) {
+            ResourceRecord[] cnames = cacheHandler.lookup(current, RRType.CNAME);
+            if (cnames.length == 0) break;
+
+            chain.add(cnames[0]);
+            String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname()).toLowerCase();
+
+            ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
+            if (targetRecords.length > 0) {
+                answer.addAll(chain);
+                for (ResourceRecord record : targetRecords) answer.add(record);
+                return true;
+            }
+
+            current = target;
         }
+
+        if (chain.isEmpty()) return false;
+
+        // Chain started but target not in cache 
+        //  commit CNAMEs and forward the last target
+        answer.addAll(chain);
+        QuestionSection targetQuestion = new QuestionSection();
+        targetQuestion.setName(current.split("\\."));
+        targetQuestion.setQtype(targetType);
+        targetQuestion.setQclass(targetClass);
+        notCached.add(targetQuestion);
         return true;
     }
 

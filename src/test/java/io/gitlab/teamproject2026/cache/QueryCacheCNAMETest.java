@@ -79,6 +79,21 @@ class QueryCacheCNAMETest {
     }
 
     @Test
+    void multiHopCnameHit() throws Exception {
+        cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com",   "alias.example.com") });
+        cache.insertAll(new ResourceRecord[]{ makeCNAME("alias.example.com", "server.example.com") });
+        cache.insertAll(new ResourceRecord[]{ makeA("server.example.com", new byte[]{ 1, 2, 3, 4 }) });
+
+        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+
+        assertEquals(3, payload.answer().size());
+        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
+        assertEquals(RRType.CNAME, payload.answer().get(1).getType());
+        assertEquals(RRType.A,     payload.answer().get(2).getType());
+        assertEquals(0, payload.notCached().size());
+    }
+
+    @Test
     void cnameHit() throws Exception {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com", "server.example.com") });
         cache.insertAll(new ResourceRecord[]{ makeA("server.example.com", new byte[]{ 1, 2, 3, 4 }) });
