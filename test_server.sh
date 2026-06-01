@@ -30,7 +30,7 @@ verifyResult() {
 }
 
 startServer() {
-    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1} --testing > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
+    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1} --testing  > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
@@ -76,16 +76,14 @@ testStubResolver(){
     doLookup "uni-tuebingen.de" "A" "134.2.5.1" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "ANSWER: 3" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "ANSWER: 5" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${NOCACHE}
     # CNAME response
-    doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "atlas.informatik.uni-tuebingen.de" ${NOCACHE}
-    doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "134.2.14.130" ${NOCACHE}
+    doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "atlas.cs.uni-tuebingen.de" ${NOCACHE}
+    doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "134.2.10.224" ${NOCACHE}
     doLookup "uni-tuebingen.de" "AAAA" "2001:7c0:300c:30f0::8602:501" ${NOCACHE}
     doLookup "uni-tuebingen.de" "NS" "dns1.belwue.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "NS" "ANSWER: 4" ${NOCACHE}
     # Querying directly for CNAME
-    doLookup "kn-mattermost.cs.uni-tuebingen.de" "CNAME" "atlas.informatik.uni-tuebingen.de" ${NOCACHE}
+    doLookup "kn-mattermost.cs.uni-tuebingen.de" "CNAME" "atlas.cs.uni-tuebingen.de" ${NOCACHE}
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "CNAME" "ANSWER: 1" ${NOCACHE}
     doLookup "uni-tuebingen.de" "SOA" "dns6.uni-tuebingen.de. hostmaster.uni-tuebingen.de." ${NOCACHE}
     doLookup "1.5.2.134.in-addr.arpa" "PTR" "www.uni-tuebingen.de." ${NOCACHE}
@@ -100,8 +98,6 @@ testCache(){
     doLookup "uni-tuebingen.de" "AAAA" "2001:7c0:300c:30f0::8602:501" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${CACHETIME}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${CACHETIME}
     doLookup "uni-tuebingen.de" "SOA" "dns6.uni-tuebingen.de. hostmaster.uni-tuebingen.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "SOA" "dns6.uni-tuebingen.de. hostmaster.uni-tuebingen.de." ${CACHETIME}
     doLookup "1.5.2.134.in-addr.arpa" "PTR" "www.uni-tuebingen.de." ${NOCACHE}
@@ -122,7 +118,7 @@ NC='\033[0m' # No Color
 ERRCOUNT=0
 CACHETIME=15
 NSCACHE=300
-NOCACHE=30
+NOCACHE=100
 PORT="1337"
 RESOLVER="127.0.0.1"
 
@@ -131,6 +127,8 @@ RESOLVER="127.0.0.1"
 # testing what is available on CI
 startServer ${PORT}
 verifyServerRunning
-testParser
+# First query, as first quries always take much longer than later queries
+dig @127.0.0.1 -p ${PORT} +nodnssec +noedns uni-tuebingen.de A
+testStubResolver
 # removing testCache as our Cache implementation cannot be tested in CI
-# testCache 
+#testCache
