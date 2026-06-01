@@ -97,7 +97,7 @@ public class StubResolver {
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                             result.latencyMs(), server, attempt,
                             "invalid DNS response", null);
-                        break; // retry next server
+                        break; // retry 
                     }
                     RCode rCode = responsePacket.getRcode();
                     //log SUCCESS for every question section seperately
@@ -242,21 +242,23 @@ public class StubResolver {
      * @params : all input needed by logDebug
      */
     private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, NameServer server, int attempt, String error, RCode rCode) {
-    byte[] idBytes = packet.getId();
-    String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
-
-    for (QuestionSection question : packet.getQuestionSections()) {
-        String domain = question.nameToString();
-        RRType qType = question.getQtype();
-        //log info
-        LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
-        //log debug
-        if (LoggingFeature.isDebug()) {
-            LoggingFeature.logDebug(DNSEventDebug.debug(
-                type, id, domain, qType, latency,
-                this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
-            ));
+        byte[] idBytes = packet.getId();
+        String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
+        if (packet.getQdcount() == 0 || packet.getQuestionSections() == null ) {
+            return; 
+        }
+        for (QuestionSection question : packet.getQuestionSections()) {
+            String domain = question.nameToString();
+            RRType qType = question.getQtype();
+            //log info
+            LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
+            //log debug
+            if (LoggingFeature.isDebug()) {
+                LoggingFeature.logDebug(DNSEventDebug.debug(
+                    type, id, domain, qType, latency,
+                    this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
+                ));
+            }
         }
     }
-}
 }

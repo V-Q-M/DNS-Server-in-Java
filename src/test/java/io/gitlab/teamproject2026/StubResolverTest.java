@@ -24,9 +24,10 @@ class StubResolverTest {
         requestCount.set(0);
         mockServer = new DatagramSocket(0);
         serverThread = new Thread(() -> {
-            byte[] buffer = new byte[1024];
+            
             while (shouldRun) {
                 try {
+                    byte[] buffer = new byte[1024];
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     mockServer.receive(packet);
                     if (serverDelayMs > 0) {
@@ -43,6 +44,7 @@ class StubResolverTest {
             }
         });
         serverThread.start();
+        Thread.sleep(20);
     }
     @AfterEach
     void tearDown(){
@@ -55,7 +57,12 @@ class StubResolverTest {
         StubResolver.NameServer server= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(),
                 "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),1000,2,50,StubResolver.Strategy.FAILOVER);
-        byte[] query= new byte[]{0x12, 0x34, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        byte[] query= new byte[]{0x12, 0x34, // id
+        0x00, 0x01, // flags, qdcount=1
+        0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00,       // root domain name".""
+        0x00, 0x01, //qType A
+        0x00, 0x01};  // qClass IN
         byte[] response= resolver.resolve(query);
         assertNotNull(response);
         assertArrayEquals(query, response, "Should perfectly echo back the simulated success response");
