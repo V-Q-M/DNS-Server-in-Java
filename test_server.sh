@@ -30,7 +30,7 @@ verifyResult() {
 }
 
 startServer() {
-    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1} --testing > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
+    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}  > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
@@ -122,7 +122,7 @@ NC='\033[0m' # No Color
 ERRCOUNT=0
 CACHETIME=15
 NSCACHE=300
-NOCACHE=30
+NOCACHE=100
 PORT="1337"
 RESOLVER="127.0.0.1"
 
@@ -131,6 +131,6 @@ RESOLVER="127.0.0.1"
 # testing what is available on CI
 startServer ${PORT}
 verifyServerRunning
-testParser
+testStubResolver
 # removing testCache as our Cache implementation cannot be tested in CI
 #testCache
