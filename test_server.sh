@@ -131,6 +131,8 @@ RESOLVER="127.0.0.1"
 # testing what is available on CI
 startServer ${PORT}
 verifyServerRunning
+# First query, as first quries always take much longer than later queries
+dig @127.0.0.1 -p ${PORT} +nodnssec +noedns uni-tuebingen.de A
 testStubResolver
 # removing testCache as our Cache implementation cannot be tested in CI
 #testCache
