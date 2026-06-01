@@ -16,6 +16,12 @@ public class RDataMX implements RData {
     private int preference;
     private String[] exchange;
 
+    public RDataMX(){}
+    public RDataMX(int preference, String[] exchange){
+        this.preference = preference;
+        this.exchange = exchange;
+    }
+
     @Override
     public RRType getType() {
         return RRType.MX;

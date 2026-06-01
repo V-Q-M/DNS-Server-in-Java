@@ -21,6 +21,17 @@ public class RDataSOA implements RData {
     private long expire;
     private long minimum;
 
+    public RDataSOA(){}
+    public RDataSOA(String[] mname, String[] rname, long serial, long refresh, long retry, long expire, long minimum){
+        this.mname =mname;
+        this.rname = rname;
+        this.serial = serial;
+        this.refresh = refresh;
+        this.retry = retry;
+        this.expire = expire;
+        this.minimum = minimum;
+    }
+
     @Override
     public RRType getType() {
         return RRType.SOA;

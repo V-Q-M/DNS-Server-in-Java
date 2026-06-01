@@ -13,6 +13,11 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 public class RDataCNAME implements RData {
     private String[] cname;
 
+    public RDataCNAME(){}
+    public RDataCNAME(String[] cname){
+        this.cname = cname;
+    }
+
     @Override
     public RRType getType() {
         return RRType.CNAME;

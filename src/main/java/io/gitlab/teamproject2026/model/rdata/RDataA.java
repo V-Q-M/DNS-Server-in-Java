@@ -11,6 +11,11 @@ import java.util.Arrays;
 public class RDataA implements RData {
     private byte[] address;
 
+    public RDataA(){}
+    public RDataA(byte[] address){
+        this.address = address;
+    }
+
     @Override
     public RRType getType() {
         return RRType.A;

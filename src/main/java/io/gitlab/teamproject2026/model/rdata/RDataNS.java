@@ -4,6 +4,7 @@ import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
+import java.util.NavigableSet;
 
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
@@ -13,6 +14,11 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  */
 public class RDataNS implements RData {
     private String[] nsdname;
+
+    public RDataNS(){}
+    public RDataNS(String[] nsdname){
+        this.nsdname = nsdname;
+    }
 
     @Override
     public RRType getType() {

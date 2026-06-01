@@ -12,6 +12,11 @@ import java.util.HexFormat;
 public class RDataAAAA implements RData {
     private byte[] address;
 
+    public RDataAAAA(){}
+    public RDataAAAA(byte[] address){
+        this.address = address;
+    }
+
     @Override
     public RRType getType() {
         return RRType.AAAA;

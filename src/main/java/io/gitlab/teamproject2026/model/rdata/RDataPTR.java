@@ -14,6 +14,11 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 public class RDataPTR implements RData {
     private String[] ptrdname;
 
+    public RDataPTR(){}
+    public RDataPTR(String[] ptrdname){
+        this.ptrdname = ptrdname;
+    }
+
     @Override
     public RRType getType() {
         return RRType.PTR;
