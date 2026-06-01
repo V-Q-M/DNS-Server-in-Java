@@ -30,7 +30,7 @@ verifyResult() {
 }
 
 startServer() {
-    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}  > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
+    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1} --testing  > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
