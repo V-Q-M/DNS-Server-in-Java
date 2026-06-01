@@ -251,7 +251,9 @@ public class StubResolver {
             String domain = question.nameToString();
             RRType qType = question.getQtype();
             //log info
-            LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
+            if (type != DNSEventType.TIMEOUT && type != DNSEventType.IO_ERROR) {
+                LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
+            }
             //log debug
             if (LoggingFeature.isDebug()) {
                 LoggingFeature.logDebug(DNSEventDebug.debug(
