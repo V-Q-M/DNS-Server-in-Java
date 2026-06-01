@@ -3,7 +3,7 @@ import io.gitlab.teamproject2026.model.*;
 
 
 
-public record DNSEvent(
+public record DNSEventDebug(
     DNSEventType eventType,
     String id, 
     String domain, 
@@ -17,14 +17,12 @@ public record DNSEvent(
     String error, 
     RCode rCode
 ) {
-    // For simple INFO logging
-    public static DNSEvent info(DNSEventType type, String id, String domain, RRType qType, long latencyMs) {
-        return new DNSEvent(type, id, domain, qType, latencyMs, null, null, null, null, null, null);
-    }
+
+
 
     // For detailed DEBUG logging
-    public static DNSEvent debug(DNSEventType type, String id, String domain, RRType qType, long latencyMs,
+    public static DNSEventDebug debug(DNSEventType type, String id, String domain, RRType qType, long latencyMs,
                                  String strategy, String nsName, String nsHost, int attempt, String error, RCode rCode) {
-        return new DNSEvent(type, id, domain, qType, latencyMs, strategy, nsName, nsHost, attempt, error, rCode);
+        return new DNSEventDebug(type, id, domain, qType, latencyMs, strategy, nsName, nsHost, attempt, error, rCode);
     }
 }

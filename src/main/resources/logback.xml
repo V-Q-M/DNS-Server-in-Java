@@ -10,7 +10,16 @@
         <onMismatch>DENY</onMismatch>
     </filter>
 
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+
+        <fieldNames>
+            <thread>[ignore]</thread>
+            <version>[ignore]</version>
+            <message>[ignore]</message>
+            <levelValue>[ignore]</levelValue>
+            <logger>[ignore]</logger>
+        </fieldNames>
+    </encoder>
 </appender>
 <!--for writing to stubDebug.log:-->
 <appender name="DEBUG_FILE"
@@ -23,7 +32,15 @@
         <onMismatch>DENY</onMismatch>
     </filter>
 
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <fieldNames>
+            <thread>[ignore]</thread>
+            <version>[ignore]</version>
+            <message>[ignore]</message>
+            <levelValue>[ignore]</levelValue>
+            <logger>[ignore]</logger>
+        </fieldNames>
+    </encoder>
 </appender>
 
 <root level="DEBUG"> 

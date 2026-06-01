@@ -4,7 +4,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 
 import io.gitlab.teamproject2026.data.MockResponses;
-import io.gitlab.teamproject2026.logging.DNSEvent;
+import io.gitlab.teamproject2026.logging.DNSEventInfo;
+import io.gitlab.teamproject2026.logging.DNSEventDebug;
 import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.LoggingFeature;
 import io.gitlab.teamproject2026.model.DNSPacket;
@@ -135,9 +136,9 @@ public class DNS_SERVER {
                     } catch (SQLException e) {
                         IO.println("Connection to cache Server has been lost, assume internal Server error");
                         // log and enable testing mode as cache entries cannot be ensured to be valid
-                        LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
                         if (LoggingFeature.isDebug()) {
-                            LoggingFeature.logDebug(DNSEvent.debug(
+                            LoggingFeature.logDebug(DNSEventDebug.debug(
                                     DNSEventType.CACHE_ERROR, null, null, null, 0L,
                                     null,null, null, -1,
                                     "Connection to cache Server has been lost, assume internal Server error",
@@ -169,7 +170,7 @@ public class DNS_SERVER {
                 dnsPayload payload = new dnsPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), new LinkedList<>());
                 //needed for cache logging:
                 byte[] idBytes = oopPacket.getId();
-                String id = String.format("%16s", Integer.toBinaryString(((idBytes[0] & 0xFF) << 8) | (idBytes[1] & 0xFF))).replace(" ", "0");
+                String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
                 if (!testing){
                     // query cache and safe results in payload
                     try {
@@ -179,14 +180,14 @@ public class DNS_SERVER {
                             String domain = request.nameToString();
                             RRType qType = request.getQtype();
                             if (payload.notCached.contains(request)) {
-                                LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_MISS, id, domain, qType, 0L));
+                                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, 0L));
                                 if (LoggingFeature.isDebug()) {
-                                    LoggingFeature.logDebug(DNSEvent.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, strategyString, "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, strategyString, "Local Cache", "127.0.0.1", 1, "Not found in database", null));
                                 }
                             } else {
-                                LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_HIT, id, domain, qType, 0L));
+                                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, 0L));
                                 if (LoggingFeature.isDebug()) {
-                                    LoggingFeature.logDebug(DNSEvent.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
+                                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
                                             strategyString, "Local Cache", "127.0.0.1", 1, null, null));
                                 }
                             }
@@ -194,9 +195,9 @@ public class DNS_SERVER {
                         }
                     } catch (SQLException e) {
                         // log
-                        LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
                         if (LoggingFeature.isDebug()) {
-                            LoggingFeature.logDebug(DNSEvent.debug(
+                            LoggingFeature.logDebug(DNSEventDebug.debug(
                                     DNSEventType.CACHE_ERROR, null, null, null, 0L,
                                     null,null, null, -1,
                                     "Connection to cache Server has been lost, assume internal Server error",
@@ -205,8 +206,8 @@ public class DNS_SERVER {
                         // connection to cache couldn't be reached so all queries have to be resolved through the resolver
                         for (QuestionSection request:oopPacket.getQuestionSections()) {
                             payload.notCached.add(request);
-                            LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L));
-                            LoggingFeature.logDebug(DNSEvent.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
+                            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L));
+                            LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
                                     strategyString, "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
                         };
                     }
@@ -214,8 +215,8 @@ public class DNS_SERVER {
                     // if testing is active, do not check cache
                     for (QuestionSection request:oopPacket.getQuestionSections()) {
                         payload.notCached.add(request);
-                        LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L));
-                        LoggingFeature.logDebug(DNSEvent.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L));
+                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
                                 strategyString, "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
                     };
                 }
@@ -246,9 +247,9 @@ public class DNS_SERVER {
                         } catch (SQLException e) {
                             IO.println("Entries couldn't be inserted into Cache. Assume cache connection is lost");
                             // log
-                            LoggingFeature.logInfo(DNSEvent.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
+                            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
                             if (LoggingFeature.isDebug()) {
-                                LoggingFeature.logDebug(DNSEvent.debug(
+                                LoggingFeature.logDebug(DNSEventDebug.debug(
                                         DNSEventType.CACHE_ERROR, null, null, null, 0L,
                                         null,null, null, -1,
                                         "Entries couldn't be inserted into Cache. Assume cache connection is lost",

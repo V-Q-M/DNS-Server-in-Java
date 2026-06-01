@@ -15,7 +15,8 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import io.gitlab.teamproject2026.logging.LoggingFeature;
-import io.gitlab.teamproject2026.logging.DNSEvent;
+import io.gitlab.teamproject2026.logging.DNSEventInfo;
+import io.gitlab.teamproject2026.logging.DNSEventDebug;
 import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.DNSQueryInfo;
 
@@ -64,7 +65,7 @@ public class StubResolver {
         //parse query, extract relevant fields
         DNSPacket queryPacket = DNSPacket.fromBytes(query);
         byte[] idBytes = queryPacket.getId();
-        String id = String.format("%16s", Integer.toBinaryString(((idBytes[0] & 0xFF) << 8) | (idBytes[1] & 0xFF))).replace(" ", "0");
+        String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
         //add for loop for all qSections
         QuestionSection question = queryPacket.getQuestionSections()[0];//for now, add all qs
         String domain = question.nameToString(); 
@@ -73,9 +74,9 @@ public class StubResolver {
         for(int attempt=0; attempt<maxAttempts;attempt++){
             NameServer server=nameServers.get(startIndex);
             
-            LoggingFeature.logInfo(DNSEvent.info(DNSEventType.QUERY_SENT, id, domain, qType, 0L)); //latency is always 0 for query
+            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.QUERY_SENT, id, domain, qType, 0L)); //latency is always 0 for query
                     if (LoggingFeature.isDebug()) {
-                        LoggingFeature.logDebug(DNSEvent.debug(
+                        LoggingFeature.logDebug(DNSEventDebug.debug(
                             DNSEventType.QUERY_SENT, id, domain, qType, 0L,
                             strategy.name(), server.name(), server.host(), attempt + 1, null, null));//debug fields. cacheHit, errorMessage and rCode don't make sense for query
                     }
@@ -90,15 +91,15 @@ public class StubResolver {
                     //get responseId,... directly from result
                     DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
                     byte[] responseIdBytes = responsePacket.getId();
-                    String responseId = String.format("%16s", Integer.toBinaryString(((responseIdBytes[0] & 0xFF) << 8) | (responseIdBytes[1] & 0xFF))).replace(" ", "0");
+                    String responseId = "0x" + java.util.HexFormat.of().formatHex(responseIdBytes);
                     QuestionSection responseQuestion = responsePacket.getQuestionSections()[0];//for now, add all qs
                     String responseDomain = responseQuestion.nameToString(); 
                     RRType responseQType = responseQuestion.getQtype();
                     RCode rCode = responsePacket.getRcode();
                     //logging
-                    LoggingFeature.logInfo(DNSEvent.info(DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs()));
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs()));
                     if (LoggingFeature.isDebug()) {
-                        LoggingFeature.logDebug(DNSEvent.debug(
+                        LoggingFeature.logDebug(DNSEventDebug.debug(
                             DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs(),
                             strategy.name(), server.name(), server.host(), attempt + 1, result.errorMessage(), rCode));//debug fields
                     }
@@ -107,10 +108,10 @@ public class StubResolver {
                 }
                 case TIMEOUT -> {
                     //  TIMEOUT Event
-                    LoggingFeature.logInfo(DNSEvent.info(DNSEventType.TIMEOUT, id, domain, qType, result.latencyMs()));//copy fields from query since response is null
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.TIMEOUT, id, domain, qType, result.latencyMs()));//copy fields from query since response is null
                     if (LoggingFeature.isDebug()) {
                         String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
-                        LoggingFeature.logDebug(DNSEvent.debug(
+                        LoggingFeature.logDebug(DNSEventDebug.debug(
                             DNSEventType.TIMEOUT, id, domain, qType, result.latencyMs(),
                             strategy.name(), server.name(), server.host(), attempt + 1,// cacheHit
                             error,   // error message of ForwardResult
@@ -131,10 +132,10 @@ public class StubResolver {
                 }
                 case IO_ERROR -> {
                     //IO_ERROR Event
-                    LoggingFeature.logInfo(DNSEvent.info(DNSEventType.IO_ERROR, id, domain, qType, result.latencyMs()));//copy fields from query since response is null
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.IO_ERROR, id, domain, qType, result.latencyMs()));//copy fields from query since response is null
                     if (LoggingFeature.isDebug()) {
                         String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
-                        LoggingFeature.logDebug(DNSEvent.debug(
+                        LoggingFeature.logDebug(DNSEventDebug.debug(
                             DNSEventType.IO_ERROR, id, domain, qType, result.latencyMs(),
                             strategy.name(), server.name(), server.host(), attempt + 1,
                             error,   // error message of ForwardResult
@@ -152,10 +153,10 @@ public class StubResolver {
                 }
             }}
         // exhausted  attempts failure Event
-        LoggingFeature.logInfo(DNSEvent.info(DNSEventType.ATTEMPTS_EXHAUSTED, id, domain, qType, System.currentTimeMillis() - startTime));//copy fields from query since response is null
+        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.ATTEMPTS_EXHAUSTED, id, domain, qType, System.currentTimeMillis() - startTime));//copy fields from query since response is null
                     if (LoggingFeature.isDebug()) {
                         String error = "All structural retries exhausted. Returning SERVFAIL.";
-                        LoggingFeature.logDebug(DNSEvent.debug(
+                        LoggingFeature.logDebug(DNSEventDebug.debug(
                             DNSEventType.ATTEMPTS_EXHAUSTED, id, domain, qType, System.currentTimeMillis() - startTime,
                             strategy.name(), nameServers.get(startIndex).name(), nameServers.get(startIndex).host(), maxAttempts,
                             error,   // error message of ForwardResult
