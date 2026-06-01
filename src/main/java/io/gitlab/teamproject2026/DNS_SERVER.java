@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Properties;
 
 import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.Set;
 import java.sql.SQLException;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
@@ -21,7 +23,6 @@ import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.cache.CacheHandler;
 import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
 import io.gitlab.teamproject2026.model.ResourceRecord;
-import io.gitlab.teamproject2026.model.RRClass;
 
 public class DNS_SERVER {
 
@@ -334,7 +335,7 @@ public class DNS_SERVER {
                 } else if (request.getQtype() != RRType.CNAME) {
                     // CNAME-type queries are handled by the direct lookup above 
                     // this branch only follows an alias when a different record type was requested
-                    if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached, cacheHandler)) {
+                    if (!resolveCnameFromCache(qname, request.getQtype(), answer, cacheHandler)) {
                         notCached.add(request);
                     }
                 } else {
@@ -350,17 +351,21 @@ public class DNS_SERVER {
         return new dnsPayload(answer, authority, additional, notCached);
     }
 
-    // Returns false if the CNAME or its target is not cached, so the caller can
-    // forward to the stub.
+    // Returns true only when the whole CNAME chain AND its final target are cached.
+    // Returns false otherwise, so the caller forwards the original query to the stub.
     private static boolean resolveCnameFromCache(
-            String name, RRType targetType, RRClass targetClass,
+            String name, RRType targetType,
             LinkedList<ResourceRecord> answer,
-            LinkedList<QuestionSection> notCached,
             CacheHandler cacheHandler) throws SQLException {
         String current = name.toLowerCase();
         LinkedList<ResourceRecord> chain = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
 
         for (int hop = 0; hop < MAX_CNAME_HOPS; hop++) {
+            // visited.add returns false if current was already seen -> CNAME loop,
+            // bail out and let the StubResolver handle it
+            if (!visited.add(current)) return false;
+
             ResourceRecord[] cnames = cacheHandler.lookup(current, RRType.CNAME);
             if (cnames.length == 0) break;
 
@@ -377,17 +382,9 @@ public class DNS_SERVER {
             current = target;
         }
 
-        if (chain.isEmpty()) return false;
-
-        // Chain started but target not in cache 
-        //  commit CNAMEs and forward the last target
-        answer.addAll(chain);
-        QuestionSection targetQuestion = new QuestionSection();
-        targetQuestion.setName(current.split("\\."));
-        targetQuestion.setQtype(targetType);
-        targetQuestion.setQclass(targetClass);
-        notCached.add(targetQuestion);
-        return true;
+        // CNAME chain not fully resolvable from cache
+        // forward the whole query to the stub
+        return false;
     }
 
     /**

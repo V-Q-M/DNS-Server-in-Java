@@ -113,9 +113,23 @@ class QueryCacheCNAMETest {
 
         DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
-        // CNAME is cached so it goes in the answer; only the target is forwarded to stub
-        assertEquals(1, payload.answer().size());
-        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
+        // Target not fully resolvable from cache
+        //  forward the whole query to the stub
+        assertEquals(0, payload.answer().size());
+        assertEquals(1, payload.notCached().size());
+    }
+
+    @Test
+    void cnameLoopForwardsToStub() throws Exception {
+        // a -> b -> a is a cycle: never resolves, must not loop forever
+        cache.insertAll(new ResourceRecord[]{ makeCNAME("a.example.com", "b.example.com") });
+        cache.insertAll(new ResourceRecord[]{ makeCNAME("b.example.com", "a.example.com") });
+
+        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("a.example.com", RRType.A), cache);
+
+        // loop detected 
+        // nothing committed, whole query forwarded to the stub
+        assertEquals(0, payload.answer().size());
         assertEquals(1, payload.notCached().size());
     }
 
