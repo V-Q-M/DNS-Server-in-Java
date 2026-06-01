@@ -25,6 +25,7 @@ public class StubResolver {
     public record ForwardResult(Status status, byte[] response, String errorMessage, long latencyMs){
         //public boolean isSuccess() {return status== Status.SUCCESS;}
     }
+    //host should be ip, name can be additional info
     public record NameServer(String host, int port, String name) {
         @Override public String toString() {return name+ "(" + host+ ":" +port+ ")";}
     }

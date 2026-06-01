@@ -1,7 +1,8 @@
 <configuration>
+<!--for writing to stubInfo.log:-->
 <appender name="INFO_FILE"
           class="ch.qos.logback.core.FileAppender">
-    <file>logs/dns-info.log</file>
+    <file>logs/stubInfo.log</file>
 
     <filter class="ch.qos.logback.classic.filter.LevelFilter">
         <level>INFO</level>
@@ -11,10 +12,10 @@
 
     <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
 </appender>
-
+<!--for writing to stubDebug.log:-->
 <appender name="DEBUG_FILE"
           class="ch.qos.logback.core.FileAppender">
-    <file>logs/dns-debug.log</file>
+    <file>logs/stubDebug.log</file>
 
     <filter class="ch.qos.logback.classic.filter.LevelFilter">
         <level>DEBUG</level>
@@ -25,7 +26,9 @@
     <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
 </appender>
 
-<root level="DEBUG">
+<root level="DEBUG"> 
+<!--root logger currently accpets all log events DEBUG or higher (so including INFO)-->
+<!--if you want INFO logging only exchange root level="DEBUG" in line above with root level="INFO"-->
     <appender-ref ref="INFO_FILE"/>
     <appender-ref ref="DEBUG_FILE"/>
 </root>
