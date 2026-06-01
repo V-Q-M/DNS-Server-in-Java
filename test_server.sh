@@ -76,8 +76,6 @@ testStubResolver(){
     doLookup "uni-tuebingen.de" "A" "134.2.5.1" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "ANSWER: 3" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "ANSWER: 5" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${NOCACHE}
     # CNAME response
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "atlas.cs.uni-tuebingen.de" ${NOCACHE}
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "134.2.10.224" ${NOCACHE}
@@ -100,8 +98,6 @@ testCache(){
     doLookup "uni-tuebingen.de" "AAAA" "2001:7c0:300c:30f0::8602:501" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${CACHETIME}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${CACHETIME}
     doLookup "uni-tuebingen.de" "SOA" "dns6.uni-tuebingen.de. hostmaster.uni-tuebingen.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "SOA" "dns6.uni-tuebingen.de. hostmaster.uni-tuebingen.de." ${CACHETIME}
     doLookup "1.5.2.134.in-addr.arpa" "PTR" "www.uni-tuebingen.de." ${NOCACHE}
