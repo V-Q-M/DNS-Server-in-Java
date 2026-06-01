@@ -19,6 +19,14 @@ public class ResourceRecord {
     private RData rdata;
     private int lastProcessedByte;
 
+    public ResourceRecord(){}
+    public ResourceRecord(String[] name, RRClass rrclass, long ttl, RData rdata){
+        this.name = name;
+        this.rrclass = rrclass;
+        this.ttl = ttl;
+        this.rdata = rdata;
+    }
+
     public String[] getName() { return name; }
     public void setName(String[] name) { this.name = name; }
 
