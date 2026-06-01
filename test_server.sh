@@ -30,21 +30,25 @@ verifyResult() {
 }
 
 startServer() {
-    mvn compile && java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1} --testing  > /dev/null 2>&1 & echo "Attempt to start server on port ${1}..."
+    mvn compile
+    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --testing" > server.log 2>&1 &
+    echo "Attempt to start server on port ${1}..."
 }
 
 verifyServerRunning() {
     echo "wait 20 seconds to allow for server compilation"
-    echo "If the pipeline fails, you might need to increase line 39 in test_server.sh yo a higher value"
     sleep 20
-    if ps xa | grep "java -cp target/classes io.gitlab.teamproject2026.DNS_SERVER -p ${1}" | grep -v "grep"; then
+
+    if grep -q "UDP server listening on" server.log; then
         echo -e "${GREEN}Server successfully started${NC}"
     else
         echo -e "${RED}ERROR: Server did not start properly${NC}"
+        echo "----- server.log -----"
+        cat server.log
+        echo "----------------------"
         ERRCOUNT=$((ERRCOUNT + 1))
     fi
 }
-
 cleanUpAndResult() {
     #echo "Cleaning up..."
     pkill java
