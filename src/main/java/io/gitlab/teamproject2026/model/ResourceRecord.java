@@ -129,15 +129,16 @@ public class ResourceRecord {
      * @return a new AnswerSection populated with the parsed data
      */
     public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
-        ResourceRecord resourceRecord = new ResourceRecord();
         String[] labels = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
-        resourceRecord.setName(labels);
+        //resourceRecord.setName(labels);
         RRType type = RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
-        resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
-        resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
+        RRClass rrclass = RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        long ttl = DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
-        resourceRecord.setRdata(RData.fromBytes(bytes, byteIndex, type));
+        RData rdata = RData.fromBytes(bytes, byteIndex, type);
+
+        ResourceRecord resourceRecord = new ResourceRecord(labels, rrclass, ttl, rdata);
         //resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);
         resourceRecord.lastProcessedByte = byteIndex + rdlengthComp;
         return resourceRecord;

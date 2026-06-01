@@ -38,8 +38,6 @@ public class RDataPTR implements RData {
     }
 
     public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {
-        RDataPTR rDataPTR = new RDataPTR();
-        rDataPTR.setPtrdname(DNSParser.parseName(bytes, byteIndex));
-        return rDataPTR;
+        return new RDataPTR(DNSParser.parseName(bytes, byteIndex));
     }
 }

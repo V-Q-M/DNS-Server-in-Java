@@ -44,8 +44,6 @@ public class RDataA implements RData {
     }
 
     public static RDataA fromBytes(byte[] bytes, int byteIndex) {
-        RDataA rDataA = new RDataA();
-        rDataA.setAddress(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 4));
-        return rDataA;
+        return new RDataA(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 4));
     }
 }

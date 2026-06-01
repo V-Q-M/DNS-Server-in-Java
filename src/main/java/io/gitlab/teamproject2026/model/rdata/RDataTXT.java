@@ -40,9 +40,8 @@ public class RDataTXT implements RData {
     }
 
     public static RDataTXT fromBytes(byte[] bytes, int byteIndex) {
-        RDataTXT rDataTXT = new RDataTXT();
         int txtLength = bytes[byteIndex] & 0xFF;
-        rDataTXT.setTxtdata(new String(Arrays.copyOfRange(bytes, 1+byteIndex, 1+ byteIndex + txtLength), StandardCharsets.US_ASCII));
-        return rDataTXT;
+        String txtdata = new String(Arrays.copyOfRange(bytes, 1+byteIndex, 1+ byteIndex + txtLength), StandardCharsets.US_ASCII);
+        return new RDataTXT(txtdata);
     }
 }

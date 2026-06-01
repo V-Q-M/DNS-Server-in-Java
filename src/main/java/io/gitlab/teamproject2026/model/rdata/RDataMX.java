@@ -50,9 +50,8 @@ public class RDataMX implements RData {
     }
 
     public static RDataMX fromBytes(byte[] bytes, int byteIndex) {
-        RDataMX rDataMX = new RDataMX();
-        rDataMX.setPreference(DNSParser.as16BitInt(bytes[byteIndex], bytes[1+byteIndex]));
-        rDataMX.setExchange(DNSParser.parseName(bytes, 2+byteIndex));
-        return rDataMX;
+        int preference = DNSParser.as16BitInt(bytes[byteIndex], bytes[1+byteIndex]);
+        String[] exchange = DNSParser.parseName(bytes, 2+byteIndex);
+        return new RDataMX(preference, exchange);
     }
 }

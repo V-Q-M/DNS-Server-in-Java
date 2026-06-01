@@ -32,10 +32,10 @@ class QueryCacheCNAMETest {
     private static ResourceRecord makeA(String name, byte[] address) {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(name.split("\\."));
-        rr.setType(RRType.A);
+        //rr.setType(RRType.A);
         rr.setRrclass(RRClass.IN);
         rr.setTtl(300);
-        rr.setRdlength(address.length);
+        //rr.setRdlength(address.length);
         RDataA rdata = new RDataA();
         rdata.setAddress(address);
         rr.setRdata(rdata);
@@ -45,13 +45,13 @@ class QueryCacheCNAMETest {
     private static ResourceRecord makeCNAME(String name, String target) {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(name.split("\\."));
-        rr.setType(RRType.CNAME);
+        //rr.setType(RRType.CNAME);
         rr.setRrclass(RRClass.IN);
         rr.setTtl(300);
         RDataCNAME rdata = new RDataCNAME();
         rdata.setCname(target.split("\\."));
         rr.setRdata(rdata);
-        rr.setRdlength(rdata.toBytes().length);
+        //rr.setRdlength(rdata.toBytes().length);
         return rr;
     }
 

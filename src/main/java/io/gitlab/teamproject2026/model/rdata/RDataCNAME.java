@@ -38,8 +38,6 @@ public class RDataCNAME implements RData {
     }
 
     public static RDataCNAME fromBytes(byte[] bytes, int byteIndex) {
-        RDataCNAME rDataCNAME = new RDataCNAME();
-        rDataCNAME.setCname(DNSParser.parseName(bytes, byteIndex));
-        return rDataCNAME;
+        return new RDataCNAME(DNSParser.parseName(bytes, byteIndex));
     }
 }

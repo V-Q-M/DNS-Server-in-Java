@@ -89,17 +89,18 @@ public class RDataSOA implements RData {
     }
 
     public static RDataSOA fromBytes(byte[] bytes, int byteIndex) {
-        RDataSOA rDataSOA = new RDataSOA();
-        rDataSOA.setMname(DNSParser.parseName(bytes, byteIndex));
+        String[] mname = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
-        rDataSOA.setRname(DNSParser.parseName(bytes, byteIndex));
-        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
-        rDataSOA.setSerial(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setRefresh(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setRetry(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setExpire(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setMinimum(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
 
-        return  rDataSOA;
+        String[] rname = DNSParser.parseName(bytes, byteIndex);
+        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+
+        long serial = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long refresh = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long retry = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long expire = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long minimum = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+
+        return new RDataSOA( mname, rname, serial, refresh, retry, expire, minimum );
     }
 }

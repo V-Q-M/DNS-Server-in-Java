@@ -39,8 +39,6 @@ public class RDataNS implements RData {
     }
 
     public static RDataNS fromBytes(byte[] bytes, int byteIndex) {
-        RDataNS rDataNS = new RDataNS();
-        rDataNS.setNsdname(DNSParser.parseName(bytes, byteIndex));
-        return  rDataNS;
+        return new RDataNS(DNSParser.parseName(bytes, byteIndex));
     }
 }
