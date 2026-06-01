@@ -3,6 +3,7 @@ package io.gitlab.teamproject2026;
 import java.io.FileInputStream;
 import java.io.IOException;
 
+import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -198,7 +199,9 @@ public class DNS_SERVER {
                     uncachedOOPacket.setQdcount(payload.notCached.size());
 
                     // Get Stub response
-                    byte[] rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                    byte[] rawResponse = testing
+                            ? MockResponses.respond(uncachedOOPacket).toBytes()
+                            : stubResolver.resolve(uncachedOOPacket.toBytes());
                     DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
 
                     // Extract RRs from Stub Response and cache them if testing mode is not enabled
