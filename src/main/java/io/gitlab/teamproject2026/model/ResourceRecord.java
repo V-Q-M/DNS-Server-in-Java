@@ -34,15 +34,17 @@ public class ResourceRecord {
     public int getRdlength() { return rdlength; }
     public void setRdlength(int rdlength) {this.rdlength = rdlength;}
     public void setRdlength(int rdlength, byte[] bytes, int byteIndex) { 
-        if (type == RRType.SOA || type == RRType.NS || type == RRType.MX || type == RRType.CNAME){
-            int decompPlus = DNSParser.countNameLengthDecomp(bytes, byteIndex) - DNSParser.countNameLength(bytes, byteIndex); // counts by how many bytes the RData section increased due to decompression
+        if (type == RRType.SOA || type == RRType.NS || type == RRType.MX || type == RRType.CNAME || type == RRType.PTR){
             if (this.type == RRType.SOA){
                 int rnameIndex = byteIndex + DNSParser.countNameLength(bytes, byteIndex);
-                decompPlus += DNSParser.countNameLengthDecomp(bytes, rnameIndex) - DNSParser.countNameLength(bytes, rnameIndex);
-            }
-            this.rdlength = rdlength + decompPlus; 
+                 this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex) + DNSParser.countNameLengthDecomp(bytes, rnameIndex) + 20; // mname.length + rname.length + 20 bytes (serial,...:fixed length)
+            }  
+            else if (this.type == RRType.MX){
+                 this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex+2) +2; // first 2 bytes: preference + mxdomainname.length 
+            }  
+            else { this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex);}
         }
-        else { this.rdlength = rdlength;}
+        else { this.rdlength = rdlength;} 
     }
 
     public RData getRdata() { return rdata; }
