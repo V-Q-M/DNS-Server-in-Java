@@ -3,48 +3,49 @@ package io.gitlab.teamproject2026;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import io.gitlab.teamproject2026.data.MockResponses;
-import io.gitlab.teamproject2026.logging.DNSEventInfo;
-import io.gitlab.teamproject2026.logging.DNSEventDebug;
-import io.gitlab.teamproject2026.logging.DNSEventType;
-import io.gitlab.teamproject2026.logging.LoggingFeature;
 import io.gitlab.teamproject2026.model.DNSPacket;
-import io.gitlab.teamproject2026.model.QuestionSection;
-import io.gitlab.teamproject2026.model.*;
-import io.gitlab.teamproject2026.cache.CacheHandler;
-import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
-import io.gitlab.teamproject2026.model.ResourceRecord;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
-import java.sql.SQLException;
 
+import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.Set;
+import java.sql.SQLException;
+import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
+import io.gitlab.teamproject2026.model.rdata.RDataMX;
+import io.gitlab.teamproject2026.model.rdata.RDataNS;
+import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.cache.CacheHandler;
+import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
-    private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol#UDP_datagram_structure
-    //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
-    private static boolean testing=false;
+    private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
+    private static final int MAX_CNAME_HOPS = 8;
+    // mustn't be changed anywhere in the Server loop, as it dictates whether we are
+    // testing in the CI
+    private static boolean testing = false;
 
-    private record dnsPayload(
-        LinkedList<ResourceRecord> answer,
-        LinkedList<ResourceRecord> authority,
-        LinkedList<ResourceRecord> additional,
-        LinkedList<QuestionSection> notCached
-    ){};
+    public record dnsPayload(
+            LinkedList<ResourceRecord> answer,
+            LinkedList<ResourceRecord> authority,
+            LinkedList<ResourceRecord> additional,
+            LinkedList<QuestionSection> notCached) {
+    };
 
-     static void main(String[] args) throws Exception {
+    static void main(String[] args) throws Exception {
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
-
 
         // Layer 2: config file
         Properties props = new Properties();
@@ -75,8 +76,9 @@ public class DNS_SERVER {
         }
 
         // port check (delete later if 0-1024 ports are allowed)
-        if (portNumber<0 || portNumber > 65535) {
-            IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default " + DEFAULT_PORT);
+        if (portNumber < 0 || portNumber > 65535) {
+            IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default "
+                    + DEFAULT_PORT);
             portNumber = DEFAULT_PORT;
         }
 
@@ -94,11 +96,10 @@ public class DNS_SERVER {
                 .toList();
         StubResolver stubResolver = new StubResolver(nameServers, dnsTimeout, maxRetries, retryDelay, strategy);
 
-
         // Open UDP socket
         InetAddress bindAddress;
-        try { bindAddress= InetAddress.getByName(bindIP);
-
+        try {
+            bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
             IO.println("Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP);
             bindIP = DEFAULT_IP;
@@ -107,15 +108,17 @@ public class DNS_SERVER {
 
         // esthablish Cache Connection
         CacheHandler cacheHandler = null;
-        if (!testing){
-            try{
-                cacheHandler = new CacheHandler( new CacheConnectionProvider());
+        if (!testing) {
+            try {
+                cacheHandler = new CacheHandler(new CacheConnectionProvider());
             } catch (ClassNotFoundException e) {
                 System.err.println("JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?");
                 throw e;
             } catch (SQLException e) {
-                System.err.println("Connection to the Database couldn't be esthablished, is the Docker-Server running?");
-                // log and enable testing mode to ignore Cache, as initial connection couldn't be set up
+                System.err
+                        .println("Connection to the Database couldn't be esthablished, is the Docker-Server running?");
+                // log and enable testing mode to ignore Cache, as initial connection couldn't
+                // be set up
                 testing = true;
             }
         }
@@ -124,28 +127,19 @@ public class DNS_SERVER {
             IO.println("UDP server listening on " + bindIP + ":" + portNumber);
             IO.println();
 
+            // Buffer necessary to store the packet
+            byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
 
             // Server loop
             while (true) {
-                // Buffer necessary to store the packet
-                byte[] buffer = new byte[1024];
-                // validate Cache, if Cache cannot be validated, assume internal server error and crash. Disable during testing
-                long startTime = System.currentTimeMillis();
-                if (!testing){
-                    try{
+                // validate Cache, if Cache cannot be validated, assume internal server error
+                // and crash. Disable during testing
+                if (!testing) {
+                    try {
                         cacheHandler.deleteExpired();
                     } catch (SQLException e) {
-
                         IO.println("Connection to cache Server has been lost, assume internal Server error");
                         // log and enable testing mode as cache entries cannot be ensured to be valid
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
-                        if (LoggingFeature.isDebug()) {
-                            LoggingFeature.logDebug(DNSEventDebug.debug(
-                                    DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,
-                                    null,null, null, -1,
-                                    "Connection to cache Server has been lost, assume internal Server error",
-                                    null));//debug fields.
-                        }
                         testing = true;
                     }
                 }
@@ -169,81 +163,50 @@ public class DNS_SERVER {
 
                 // Respond: If requested RR is cached, return RR else return stub Response
 
-                dnsPayload payload = new dnsPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), new LinkedList<>());
-                //needed for cache logging:
-                byte[] idBytes = oopPacket.getId();
-                String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
-                if (!testing){
+                dnsPayload payload = new dnsPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(),
+                        new LinkedList<>());
+
+                if (!testing) {
                     // query cache and safe results in payload
-                    long cacheStart = System.currentTimeMillis();
                     try {
                         payload = queryCache(oopPacket, cacheHandler);
-
-                        for (QuestionSection request : oopPacket.getQuestionSections()) {
-                            String domain = request.nameToString();
-                            RRType qType = request.getQtype();
-                            if (payload.notCached.contains(request)) {
-                                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                                if (LoggingFeature.isDebug()) {
-                                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, strategyString, "Local Cache", "127.0.0.1", 1, "Not found in database", null));
-                                }
-                            } else {
-                                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                                if (LoggingFeature.isDebug()) {
-                                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
-                                            strategyString, "Local Cache", "127.0.0.1", 1, null, null));
-                                }
-                            }
-
-                        }
                     } catch (SQLException e) {
                         // log
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
-                        if (LoggingFeature.isDebug()) {
-                            LoggingFeature.logDebug(DNSEventDebug.debug(
-                                    DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart,
-                                    null,null, null, -1,
-                                    "Connection to cache Server has been lost, assume internal Server error",
-                                    null));//debug fields.
-                        }
-                        // connection to cache couldn't be reached so all queries have to be resolved through the resolver
-                        for (QuestionSection request:oopPacket.getQuestionSections()) {
+                        // connection to cache couldn't be reached so all queries have to be resolved
+                        // through the resolver
+                        for (QuestionSection request : oopPacket.getQuestionSections()) {
                             payload.notCached.add(request);
-                            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
-                            LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
-                                    strategyString, "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
-                        };
+                        }
+                        ;
                     }
                 } else {
                     // if testing is active, do not check cache
-                    for (QuestionSection request:oopPacket.getQuestionSections()) {
+                    for (QuestionSection request : oopPacket.getQuestionSections()) {
                         payload.notCached.add(request);
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L)); //since cache isn't checked latency is 0
-                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
-                                strategyString, "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
-                    };
+                    }
+                    ;
                 }
 
-
-                // Stubresolver should only be queried if there are queries not answered by the cache
+                // Stubresolver should only be queried if there are queries not answered by the
+                // cache
                 if (payload.notCached.size() > 0) {
-                    //if (testing){
+                    // if (testing){
 
                     // Build packet to be send to Stub resolver
-                    // The ID should not have to be changed, as the Server should not recieve any other packages using this ID from the original sender
+                    // The ID should not have to be changed, as the Server should not recieve any
+                    // other packages using this ID from the original sender
                     DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
-                    uncachedOOPacket.setQuestionSections(payload.notCached.toArray(new QuestionSection[payload.notCached.size()]));
+                    uncachedOOPacket.setQuestionSections(
+                            payload.notCached.toArray(new QuestionSection[payload.notCached.size()]));
                     uncachedOOPacket.setQdcount(payload.notCached.size());
 
-
                     // Get Stub response
-                    byte[] rawResponse= stubResolver.resolve(uncachedOOPacket.toBytes());
+                    byte[] rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
 
-                    // Extract RRs from Stubg Response and cache them if testing mode is not enabled
+                    // Extract RRs from Stub Response and cache them if testing mode is not enabled
                     // caching
                     if (!testing) {
-                        startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                         try {
                             cacheHandler.insertAll(stubResponse.getAnswerSections());
                             cacheHandler.insertAll(stubResponse.getAuthoritySections());
@@ -251,44 +214,34 @@ public class DNS_SERVER {
                         } catch (SQLException e) {
                             IO.println("Entries couldn't be inserted into Cache. Assume cache connection is lost");
                             // log
-                            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime)); //no query, so everything except DNSEventType null
-                            if (LoggingFeature.isDebug()) {
-                                LoggingFeature.logDebug(DNSEventDebug.debug(
-                                        DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,
-                                        null,null, null, -1,
-                                        "Entries couldn't be inserted into Cache. Assume cache connection is lost",
-                                        null));//debug fields.
-                            }
                         }
                     }
 
                     // extracting and adding to answers
-                    for (ResourceRecord answers :stubResponse.getAnswerSections()){
+                    for (ResourceRecord answers : stubResponse.getAnswerSections()) {
                         payload.answer.add(answers);
                     }
-                    for (ResourceRecord authorities:stubResponse.getAuthoritySections()){
+                    for (ResourceRecord authorities : stubResponse.getAuthoritySections()) {
                         payload.authority.add(authorities);
                     }
-                    for (ResourceRecord additionals:stubResponse.getAdditionalSections()){
+                    for (ResourceRecord additionals : stubResponse.getAdditionalSections()) {
                         payload.additional.add(additionals);
                     }
                 }
 
-
-
-
-
-                //Build response packet
+                // Build response packet
                 DNSPacket response = buildResponsePacket(payload, oopPacket);
 
                 // convert response packet to Bytes
                 byte[] byteResponse = response.toBytes();
 
-                // if DNS-Packet exceeds maximum UDP Payload size, truncate it and set the tc flag
-                if (byteResponse.length >= UDP_MAX_PAYLOAD_SIZE){
+                // if DNS-Packet exceeds maximum UDP Payload size, truncate it and set the tc
+                // flag
+                if (byteResponse.length >= UDP_MAX_PAYLOAD_SIZE) {
                     byte[] byteResponsetruncated = new byte[UDP_MAX_PAYLOAD_SIZE];
                     response.setTc(true);
-                    System.arraycopy(response.toBytes(), 0, byteResponsetruncated, 0, UDP_MAX_PAYLOAD_SIZE);
+                    byte[] truncatedSource = response.toBytes();
+                    System.arraycopy(truncatedSource, 0, byteResponsetruncated, 0, UDP_MAX_PAYLOAD_SIZE);
                     byteResponse = byteResponsetruncated;
                 }
 
@@ -297,8 +250,7 @@ public class DNS_SERVER {
                         byteResponse,
                         byteResponse.length,
                         clientAddress,
-                        clientPort
-                );
+                        clientPort);
 
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
@@ -311,7 +263,7 @@ public class DNS_SERVER {
     }
 
     // Small helper method to convert byte packets into hex
-    private static String toHex(byte[] bytes){
+    private static String toHex(byte[] bytes) {
         StringBuilder stringBuilder = new StringBuilder();
 
         for (byte b : bytes) {
@@ -321,88 +273,136 @@ public class DNS_SERVER {
         return stringBuilder.toString().trim();
     }
 
-    public static boolean getTestingStatus(){
+    public static boolean getTestingStatus() {
         return testing;
     }
 
-    /** Queries the Cache using a given cacheHandler and a dns query. If the Cache contains the requested records, it returns them in the corresponding section of the Record.
+    /**
+     * Queries the Cache using a given cacheHandler and a dns query. If the Cache
+     * contains the requested records, it returns them in the corresponding section
+     * of the Record.
      * Also Returns A and AAAA records for NS and MX records
-     * Packets that couldn't be resolved with the cache itself are stored in the notCached part of the record
+     * Packets that couldn't be resolved with the cache itself are stored in the
+     * notCached part of the record
      *
-     * @param query the DNS query which is to be resolved
-     * @param cacheHandler the CacheHandler with which the function accesses teh cache
-     * @return A dnsPayload record containing the resolved Reccords and the Records that have yet to be resolved
+     * @param query        the DNS query which is to be resolved
+     * @param cacheHandler the CacheHandler with which the function accesses teh
+     *                     cache
+     * @return A dnsPayload record containing the resolved Reccords and the Records
+     *         that have yet to be resolved
      * @throws SQLException if the cache cannot be accessed
      */
-    private static dnsPayload queryCache(DNSPacket query, CacheHandler cacheHandler) throws SQLException{
+    public static dnsPayload queryCache(DNSPacket query, CacheHandler cacheHandler) throws SQLException {
 
         LinkedList<ResourceRecord> answer = new LinkedList<>();
         LinkedList<ResourceRecord> authority = new LinkedList<>();
-        LinkedList<ResourceRecord> additional= new LinkedList<>();
+        LinkedList<ResourceRecord> additional = new LinkedList<>();
         LinkedList<QuestionSection> notCached = new LinkedList<>();
 
-        try{
+        try {
 
+            // for each query, check if the requested RR is cached, if not add to the
+            // Queries sent to the Stubresolver
+            for (QuestionSection request : query.getQuestionSections()) {
+                String qname = String.join(".", request.getName());
+                ResourceRecord[] cachedRecords = cacheHandler.lookup(qname, request.getQtype());
 
-            // for each query, check if the requested RR is cached, if not add to the Queries sent to the Stubresolver/Mockresolver
-            for (QuestionSection request:query.getQuestionSections()) {
-                ResourceRecord[] cachedRecords = cacheHandler.lookup(String.join(".",request.getName()), request.getQtype());
-
-                // if RRs are cached, add them to the corresponding sections, else add them to a non resolved list to be resolved later
                 if (cachedRecords.length != 0) {
-                    for (ResourceRecord record: cachedRecords){
-                        switch (record.getType()){
-                            case NS : {authority.add(record);
-
-                                // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
-                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
+                    for (ResourceRecord record : cachedRecords) {
+                        switch (record.getType()) {
+                            case NS: {
+                                authority.add(record);
+                                String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
+                                for (ResourceRecord adress : cacheHandler.lookup(nsHost, RRType.A))
                                     additional.add(adress);
-                                }
-                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
+                                for (ResourceRecord adress : cacheHandler.lookup(nsHost, RRType.AAAA))
                                     additional.add(adress);
-                                }
-                            };
-                            case MX : {answer.add(record);
-                                // check if ipv4 Adress or Ipv6 for record is also known and add it to the additional section
-                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.A)){
+                                break;
+                            }
+                            case MX: {
+                                answer.add(record);
+                                String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
+                                for (ResourceRecord adress : cacheHandler.lookup(mxHost, RRType.A))
                                     additional.add(adress);
-                                }
-                                for (ResourceRecord adress:cacheHandler.lookup(String.join(".",record.getName()), RRType.AAAA)){
+                                for (ResourceRecord adress : cacheHandler.lookup(mxHost, RRType.AAAA))
                                     additional.add(adress);
-                                }
-                            };
-                            case A,AAAA,TXT,SOA,PTR,CNAME : answer.add(record);
+                                break;
+                            }
+                            case A, AAAA, TXT, SOA, PTR, CNAME:
+                                answer.add(record);
                         }
+                    }
+                } else if (request.getQtype() != RRType.CNAME) {
+                    // CNAME-type queries are handled by the direct lookup above 
+                    // this branch only follows an alias when a different record type was requested
+                    if (!resolveCnameFromCache(qname, request.getQtype(), answer, cacheHandler)) {
+                        notCached.add(request);
                     }
                 } else {
                     notCached.add(request);
                 }
-
-
             }
         } catch (SQLException e) {
-            System.err.println("Connection to Server couldn't be esthablished. Assume internal Server error. Is the Postgres-Docker running?");
+            System.err.println(
+                    "Connection to Server couldn't be esthablished. Assume internal Server error. Is the Postgres-Docker running?");
             throw e;
         }
 
         return new dnsPayload(answer, authority, additional, notCached);
     }
 
-    /** Build a response packet given a Payload for a given query
+    // Returns true only when the whole CNAME chain AND its final target are cached.
+    // Returns false otherwise, so the caller forwards the original query to the stub.
+    private static boolean resolveCnameFromCache(
+            String name, RRType targetType,
+            LinkedList<ResourceRecord> answer,
+            CacheHandler cacheHandler) throws SQLException {
+        String current = name.toLowerCase();
+        LinkedList<ResourceRecord> chain = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+
+        for (int hop = 0; hop < MAX_CNAME_HOPS; hop++) {
+            // visited.add returns false if current was already seen -> CNAME loop,
+            // bail out and let the StubResolver handle it
+            if (!visited.add(current)) return false;
+
+            ResourceRecord[] cnames = cacheHandler.lookup(current, RRType.CNAME);
+            if (cnames.length == 0) break;
+
+            chain.add(cnames[0]);
+            String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname()).toLowerCase();
+
+            ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
+            if (targetRecords.length > 0) {
+                answer.addAll(chain);
+                for (ResourceRecord record : targetRecords) answer.add(record);
+                return true;
+            }
+
+            current = target;
+        }
+
+        // CNAME chain not fully resolvable from cache
+        // forward the whole query to the stub
+        return false;
+    }
+
+    /**
+     * Build a response packet given a Payload for a given query
      *
      * @param payload The Payload that is to be put into the response packet
-     * @param query The Query that is to be answered
+     * @param query   The Query that is to be answered
      * @return a DNS-Packet in oop format
      */
-    private static DNSPacket buildResponsePacket(dnsPayload payload, DNSPacket query){
+    private static DNSPacket buildResponsePacket(dnsPayload payload, DNSPacket query) {
         DNSPacket response = new DNSPacket();
         response.setId(query.getId());
         response.setQr(true);
         response.setOpcode(query.getOpcode());
-        response.setAa(false); // cannot be authoratative as our server doesn't have a zone just yet
-        response.setTc(false); // checked later on again to make sure the package doesn't exceed max udp payload size
-        response.setRa(true); // at this point our server handels every request recursively
-        response.setZ((byte)0);
+        response.setAa(false);
+        response.setTc(false);
+        response.setRa(true);
+        response.setZ((byte) 0);
         response.setQdcount(query.getQdcount());
         response.setAncount(payload.answer.size());
         response.setNscount(payload.authority.size());
@@ -413,6 +413,5 @@ public class DNS_SERVER {
         response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[payload.additional.size()]));
         return response;
     }
-
 
 }
