@@ -29,10 +29,10 @@ class CacheHandlerTest {
     private static ResourceRecord makeA(String name, long ttl, byte[] address) {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(name.split("\\."));
-        rr.setType(RRType.A);
+        //rr.setType(RRType.A);
         rr.setRrclass(RRClass.IN);
         rr.setTtl(ttl);
-        rr.setRdlength(address.length);
+        //rr.setRdlength(address.length);
         RDataA rdata = new RDataA();
         rdata.setAddress(address);
         rr.setRdata(rdata);

@@ -62,10 +62,10 @@ public class CacheHandler {
                 while (rs.next()) {
                     ResourceRecord rr = new ResourceRecord();
                     rr.setName(rs.getString("name").split("\\."));
-                    rr.setType(type);
+                    //rr.setType(type);
                     rr.setRrclass(RRClass.IN);
                     rr.setTtl(rs.getLong("ttl"));
-                    rr.setRdlength(rs.getInt("rdlength"));
+                    //rr.setRdlength(rs.getInt("rdlength"));
                     rr.setRdata(mapper.map(rs));
                     records.add(rr);
                 }

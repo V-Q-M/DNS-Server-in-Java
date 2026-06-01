@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
 
@@ -12,8 +13,6 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  * Includes primary nameserver, responsible email, and zone serial number.
  */
 public class RDataSOA implements RData {
-    public static final int TYPE = 6;
-
     private String[] mname;
     private String[] rname;
     private long serial;
@@ -21,6 +20,12 @@ public class RDataSOA implements RData {
     private long retry;
     private long expire;
     private long minimum;
+
+    @Override
+    public RRType getType() {
+        return RRType.SOA;
+    }
+
 
     public String[] getMname() { return mname; }
     public void setMname(String[] mname) { this.mname = mname; }

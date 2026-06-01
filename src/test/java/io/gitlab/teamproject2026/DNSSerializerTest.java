@@ -81,10 +81,10 @@ public class DNSSerializerTest {
 
         ResourceRecord resourceRecord = new ResourceRecord();
         resourceRecord.setName(new String[] {"uni-tuebingen", "de"});
-        resourceRecord.setType(RRType.SOA);
+        //resourceRecord.setType(RRType.SOA);
         resourceRecord.setRrclass(RRClass.IN);
         resourceRecord.setTtl(2);
-        resourceRecord.setRdlength(rData.toBytes().length);
+        //resourceRecord.setRdlength(rData.toBytes().length);
         resourceRecord.setRdata(rData);
 
         assertArrayEquals(HexFormat.of().parseHex(

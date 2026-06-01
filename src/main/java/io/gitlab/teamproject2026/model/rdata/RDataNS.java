@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
 
@@ -11,9 +12,12 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  * Specifies the authoritative name server for a domain.
  */
 public class RDataNS implements RData {
-    public static final int TYPE = 2;
-
     private String[] nsdname;
+
+    @Override
+    public RRType getType() {
+        return RRType.NS;
+    }
 
     public String[] getNsdname() { return nsdname; }
     public void setNsdname(String[] nsdname) { this.nsdname = nsdname; }

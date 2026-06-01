@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
 
@@ -12,10 +13,14 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  * Specifies the mail server responsible for a domain.
  */
 public class RDataMX implements RData {
-    public static final int TYPE = 15;
-
     private int preference;
     private String[] exchange;
+
+    @Override
+    public RRType getType() {
+        return RRType.MX;
+    }
+
 
     public int getPreference() { return preference; }
     public void setPreference(int preference) { this.preference = preference; }

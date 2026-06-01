@@ -162,7 +162,7 @@ public class DNSParserTest {
     // decompression for all Resource Record types having RData that can be compressed and A RRs (fromBytes function)
 
     // notes
-    // on modifying the dns packet: 
+    // on modifying the dns packet:
     // definitely adjust header fields (qdcount, ancount,...) in constructed RR and headerBytes
     // depending on changes: adjust pointers in (all) RRs, QuestionSections
     // in general: the an-, ar-, adsections are not necessarily connected to the question and the types in those sections don't necessarily make sense
@@ -188,8 +188,8 @@ public class DNSParserTest {
     interface DecompressionAssertion {
         void run(DNSPacket packet, byte[] hexBytes);
     }
-    
-    // executes tests for the 6 SubTests 
+
+    // executes tests for the 6 SubTests
     @ParameterizedTest()
     @MethodSource("decompressionSubTests")
     void testDnsDecompression(String testName, DNSPacket packet, String completeBytes, DecompressionAssertion assertion) {
@@ -220,22 +220,22 @@ public class DNSParserTest {
                 "Decompression whole message test",
                 createWholeMessagePacket(),
                 "740685800001000300020002" + //header bytes, slightly different in every TestCase (different qdcount, ancount,...)
-                questionBytes + cnameBytes + aBytes + mxBytes + 
+                questionBytes + cnameBytes + aBytes + mxBytes +
                 "0d756e692d74756562696e67656e0264650000060001000000020018" +
                                             "c01d" + //mname pointer to question section uni-tuebingen.de
                                              "c01d"+  //rname
                                             "0000000200000002000000020000000200000002" //soaBytes (4 lines), other rname pointer compared to Test4 necessary due to other RRs in between
                                              + nsBytes + cnameBytes + ptrBytes,
-                (DecompressionAssertion) (packet, hexBytes) -> {   
+                (DecompressionAssertion) (packet, hexBytes) -> {
                     byte[] generatedBytes = packet.toBytes();
                     // asserts that message with multiple sections including most types of RRs is parsed correctly by fromBytes (due to different hashes it's not possible to compare the actual packet and the paresed bytes)
                     assertEquals(packet.toString(), DNSPacket.fromBytes(hexBytes).toString());
                     // asserts that the byte string gets parsed by fromBytes and then converted to toBytes as expected:
                     assertArrayEquals(generatedBytes, DNSPacket.fromBytes(hexBytes).toBytes());
                     //asserts that multiple calls to fromBytes and toBytes don't corrupt parsing:
-                    assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(generatedBytes).toBytes()).toBytes(), generatedBytes);    
+                    assertArrayEquals(DNSPacket.fromBytes(DNSPacket.fromBytes(generatedBytes).toBytes()).toBytes(), generatedBytes);
                 }
-            ), 
+            ),
 
             //--------------SubTest[2]: test resolution of pointer pointing on pointer, only questionSections------------------------------------------
 
@@ -258,10 +258,10 @@ public class DNSParserTest {
                                                                                 //partial pointer from cname to question section, pointer from a to cname
                 standardAssertions
             ),
-        
+
             //---------------------SubTest[4]: test if names in authority section get parsed correctly---------------------------------------
             // soa and ns RR
-            //pointer to section other than question section (authority section): from rname to mname 
+            //pointer to section other than question section (authority section): from rname to mname
             Arguments.of(
                 "Decompression authority section test (SOA and NS)",
                 createAuthoritySectionPacket(),
@@ -436,7 +436,7 @@ public class DNSParserTest {
     }
 
     /**
-     * genrerates RR with values 
+     * genrerates RR with values
      * @param qname query domain name
      * @param qtype queried type of RR
      * @param ttl
@@ -447,13 +447,13 @@ public class DNSParserTest {
     public static ResourceRecord createRr(String[] qname, RRType qtype, int ttl, RData rdata, int rdlength) {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(qname);
-        rr.setType(qtype);
+        //rr.setType(qtype);
         rr.setRrclass(RRClass.IN);
         rr.setTtl(ttl);
         rr.setRdata(rdata);
-        rr.setRdlength(rdlength);
+        //rr.setRdlength(rdlength);
         return rr;
-    
+
     }
 
 
@@ -492,7 +492,7 @@ public class DNSParserTest {
     @Test
     void countNameLengthTruncatedLabel() {
         // labellength bigger than actual label
-        byte[] truncatedLabel = HexFormat.of().parseHex("05616263"); 
+        byte[] truncatedLabel = HexFormat.of().parseHex("05616263");
         //asserts right type of exception
         IndexOutOfBoundsException exception = assertThrows(IndexOutOfBoundsException.class, () -> {
             DNSParser.countNameLength(truncatedLabel, 0);

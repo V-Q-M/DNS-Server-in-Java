@@ -94,7 +94,7 @@ public class MockResponses {
     private static DNSPacket buildResponse(DNSPacket requestPacket, RRType type, RData rdata) {
         ResourceRecord answer = new ResourceRecord();
         answer.setName(requestPacket.getQuestionSections()[0].getName());
-        answer.setType(type);
+        //answer.setType(type);
         answer.setRrclass(RRClass.IN);
         answer.setTtl(300);
         answer.setRdata(rdata);

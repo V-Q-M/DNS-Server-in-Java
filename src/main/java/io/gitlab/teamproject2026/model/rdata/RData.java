@@ -9,6 +9,13 @@ import io.gitlab.teamproject2026.model.RRType;
 public interface RData {
 
     /**
+     * Predefined type of the rdata and thus of the ResourceRecord
+     * logically identical to testing the instance of the RData
+     * @return rrtype of the RData and thus of the ResourceRecord
+     */
+    RRType getType();
+
+    /**
      * Serializes this resource record into its binary DNS wire format.
      *
      * @return byte array representing this record in DNS wire format
