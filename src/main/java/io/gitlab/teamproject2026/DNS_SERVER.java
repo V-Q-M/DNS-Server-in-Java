@@ -110,7 +110,8 @@ public class DNS_SERVER {
                 throw e;
             } catch (SQLException e) {
                 System.err.println("Connection to the Database couldn't be esthablished, is the Docker-Server running?");
-                throw e;
+                // log and enable testing mode to ignore Cache, as initial connection couldn't be set up
+                testing = true;
             }
         }
 
@@ -129,7 +130,8 @@ public class DNS_SERVER {
                         cacheHandler.deleteExpired();
                     } catch (SQLException e) {
                         IO.println("Connection to cache Server has been lost, assume internal Server error");
-                        throw e;
+                        // log and enable testing mode as cache entries cannot be ensured to be valid
+                        testing = true;
                     }
                 }
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -156,7 +158,15 @@ public class DNS_SERVER {
 
                 if (!testing){
                     // query cache and safe results in payload
-                    payload = queryCache(oopPacket, cacheHandler);
+                    try {
+                        payload = queryCache(oopPacket, cacheHandler);
+                    } catch (SQLException e) {
+                        // log
+                        // connection to cache couldn't be reached so all queries have to be resolved through the resolver
+                        for (QuestionSection request:oopPacket.getQuestionSections()) {
+                            payload.notCached.add(request);
+                        };
+                    }
                 } else {
                     // if testing is active, do not check cache 
                     for (QuestionSection request:oopPacket.getQuestionSections()) {
@@ -180,12 +190,17 @@ public class DNS_SERVER {
                     byte[] rawResponse= stubResolver.resolve(uncachedOOPacket.toBytes());
                     DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
 
-                    // Extract RRs from Stub Response and cache them if testing mode is not enabled
+                    // Extract RRs from Stubg Response and cache them if testing mode is not enabled
                     // caching
                     if (!testing) {
-                        cacheHandler.insertAll(stubResponse.getAnswerSections());
-                        cacheHandler.insertAll(stubResponse.getAuthoritySections());
-                        cacheHandler.insertAll(stubResponse.getAdditionalSections());
+                        try {
+                            cacheHandler.insertAll(stubResponse.getAnswerSections());
+                            cacheHandler.insertAll(stubResponse.getAuthoritySections());
+                            cacheHandler.insertAll(stubResponse.getAdditionalSections());
+                        } catch (SQLException e) {
+                            IO.println("Entries couldn't be inserted into Cache. Assume cache connection is lost");
+                            // log
+                        }
                     }
 
                     // extracting and adding to answers
