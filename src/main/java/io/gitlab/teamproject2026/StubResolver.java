@@ -18,7 +18,7 @@ import io.gitlab.teamproject2026.logging.LoggingFeature;
 import io.gitlab.teamproject2026.logging.DNSEventInfo;
 import io.gitlab.teamproject2026.logging.DNSEventDebug;
 import io.gitlab.teamproject2026.logging.DNSEventType;
-import io.gitlab.teamproject2026.logging.DNSQueryInfo;
+
 
 public class StubResolver {
     public enum Status{SUCCESS, TIMEOUT, IO_ERROR}
