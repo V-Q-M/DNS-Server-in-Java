@@ -1,15 +1,31 @@
 package io.gitlab.teamproject2026.logging;
-import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.*;
+
+
+
 public record DNSEvent(
     DNSEventType eventType,
-    String id,
-    String domain,
-    RRType qType,
-    String dnsResolver, 
+    String id, 
+    String domain, 
+    RRType qType, 
     long latencyMs,
-    String error
+    //debug fields
+    String strategy, 
+    String nameserver, 
+    String upstream, 
+    Integer attempt, 
+    Boolean cacheHit, 
+    String error, 
+    RCode rCode
 ) {
-    public static DNSEvent of(DNSEventType eventType, DNSQueryInfo info, String dnsResolver, long latencyMs, String error) {
-        return new DNSEvent(eventType, info.id(), info.domain(), info.qType(), dnsResolver, latencyMs, error);
+    // For simple INFO logging
+    public static DNSEvent info(DNSEventType type, String id, String domain, RRType qType, long latencyMs) {
+        return new DNSEvent(type, id, domain, qType, latencyMs, null, null, null, null, null, null, null);
+    }
+
+    // For detailed DEBUG logging
+    public static DNSEvent debug(DNSEventType type, String id, String domain, RRType qType, long latencyMs,
+                                 String strategy, String nsName, String nsHost, int attempt, Boolean cacheHit, String error, RCode rCode) {
+        return new DNSEvent(type, id, domain, qType, latencyMs, strategy, nsName, nsHost, attempt, cacheHit, error, rCode);
     }
 }

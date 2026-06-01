@@ -76,7 +76,7 @@ public class StubResolver {
             
             IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
             // QUERY_SENT Event at the start of every loop attempt
-            LoggingFeature.log(new DNSEvent(
+            /**LoggingFeature.log(new DNSEvent(
                 DNSEventType.QUERY_SENT,
                 id,
                 domain,
@@ -84,28 +84,32 @@ public class StubResolver {
                 server.host(),
                 0,
                 null
-            ));
+            ));*/
 
             ForwardResult result= forwardOnce(query, server);
             switch (result.status()) {
                 case SUCCESS -> {
                     // SUCCESS Event (rcvd answer)
-                    LoggingFeature.log(new DNSEvent(
-                        DNSEventType.SUCCESS,
-                        id,
-                        domain,
-                        qType,
-                        server.host(),
-                        result.latencyMs(),
-                        null
-                    ));
+                    DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
 
+                    byte[] responseIdBytes = responsePacket.getId();
+                    String responseId = String.format("%16s", Integer.toBinaryString(((responseIdBytes[0] & 0xFF) << 8) | (responseIdBytes[1] & 0xFF))).replace(" ", "0");
+                    QuestionSection responseQuestion = responsePacket.getQuestionSections()[0];//for now, add all qs
+                    String responseDomain = responseQuestion.nameToString(); 
+                    RRType responseQType = responseQuestion.getQtype();
+                    RCode rCode = responsePacket.getRcode();
+                    LoggingFeature.logInfo(DNSEvent.info(DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs()));
+                    if (LoggingFeature.isDebug()) {
+                        LoggingFeature.logDebug(DNSEvent.debug(
+                            DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs(),
+                            strategy.name(), server.name(), server.host(), attempt + 1, false, result.errorMessage(), rCode));//debug fields
+}
                     IO.println("[Stub] reply from " + server + " in " + result.latencyMs() + "ms");
                     return result.response();
                 }
                 case TIMEOUT -> {
                     //  TIMEOUT Event
-                    LoggingFeature.log(new DNSEvent(
+                    /**LoggingFeature.log(new DNSEvent(
                         DNSEventType.TIMEOUT,
                         id,
                         domain,
@@ -113,7 +117,7 @@ public class StubResolver {
                         server.host(),
                         result.latencyMs(),
                         result.errorMessage() != null ? result.errorMessage() : "timed out"
-                    ));
+                    ));*/
 
                     IO.println("[Stub] timeout from " + server + " after " + result.latencyMs() + " ms");
                     if (attempt + 1 < maxAttempts) {
@@ -128,7 +132,7 @@ public class StubResolver {
                 }
                 case IO_ERROR -> {
                     //IO_ERROR Event
-                    LoggingFeature.log(new DNSEvent(
+                    /**LoggingFeature.log(new DNSEvent(
                         DNSEventType.IO_ERROR,
                         id,
                         domain,
@@ -136,7 +140,7 @@ public class StubResolver {
                         server.host(),
                         result.latencyMs(),
                         result.errorMessage()
-                    ));
+                    ));*/
 
                     IO.println("[Stub] I/O error from " + server + " after: " + result.errorMessage());
                     if (attempt + 1 < maxAttempts) {
@@ -148,7 +152,7 @@ public class StubResolver {
                 }
             }}
         // exhausted  attempts failure Event
-        LoggingFeature.log(new DNSEvent(
+        /**LoggingFeature.log(new DNSEvent(
             DNSEventType.ATTEMPTS_EXHAUSTED,
             id,
             domain,
@@ -156,7 +160,7 @@ public class StubResolver {
             nameServers.get(startIndex).host(),
             System.currentTimeMillis() - startTime,
             "All structural retries exhausted. Returning SERVFAIL."
-        ));
+        ));*/
         IO.println("[Stub] All "+maxAttempts+ " attempt(s) exhausted - returning SERVFAIL");
         return buildServFail(query);
     }
