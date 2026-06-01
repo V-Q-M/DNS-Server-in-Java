@@ -150,7 +150,7 @@ public class DNS_SERVER {
                 DNSPacket oopPacket = DNSPacket.fromBytes(data);
                 IO.println("Assembled Packet:\n" + oopPacket);
 
-                // Respond: If requested RR is cached, return RR else return mock Response
+                // Respond: If requested RR is cached, return RR else return stub Response
 
                 dnsPayload payload = new dnsPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), new LinkedList<>());
 
@@ -165,11 +165,11 @@ public class DNS_SERVER {
                 }
 
                 
-                // MockResponder/ Stubresolver should only be queried if there are queries not answered by the cache
+                // Stubresolver should only be queried if there are queries not answered by the cache
                 if (payload.notCached.size() > 0) {
                     //if (testing){
 
-                    // Build packet to be send to either Mock resolver or Stub resolver
+                    // Build packet to be send to Stub resolver
                     // The ID should not have to be changed, as the Server should not recieve any other packages using this ID from the original sender
                     DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
                     uncachedOOPacket.setQuestionSections(payload.notCached.toArray(new QuestionSection[payload.notCached.size()]));
@@ -180,7 +180,7 @@ public class DNS_SERVER {
                     byte[] rawResponse= stubResolver.resolve(uncachedOOPacket.toBytes());
                     DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
 
-                    // Extract RRs from Mock Response and cache them if testing mode is not enabled
+                    // Extract RRs from Stub Response and cache them if testing mode is not enabled
                     // caching
                     if (!testing) {
                         cacheHandler.insertAll(stubResponse.getAnswerSections());
