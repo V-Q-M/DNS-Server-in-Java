@@ -62,63 +62,33 @@ public class StubResolver {
         int maxAttempts= maxRetries+1;
         int startIndex= nextStartIndex(totalServers);
         long startTime = System.currentTimeMillis();
-        //parse query, extract relevant fields
+        //parse query
         DNSPacket queryPacket = DNSPacket.fromBytes(query);
-        byte[] idBytes = queryPacket.getId();
-        String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
-        //add for loop for all qSections
-        QuestionSection question = queryPacket.getQuestionSections()[0];//for now, add all qs
-        String domain = question.nameToString(); 
-        RRType qType = question.getQtype();
-        
         for(int attempt=0; attempt<maxAttempts;attempt++){
             NameServer server=nameServers.get(startIndex);
-            
-            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.QUERY_SENT, id, domain, qType, 0L)); //latency is always 0 for query
-                    if (LoggingFeature.isDebug()) {
-                        LoggingFeature.logDebug(DNSEventDebug.debug(
-                            DNSEventType.QUERY_SENT, id, domain, qType, 0L,
-                            strategy.name(), server.name(), server.host(), attempt + 1, null, null));//debug fields. cacheHit, errorMessage and rCode don't make sense for query
-                    }
-            
+            //log QUERY_SENT for every question section seperately (usually different qType or domain queried)
+            logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
 
             ForwardResult result= forwardOnce(query, server);
             //for all questions
             switch (result.status()) {
                 case SUCCESS -> {
-                    // SUCCESS Event (rcvd answer)
-                    //get responseId,... directly from result
+                    // SUCCESS Event (only means that an answer was rcvd,
+                    // not necessarily answer to query,
+                    // different RCodes (NXDOMAIN,NO_ERROR,...) indicate if rcvd answer actually resolves query)
                     DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
-                    byte[] responseIdBytes = responsePacket.getId();
-                    String responseId = "0x" + java.util.HexFormat.of().formatHex(responseIdBytes);
-                    QuestionSection responseQuestion = responsePacket.getQuestionSections()[0];//for now, add all qs
-                    String responseDomain = responseQuestion.nameToString(); 
-                    RRType responseQType = responseQuestion.getQtype();
                     RCode rCode = responsePacket.getRcode();
-                    //logging
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs()));
-                    if (LoggingFeature.isDebug()) {
-                        LoggingFeature.logDebug(DNSEventDebug.debug(
-                            DNSEventType.SUCCESS, responseId, responseDomain, responseQType, result.latencyMs(),
-                            strategy.name(), server.name(), server.host(), attempt + 1, result.errorMessage(), rCode));//debug fields
-                    }
+                    //log SUCCESS for every question section seperately
+                    logQuestionEvents(DNSEventType.SUCCESS, responsePacket, result.latencyMs(), server, attempt, result.errorMessage(), rCode);
                     IO.println("[Stub] reply from " + server + " in " + result.latencyMs() + "ms");
                     return result.response();
                 }
                 case TIMEOUT -> {
                     //  TIMEOUT Event
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.TIMEOUT, id, domain, qType, result.latencyMs()));//copy fields from query since response is null
-                    if (LoggingFeature.isDebug()) {
-                        String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
-                        LoggingFeature.logDebug(DNSEventDebug.debug(
-                            DNSEventType.TIMEOUT, id, domain, qType, result.latencyMs(),
-                            strategy.name(), server.name(), server.host(), attempt + 1,// cacheHit
-                            error,   // error message of ForwardResult
-                            null // RCode is null since response is null
-                        ));
-                    }
-
+                    String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
+                    //log TIMEOUT for every question section seperately
+                    logQuestionEvents(DNSEventType.TIMEOUT, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     IO.println("[Stub] timeout from " + server + " after " + result.latencyMs() + " ms");
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == Strategy.FAILOVER) {
@@ -132,17 +102,9 @@ public class StubResolver {
                 }
                 case IO_ERROR -> {
                     //IO_ERROR Event
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.IO_ERROR, id, domain, qType, result.latencyMs()));//copy fields from query since response is null
-                    if (LoggingFeature.isDebug()) {
-                        String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
-                        LoggingFeature.logDebug(DNSEventDebug.debug(
-                            DNSEventType.IO_ERROR, id, domain, qType, result.latencyMs(),
-                            strategy.name(), server.name(), server.host(), attempt + 1,
-                            error,   // error message of ForwardResult
-                            null // RCode is null since response is null
-                        ));
-                    }
-
+                    String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
+                    //log IO_ERROR for every question section seperately
+                    logQuestionEvents(DNSEventType.IO_ERROR, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     IO.println("[Stub] I/O error from " + server + " after: " + result.errorMessage());
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == Strategy.FAILOVER) {
@@ -153,16 +115,16 @@ public class StubResolver {
                 }
             }}
         // exhausted  attempts failure Event
-        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.ATTEMPTS_EXHAUSTED, id, domain, qType, System.currentTimeMillis() - startTime));//copy fields from query since response is null
-                    if (LoggingFeature.isDebug()) {
-                        String error = "All structural retries exhausted. Returning SERVFAIL.";
-                        LoggingFeature.logDebug(DNSEventDebug.debug(
-                            DNSEventType.ATTEMPTS_EXHAUSTED, id, domain, qType, System.currentTimeMillis() - startTime,
-                            strategy.name(), nameServers.get(startIndex).name(), nameServers.get(startIndex).host(), maxAttempts,
-                            error,   // error message of ForwardResult
-                            RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
-                        ));
-                    }
+        logQuestionEvents(
+            DNSEventType.ATTEMPTS_EXHAUSTED,
+            queryPacket,
+            System.currentTimeMillis() - startTime,
+            nameServers.get(startIndex),
+            maxAttempts - 1, //-1 because of "attempt+1" in def of logQuestionEvents
+            "All structural retries exhausted. Returning SERVFAIL.",
+            RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
+        );
+
         IO.println("[Stub] All "+maxAttempts+ " attempt(s) exhausted - returning SERVFAIL");
         return buildServFail(query);
     }
@@ -251,4 +213,29 @@ public class StubResolver {
         }
         catch(InterruptedException e) {Thread.currentThread().interrupt();}
     }
+
+    /**
+     * helper method for logging,
+     * logs event (TIMEOUT, SUCCESS, IO_ERROR) for every  questionSection seperately
+     * (possibly different queried domains and qTypes in every questionSection, so for dashboard statistics probably relevant)
+     * @params : all input needed by logDebug
+     */
+    private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, NameServer server, int attempt, String error, RCode rCode) {
+    byte[] idBytes = packet.getId();
+    String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
+
+    for (QuestionSection question : packet.getQuestionSections()) {
+        String domain = question.nameToString();
+        RRType qType = question.getQtype();
+        //log info
+        LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
+        //log debug
+        if (LoggingFeature.isDebug()) {
+            LoggingFeature.logDebug(DNSEventDebug.debug(
+                type, id, domain, qType, latency,
+                this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
+            ));
+        }
+    }
+}
 }
