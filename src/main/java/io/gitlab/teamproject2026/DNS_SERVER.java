@@ -23,7 +23,7 @@ import java.sql.SQLException;
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
-    private static final String DEFAULT_IP = "0.0.0.0"; 
+    private static final String DEFAULT_IP = "0.0.0.0";
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol#UDP_datagram_structure
     //mustn't be changed anywhere in the Server loop, as it dictates whether we are testing in the CI
     private static boolean testing=false;
@@ -41,7 +41,8 @@ public class DNS_SERVER {
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
 
-         // Layer 2: config file
+
+        // Layer 2: config file
         Properties props = new Properties();
         try (FileInputStream fis = new FileInputStream("config.properties")) {
             props.load(fis);
@@ -70,7 +71,7 @@ public class DNS_SERVER {
         }
 
         // port check (delete later if 0-1024 ports are allowed)
-        if (portNumber > 65535) {
+        if (portNumber<0 || portNumber > 65535) {
             IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default " + DEFAULT_PORT);
             portNumber = DEFAULT_PORT;
         }
@@ -92,8 +93,8 @@ public class DNS_SERVER {
 
         // Open UDP socket
         InetAddress bindAddress;
-        try {
-            bindAddress = InetAddress.getByName(bindIP);
+        try { bindAddress= InetAddress.getByName(bindIP);
+
         } catch (Exception e) {
             IO.println("Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP);
             bindIP = DEFAULT_IP;
@@ -168,13 +169,13 @@ public class DNS_SERVER {
                         };
                     }
                 } else {
-                    // if testing is active, do not check cache 
+                    // if testing is active, do not check cache
                     for (QuestionSection request:oopPacket.getQuestionSections()) {
                         payload.notCached.add(request);
                     };
                 }
 
-                
+
                 // Stubresolver should only be queried if there are queries not answered by the cache
                 if (payload.notCached.size() > 0) {
                     //if (testing){
@@ -214,8 +215,8 @@ public class DNS_SERVER {
                         payload.additional.add(additionals);
                     }
                 }
-                    
-                
+
+
 
 
 

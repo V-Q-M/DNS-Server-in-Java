@@ -74,6 +74,6 @@ public class QuestionSection {
      * returns only name of question section (used by stubresolver for logging)
      */
     public String nameToString() { return 
-        String.join(".", this.name) + "." + "\n";
+        String.join(".", this.name) + ".";
     }
 }
