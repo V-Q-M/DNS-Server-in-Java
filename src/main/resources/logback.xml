@@ -18,6 +18,7 @@
             <message>[ignore]</message>
             <levelValue>[ignore]</levelValue>
             <logger>[ignore]</logger>
+            <level>[ignore]</level>
         </fieldNames>
     </encoder>
 </appender>
@@ -39,6 +40,7 @@
             <message>[ignore]</message>
             <levelValue>[ignore]</levelValue>
             <logger>[ignore]</logger>
+            <level>[ignore]</level>
         </fieldNames>
     </encoder>
 </appender>
