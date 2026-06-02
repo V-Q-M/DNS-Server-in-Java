@@ -1,5 +1,6 @@
 package io.gitlab.teamproject2026.zones;
 
+import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -486,6 +487,8 @@ public class ZoneParserTest {
 
     @Test
     void testIncludeFile() throws IOException {
+        // Required for this test
+        ConfigManager.setZoneDir("src/test/java/io/gitlab/teamproject2026/zones/");
         ZoneParser parser = new ZoneParser( Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.example.com")) );
 
         List<ResourceRecord> records = parser.getZoneRecords();

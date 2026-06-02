@@ -98,4 +98,7 @@ public class ConfigManager {
     public static String getZoneDir(){
         return zoneDir;
     }
+    public static void setZoneDir(String dir){
+        zoneDir = dir;
+    }
 }
