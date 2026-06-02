@@ -255,12 +255,10 @@ public class StubResolver {
                 LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
             }
             //log debug
-            if (LoggingFeature.isDebug()) {
-                LoggingFeature.logDebug(DNSEventDebug.debug(
-                    type, id, domain, qType, latency,
-                    this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
-                ));
-            }
+            LoggingFeature.logDebug(DNSEventDebug.debug(
+                type, id, domain, qType, latency,
+                this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
+            ));
         }
     }
 }
