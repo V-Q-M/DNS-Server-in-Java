@@ -39,6 +39,12 @@ public class StubResolver {
     private final Strategy strategy;
     private int RRindex=0;
 
+    private static final String RESET  = "\u001B[0m";
+    private static final String RED    = "\u001B[31m";
+    private static final String YELLOW = "\u001B[33m";
+    private static final String GREEN   = "\u001B[32m";
+    private static final String BLUE   = "\u001B[34m";
+
     public StubResolver(List<NameServer> nameServers, int timeoutMs, int maxRetries, long retryDelay, Strategy strategy){
         if(nameServers==null || nameServers.isEmpty())
             throw new IllegalArgumentException("at least one name server is required");
@@ -74,7 +80,7 @@ public class StubResolver {
             NameServer server=nameServers.get(startIndex);
             //log QUERY_SENT for every question section seperately (usually different qType or domain queried)
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
-            IO.println("[Stub] attempt "+ (attempt+1)+ "/" + maxAttempts+ "=>" +server);
+            IO.println(BLUE + "[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + " => " + server + RESET);
 
             ForwardResult result= forwardOnce(query, server);
             //for all questions
@@ -102,7 +108,7 @@ public class StubResolver {
                     RCode rCode = responsePacket.getRcode();
                     //log SUCCESS for every question section seperately
                     logQuestionEvents(DNSEventType.SUCCESS, responsePacket, result.latencyMs(), server, attempt, result.errorMessage(), rCode);
-                    IO.println("[Stub] reply from " + server + " in " + result.latencyMs() + "ms");
+                    IO.println(GREEN + "[STUB] Reply from: " + server + " in " + result.latencyMs() + "ms" + RESET);
                     return result.response();
                 }
                 case TIMEOUT -> {
@@ -110,13 +116,13 @@ public class StubResolver {
                     String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
                     //log TIMEOUT for every question section seperately
                     logQuestionEvents(DNSEventType.TIMEOUT, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
-                    IO.println("[Stub] timeout from " + server + " after " + result.latencyMs() + " ms");
+                    IO.println(YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == Strategy.FAILOVER) {
-                            IO.println("[Stub] switching to next available nameserver..");
+                            IO.println("[STUB] Switching to next available nameserver..");
                             startIndex = (startIndex + 1) % totalServers;
                         } else {
-                            IO.println("[Stub] retrying current configuration target..");
+                            IO.println("[STUB] Retrying current configuration target..");
                         }
                         sleep(retryDelay);
                     }
@@ -126,7 +132,7 @@ public class StubResolver {
                     String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
                     //log IO_ERROR for every question section seperately
                     logQuestionEvents(DNSEventType.IO_ERROR, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
-                    IO.println("[Stub] I/O error from " + server + " after: " + result.errorMessage());
+                    IO.println(RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == Strategy.FAILOVER) {
                             startIndex = (startIndex + 1) % totalServers;
@@ -146,7 +152,7 @@ public class StubResolver {
             RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
         );
 
-        IO.println("[Stub] All "+maxAttempts+ " attempt(s) exhausted - returning SERVFAIL");
+        IO.println(RED + "[STUB] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET);
         return buildServFail(query);
     }
 
