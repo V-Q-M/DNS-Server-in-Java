@@ -18,6 +18,7 @@
             <message>[ignore]</message>
             <levelValue>[ignore]</levelValue>
             <logger>[ignore]</logger>
+            <level>[ignore]</level>
         </fieldNames>
     </encoder>
 </appender>
@@ -39,11 +40,12 @@
             <message>[ignore]</message>
             <levelValue>[ignore]</levelValue>
             <logger>[ignore]</logger>
+            <level>[ignore]</level>
         </fieldNames>
     </encoder>
 </appender>
 
-<root level="DEBUG"> 
+<root level="DEBUG">
 <!--root logger currently accpets all log events DEBUG or higher (so including INFO)-->
 <!--if you want INFO logging only exchange root level="DEBUG" in line above with root level="INFO"-->
     <appender-ref ref="INFO_FILE"/>
