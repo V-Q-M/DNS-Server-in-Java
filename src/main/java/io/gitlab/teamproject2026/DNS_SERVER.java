@@ -3,17 +3,16 @@ package io.gitlab.teamproject2026;
 import java.io.FileInputStream;
 import java.io.IOException;
 
+import io.gitlab.teamproject2026.config.Config;
+import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.OptionConfig;
+import io.gitlab.teamproject2026.config.ZoneConfig;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
-import java.util.LinkedList;
-import java.util.HashSet;
-import java.util.Set;
 import java.sql.SQLException;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
@@ -53,25 +52,46 @@ public class DNS_SERVER {
             LinkedList<QuestionSection> notCached) {
     };
 
+    private static List<DNSZone> loadedZones;
+
     static void main(String[] args) throws Exception {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
+        // Named.conf
+        Config namedConfig = ConfigManager.loadConfig("named.conf");
+        OptionConfig options = namedConfig.options().getFirst();
+        try {
+            loadedZones = loadZonesFromConf(namedConfig);
+        } catch (IOException e){
+            System.err.println("ERROR: Failed parsing zone files");
+            loadedZones = null;
+        }
+
+        // Resolv.conf
+        Properties resolvConf = new Properties();
+        try (FileInputStream fis = new FileInputStream("resolv.conf")) {
+            resolvConf.load(fis);
+        } catch (IOException e) {
+            IO.println("No resolv.conf found — using defaults.");
+        }
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
         String bindIP = DEFAULT_IP;
 
         // Layer 2: config file
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream("config.properties")) {
-            props.load(fis);
-        } catch (IOException e) {
-            IO.println(YELLOW + "[SERVER] No config.properties found — using defaults." + RESET);
+        if (options.port() != 0){
+            portNumber = options.port();
+        }
+        if (!options.ipAddress().isEmpty()){
+            bindIP = options.ipAddress();
         }
 
+        /*
         if (props.getProperty("server.port") != null)
             portNumber = Integer.parseInt(props.getProperty("server.port").trim());
         if (props.getProperty("server.ip") != null)
             bindIP = props.getProperty("server.ip").trim();
+         */
 
         // Layer 3: CLI args (highest priority)
         for (int i = 0; i < args.length; i++) {
@@ -88,18 +108,18 @@ public class DNS_SERVER {
             }
         }
 
-        // port check (delete later if 0-1024 ports are allowed)
+        // port check
         if (portNumber < 0 || portNumber > 65535) {
-            System.err.println(RED + "Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default "
+            System.err.println(RED + "Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
                     + DEFAULT_PORT + RESET);
             portNumber = DEFAULT_PORT;
         }
 
-        String upstreamRaw = props.getProperty("dns.upstreams", "8.8.8.8, 1.1.1.1");
-        int dnsTimeout = Integer.parseInt(props.getProperty("dns.timeout.ms", "2000").trim());
-        int maxRetries = Integer.parseInt(props.getProperty("dns.max.retries", "2").trim());
-        long retryDelay = Long.parseLong(props.getProperty("dns.retry.delay.ms", "100").trim());
-        String strategyString = props.getProperty("dns.strategy", "FAILOVER").replaceAll("\\r", "").trim().toUpperCase();
+        String upstreamRaw = resolvConf.getProperty("dns.upstreams", "8.8.8.8, 1.1.1.1");
+        int dnsTimeout = Integer.parseInt(resolvConf.getProperty("dns.timeout.ms", "2000").trim());
+        int maxRetries = Integer.parseInt(resolvConf.getProperty("dns.max.retries", "2").trim());
+        long retryDelay = Long.parseLong(resolvConf.getProperty("dns.retry.delay.ms", "100").trim());
+        String strategyString = resolvConf.getProperty("dns.strategy", "FAILOVER").replaceAll("\\r", "").trim().toUpperCase();
 
         StubResolver.Strategy strategy = StubResolver.Strategy.valueOf(strategyString);
         List<StubResolver.NameServer> nameServers = Arrays.stream(upstreamRaw.split(","))
@@ -515,5 +535,19 @@ public class DNS_SERVER {
         response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[payload.additional.size()]));
         return response;
     }
+
+    private static List<DNSZone> loadZonesFromConf(Config config) throws IOException {
+        OptionConfig options = config.options().getFirst();
+        String dir = options.dir();
+        List<ZoneConfig> declaredZones = config.zones();
+
+        List<DNSZone> zones = new ArrayList<>(); //@TODO Aufgabe05
+        for (ZoneConfig zone : declaredZones){
+            // Collect all zones specified in the config
+            zones.add(ConfigManager.loadZoneFile(dir, zone.file(), zone.name())); //@TODO Zonecatalog
+        }
+        return zones;
+    }
+
 
 }

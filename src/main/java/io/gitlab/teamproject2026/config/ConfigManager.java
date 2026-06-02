@@ -19,12 +19,15 @@ import java.util.Map;
  */
 public class ConfigManager {
     /** Loaded zones indexed by their normalized origin name. */
-    private static Map<String, DNSZone> zones = new HashMap<>();
+    private static String zoneDir = "";
 
-    static void main(String[] args) {
-        // Has to come first
-        loadConfig("named.conf");
-    }
+    private static final String RESET  = "\u001B[0m";
+    private static final String RED    = "\u001B[31m";
+    private static final String YELLOW = "\u001B[33m";
+    private static final String GREEN   = "\u001B[32m";
+    private static final String BLUE   = "\u001B[34m";
+    private static final String BOLD   = "\u001B[1m";
+
 
     public static Config loadConfig(String configName) {
        Path confPath = Path.of(configName);
@@ -36,7 +39,10 @@ public class ConfigManager {
        }
        ConfParser confParser = new ConfParser(input);
         if (confParser.hasParserError()) {
-            System.err.println("ERROR: Failed to parse config file: " + confPath.getFileName());
+            System.err.println(RED
+                    + "[ZONE] ERROR: Failed to parse config file: "
+                    + confPath.getFileName()
+                    + RESET);
             return null;
         }
         return  ConfLoader.fromAst(confParser.getRootNodes());
@@ -50,14 +56,20 @@ public class ConfigManager {
      * @param filePath path containing a filePath as String
      * @returns DNSZone
      */
-    public static DNSZone loadZoneFile(String filePath, String origin) throws IOException {
-        Path f = Path.of(filePath);
-        IO.println("Parsing zonefile: \"" + f.getFileName() + "\"");
+    public static DNSZone loadZoneFile(String dir, String filePath, String origin) throws IOException {
+        zoneDir = dir;
+        Path f;
+        if (filePath.startsWith("/")){
+            f = Path.of(filePath);
+        } else {
+            f = Path.of(dir + "/" + filePath);
+        }
+        IO.println("[ZONE] Parsing zonefile: \"" + f.getFileName() + "\"");
 
         String content = Files.readString(f);
         ZoneParser parser = new ZoneParser(content, origin);
         if (parser.hasParserError()) {
-            System.err.println("ERROR: Failed to parse zone: " + f.getFileName());
+            System.err.println(RED + "[ZONE] ERROR: Failed to parse zone: " + f.getFileName() + RESET);
             return null;
         }
 
@@ -67,25 +79,23 @@ public class ConfigManager {
         if (!parser.getOrigin().isEmpty()) {
             zoneOrigin = parser.getOrigin();
         } else {
-            System.err.println("ERROR: No origin found in zone: " + f.getFileName());
+            System.err.println(RED + "[ZONE] ERROR: No origin found in zone: " + f.getFileName() + RESET);
             return null;
         }
         if (parser.getTTL() != 0) {
             defaultTtl = parser.getTTL();
         } else {
-            System.err.println("ERROR: No ttl found in zone: " + f.getFileName());
+            System.err.println(RED + "[ZONE] ERROR: No ttl found in zone: " + f.getFileName() + RESET);
             return null;
         }
-        IO.println("Found " + zoneRecords.size() + " Records in \"" + f.getFileName() + "\"");
-
+        IO.println(GREEN + "[ZONE] Found " + zoneRecords.size() + " Records in \"" + f.getFileName() + "\"" + RESET);
         DNSZone zone = new DNSZone(zoneOrigin, defaultTtl, new ArrayList<>(zoneRecords));
 
-        storeZones(zone);
         return zone;
     }
 
-    public static void storeZones(DNSZone zone){
-        zones.put(zone.getOrigin(), zone);
-        //IO.println("Zones: " + zones);
+
+    public static String getZoneDir(){
+        return zoneDir;
     }
 }

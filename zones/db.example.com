@@ -1,19 +1,16 @@
-; db.example.com
+$TTL 86400
 
-$ORIGIN example.com.
-$TTL 3600
-
-@   IN SOA ns1.example.com. admin.example.com. (
-        1
-        3600
-        900
-        604800
-        86400
+@       IN SOA  ns0.example.com. admin.example.com. (
+                2026060201
+                3600
+                1800
+                1209600
+                86400
 )
 
-@       IN NS    ns1.example.com.
-ns1     IN A     192.168.1.10
+@       IN NS   ns0.example.com.
 
-$INCLUDE sub.zone sub.example.com.
+@       IN A    129.0.0.1
+@       IN AAAA 2001:db8::1
 
-www     IN A     192.168.1.20
+$INCLUDE "example-records.inc" example.com.

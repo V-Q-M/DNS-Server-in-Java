@@ -1,5 +1,6 @@
 package io.gitlab.teamproject2026.zones;
 
+import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -39,7 +40,6 @@ public class ZoneParser {
 
     private String input; // Allow it to be freed later
     //private String directoryName = "zones/";
-    private String directoryName = "src/test/java/io/gitlab/teamproject2026/zones";
 
     /** Current zone origin used to resolve relative domain names. */
     private String origin = "";
@@ -62,6 +62,7 @@ public class ZoneParser {
         this.origin = origin;
         startParser();
     }
+
     public ZoneParser(String input, String origin, String defaultTtl) {
         this.input = input;
         this.origin = origin;
@@ -255,8 +256,9 @@ public class ZoneParser {
         }
         ZoneToken includeToken = tokens.get(i + 1);
 
-        if (includeToken.type() != ZoneTokenType.ATOM) {
+        if (includeToken.type() != ZoneTokenType.ATOM && includeToken.type() != ZoneTokenType.TXT) {
             error("Invalid file name: " + includeToken.literal(), includeToken.lineNumber());
+            error("Type is: " + includeToken.type(), includeToken.lineNumber());
             return i;
         }
         int offset = 1;
@@ -272,8 +274,9 @@ public class ZoneParser {
             offset = 2;
         }
         String subInput;
+        //IO.println(ConfigManager.getZoneDir() + "/" + includeToken.literal());
         try {
-            subInput = Files.readString(Path.of(directoryName + "/" + includeToken.literal()));
+            subInput = Files.readString(Path.of(ConfigManager.getZoneDir() + "/" + includeToken.literal()));
         } catch (IOException e) {
             error("Failed to read file: " + includeToken.literal(), includeToken.lineNumber());
             return i;
@@ -681,7 +684,7 @@ public class ZoneParser {
             error("TXT string ends with unfinished escape", lineNumber);
             return null;
         }
-        IO.println(raw + ":"  + out);
+        //IO.println(raw + ":"  + out);
         return out.toString();
     }
     /*
