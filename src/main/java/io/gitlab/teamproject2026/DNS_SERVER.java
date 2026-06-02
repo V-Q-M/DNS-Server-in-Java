@@ -35,6 +35,13 @@ public class DNS_SERVER {
     private static final String DEFAULT_IP = "0.0.0.0";
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
     private static final int MAX_CNAME_HOPS = 8;
+
+    private static final String RESET  = "\u001B[0m";
+    private static final String RED    = "\u001B[31m";
+    private static final String YELLOW = "\u001B[33m";
+    private static final String GREEN   = "\u001B[32m";
+    private static final String BLUE   = "\u001B[34m";
+
     // mustn't be changed anywhere in the Server loop, as it dictates whether we are
     // testing in the CI
     private static boolean testing = false;
@@ -47,6 +54,7 @@ public class DNS_SERVER {
     };
 
     static void main(String[] args) throws Exception {
+        IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // Layer 1: defaults
         int portNumber = DEFAULT_PORT;
@@ -57,7 +65,7 @@ public class DNS_SERVER {
         try (FileInputStream fis = new FileInputStream("config.properties")) {
             props.load(fis);
         } catch (IOException e) {
-            IO.println("No config.properties found — using defaults.");
+            IO.println(YELLOW + "[SERVER] No config.properties found — using defaults." + RESET);
         }
 
         if (props.getProperty("server.port") != null)
@@ -82,8 +90,8 @@ public class DNS_SERVER {
 
         // port check (delete later if 0-1024 ports are allowed)
         if (portNumber < 0 || portNumber > 65535) {
-            IO.println("Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default "
-                    + DEFAULT_PORT);
+            System.err.println(RED + "Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default "
+                    + DEFAULT_PORT + RESET);
             portNumber = DEFAULT_PORT;
         }
 
@@ -106,7 +114,7 @@ public class DNS_SERVER {
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
-            IO.println("Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP);
+            System.err.println(RED + "Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET);
             bindIP = DEFAULT_IP;
             bindAddress = InetAddress.getByName(DEFAULT_IP);
         }
@@ -138,8 +146,7 @@ public class DNS_SERVER {
         }
 
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
-            IO.println("UDP server listening on " + bindIP + ":" + portNumber);
-            IO.println();
+            IO.println(GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET);
 
             // Buffer necessary to store the packet
             byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
@@ -153,7 +160,7 @@ public class DNS_SERVER {
                     try {
                         cacheHandler.deleteExpired();
                     } catch (SQLException e) {
-                        IO.println("Connection to cache Server has been lost, assume internal Server error");
+                        IO.println(RED + "[SERVER] ERROR: Connection to cache Server has been lost, assume internal Server error" + RESET);
                         // log and enable testing mode as cache entries cannot be ensured to be valid
                         LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
                         LoggingFeature.logDebug(DNSEventDebug.debug(
@@ -175,14 +182,16 @@ public class DNS_SERVER {
                 // Store the client IP and client Port for further use
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
-                IO.println("Received packet from " + clientAddress + ":" + clientPort);
+                IO.println(BLUE + "[SERVER] Received packet from " + clientAddress + ":" + clientPort + RESET);
 
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                IO.println("IN: " + toHex(data));
+                IO.println("[SERVER] IN: " + toHex(data));
 
                 // Map bytedata to oop classes
                 DNSPacket oopPacket = DNSPacket.fromBytes(data);
-                IO.println("Assembled Packet:\n" + oopPacket);
+
+                // Uncomment this if you need to debug outgoing packets
+                //IO.println("[SERVER] Assembled Packet:\n" + oopPacket);
 
                 // Respond: If requested RR is cached, return RR else return stub Response
 
@@ -271,7 +280,7 @@ public class DNS_SERVER {
                             cacheHandler.insertAll(stubResponse.getAuthoritySections());
                             cacheHandler.insertAll(stubResponse.getAdditionalSections());
                         } catch (SQLException e) {
-                            IO.println("Entries couldn't be inserted into Cache. Assume cache connection is lost");
+                            System.err.println("[SERVER] ERROR: Entries couldn't be inserted into Cache. Assume cache connection is lost");
                             // log
                             LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime)); //no query, so everything except DNSEventType null
                             LoggingFeature.logDebug(DNSEventDebug.debug(
@@ -322,9 +331,8 @@ public class DNS_SERVER {
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
 
-                IO.println("Send response to: " + clientAddress + ":" + clientPort);
-                IO.println("OUT: " + toHex(byteResponse));
-                IO.println();
+                IO.println(BLUE + "[SERVER] Send response to: " + clientAddress + ":" + clientPort + RESET);
+                IO.println("[SERVER] OUT: " + toHex(byteResponse));
             }
         }
     }
