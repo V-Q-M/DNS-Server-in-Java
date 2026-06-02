@@ -210,10 +210,12 @@ public class DNS_SERVER {
                             String domain = request.nameToString();
                             RRType qType = request.getQtype();
                             if (payload.notCached.contains(request)) {
+                                IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
                                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, strategyString, "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                             } else {
+                                IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart));
                                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
                                             strategyString, "Local Cache", "127.0.0.1", 1, null, null));

@@ -80,7 +80,7 @@ public class StubResolver {
             NameServer server=nameServers.get(startIndex);
             //log QUERY_SENT for every question section seperately (usually different qType or domain queried)
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
-            IO.println(BLUE + "[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + " => " + server + RESET);
+            IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
 
             ForwardResult result= forwardOnce(query, server);
             //for all questions
@@ -108,7 +108,7 @@ public class StubResolver {
                     RCode rCode = responsePacket.getRcode();
                     //log SUCCESS for every question section seperately
                     logQuestionEvents(DNSEventType.SUCCESS, responsePacket, result.latencyMs(), server, attempt, result.errorMessage(), rCode);
-                    IO.println(GREEN + "[STUB] Reply from: " + server + " in " + result.latencyMs() + "ms" + RESET);
+                    IO.println(GREEN + "[STUB] Success! Reply from: " + server + " took " + result.latencyMs() + "ms" + RESET);
                     return result.response();
                 }
                 case TIMEOUT -> {
