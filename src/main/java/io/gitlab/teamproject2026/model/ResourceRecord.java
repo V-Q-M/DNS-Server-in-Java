@@ -32,7 +32,20 @@ public class ResourceRecord {
     public void setTtl(long ttl) { this.ttl = ttl; }
 
     public int getRdlength() { return rdlength; }
-    public void setRdlength(int rdlength) { this.rdlength = rdlength; }
+    public void setRdlength(int rdlength) {this.rdlength = rdlength;}
+    public void setRdlength(int rdlength, byte[] bytes, int byteIndex) { 
+        if (type == RRType.SOA || type == RRType.NS || type == RRType.MX || type == RRType.CNAME || type == RRType.PTR){
+            if (this.type == RRType.SOA){
+                int rnameIndex = byteIndex + DNSParser.countNameLength(bytes, byteIndex);
+                 this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex) + DNSParser.countNameLengthDecomp(bytes, rnameIndex) + 20; // mname.length + rname.length + 20 bytes (serial,...:fixed length)
+            }  
+            else if (this.type == RRType.MX){
+                 this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex+2) +2; // first 2 bytes: preference + mxdomainname.length 
+            }  
+            else { this.rdlength = DNSParser.countNameLengthDecomp(bytes, byteIndex);}
+        }
+        else { this.rdlength = rdlength;} 
+    }
 
     public RData getRdata() { return rdata; }
     public void setRdata(RData rdata) { this.rdata = rdata; }
@@ -45,7 +58,7 @@ public class ResourceRecord {
 
     @Override
     public String toString() {
-        return "\n    name: " + Arrays.toString(name) + "\n"
+        return "\n    name: " + String.join(".", this.name) + "." + "\n"
                 + "    rrtype: " + type + "\n"
                 + "    rrclass: " + rrclass + "\n"
                 + "    ttl: " + ttl + "s\n"
@@ -58,7 +71,7 @@ public class ResourceRecord {
      * @return byte array representing this answer section
      */
     public byte[] toBytes() {
-        byte[] name  = encodeName(String.join(".", this.name));
+        byte[] name  = encodeName(String.join(".", this.name) + ".");
         byte[] rdata = this.getRdata().toBytes();
         byte[] result = new byte[name.length + 10 + rdata.length];
 
@@ -92,7 +105,8 @@ public class ResourceRecord {
     /**
      * Deserializes an answer section from DNS wire format.
      *
-     * @param bytes raw bytes from an incoming DNS packet
+     * @param bytes COMPLETE incoming DNS packet
+     * @param byteIndex starting index of answer section
      * @return a new AnswerSection populated with the parsed data
      */
     public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
@@ -103,9 +117,10 @@ public class ResourceRecord {
         resourceRecord.setType(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setRrclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
         resourceRecord.setTtl(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        resourceRecord.setRdlength(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
-        resourceRecord.setRdata(RData.fromBytes(Arrays.copyOfRange(bytes, byteIndex, byteIndex + resourceRecord.getRdlength()), resourceRecord.getType()));
-        resourceRecord.lastProcessedByte = byteIndex + resourceRecord.getRdlength();
+        int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
+        resourceRecord.setRdata(RData.fromBytes(bytes, byteIndex, resourceRecord.getType()));
+        resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);
+        resourceRecord.lastProcessedByte = byteIndex + rdlengthComp;
         return resourceRecord;
     }
 }

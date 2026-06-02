@@ -20,17 +20,17 @@ public class RDataNS implements RData {
 
     @Override
     public String toString(){
-        return Arrays.toString(nsdname);
+        return String.join(".", nsdname) + ".";
     }
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", nsdname));
+        return encodeName(String.join(".", nsdname) + ".");
     }
 
-    public static RDataNS fromBytes(byte[] bytes) {
+    public static RDataNS fromBytes(byte[] bytes, int byteIndex) {
         RDataNS rDataNS = new RDataNS();
-        rDataNS.setNsdname(DNSParser.parseName(bytes, 0));
+        rDataNS.setNsdname(DNSParser.parseName(bytes, byteIndex));
         return  rDataNS;
     }
 }
