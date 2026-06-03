@@ -107,16 +107,38 @@ class QueryCacheCNAMETest {
     }
 
     @Test
-    void cnameMissForwardsToStub() throws Exception {
+    void cnamePartialHit() throws Exception {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com", "server.example.com") });
         // no A record for server.example.com
 
         DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
-        // Target not fully resolvable from cache
-        //  forward the whole query to the stub
-        assertEquals(0, payload.answer().size());
+        // Partial hit: the cached CNAME goes in the answer and only the unresolved
+        // tail (server.example.com A) is forwarded to the stub.
+        assertEquals(1, payload.answer().size());
+        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
         assertEquals(1, payload.notCached().size());
+        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().get(0).getName());
+        assertEquals(RRType.A, payload.notCached().get(0).getQtype());
+        assertEquals(RRClass.IN, payload.notCached().get(0).getQclass());
+    }
+
+    @Test
+    void multiHopPartialHit() throws Exception {
+        // Two cached aliases, but the terminal A record is missing.
+        cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com",   "alias.example.com") });
+        cache.insertAll(new ResourceRecord[]{ makeCNAME("alias.example.com", "server.example.com") });
+        // no A record for server.example.com
+
+        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+
+        // Both cached CNAMEs are committed, and only the deepest unresolved tail is forwarded.
+        assertEquals(2, payload.answer().size());
+        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
+        assertEquals(RRType.CNAME, payload.answer().get(1).getType());
+        assertEquals(1, payload.notCached().size());
+        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().get(0).getName());
+        assertEquals(RRType.A, payload.notCached().get(0).getQtype());
     }
 
     @Test
