@@ -1,24 +1,27 @@
 package io.gitlab.teamproject2026.model.rdata;
 
+import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
 /**
  * Represents a DNS TXT record.
  * Stores arbitrary text data associated with a domain.
  */
 public class RDataTXT implements RData {
-    private String txtdata;
+    private String[] txtdata;
 
     public RDataTXT(){}
-    public RDataTXT(String txtdata){
+    public RDataTXT(String[] txtdata){
         this.txtdata = txtdata;
     }
 
-    public String getTxtdata() { return txtdata; }
-    public void setTxtdata(String txtdata) { this.txtdata = txtdata; }
+    public String[] getTxtdata() { return txtdata; }
+    public void setTxtdata(String... txtdata) { this.txtdata = txtdata; }
 
     @Override
     public RRType getType() {
@@ -27,21 +30,16 @@ public class RDataTXT implements RData {
 
     @Override
     public String toString(){
-        return txtdata;
+        return String.join(", ", txtdata);
     }
 
     @Override
     public byte[] toBytes() {
-        byte[] text = txtdata.getBytes(StandardCharsets.US_ASCII);
-        byte[] result = new byte[1 + text.length];
-        result[0] = (byte) text.length;
-        System.arraycopy(text, 0, result, 1, text.length);
-        return result;
+        return encodeName(String.join(".", txtdata));
     }
 
     public static RDataTXT fromBytes(byte[] bytes, int byteIndex) {
         int txtLength = bytes[byteIndex] & 0xFF;
-        String txtdata = new String(Arrays.copyOfRange(bytes, 1+byteIndex, 1+ byteIndex + txtLength), StandardCharsets.US_ASCII);
-        return new RDataTXT(txtdata);
+        return new RDataTXT(DNSParser.parseName(bytes, byteIndex));
     }
 }
