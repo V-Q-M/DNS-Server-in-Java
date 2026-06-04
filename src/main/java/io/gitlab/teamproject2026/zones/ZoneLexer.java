@@ -50,9 +50,17 @@ public class ZoneLexer {
     public ZoneToken nextToken(){
         ZoneToken tok;
 
-        this.skipWhitespaceAndComments();
+        this.skipComments();
 
         switch(this.ch) {
+            case ' ', '\t' -> {
+                tok = new ZoneToken(ZoneTokenType.SPACE, this.ch, lineCount);
+                // collapse consecutive spaces/tabs into one SPACE token
+                while (this.ch == ' ' || this.ch == '\t') {
+                    this.readNextChar();
+                }
+                return tok;
+            }
             case ';' -> tok = new ZoneToken(ZoneTokenType.SEMICOLON, this.ch, lineCount);
             case '(' -> tok = new ZoneToken(ZoneTokenType.LPAREN, this.ch, lineCount);
             case ')' -> tok = new ZoneToken(ZoneTokenType.RPAREN, this.ch, lineCount);
@@ -159,23 +167,14 @@ public class ZoneLexer {
     }
 
     /**
-     * Skips horizontal whitespace and semicolon comments.
+     * Skips semicolon comments.
      * Stops before newline characters because they are meaningful tokens
      * in DNS zone file syntax.
      */
-    private void skipWhitespaceAndComments(){
-        while (true) {
-            // Skip whitespace
-            while (this.ch == ' ' || this.ch == '\t') {
+    private void skipComments() {
+        while (this.ch == ';') {
+            while (this.ch != '\n' && this.ch != '\r' && this.ch != '\0') {
                 this.readNextChar();
-            }
-            // Skip comments
-            if (this.ch == ';') {
-                while (this.ch != '\n' && this.ch != '\r' && this.ch != '\0') {
-                    this.readNextChar();
-                }
-            } else {
-                break;
             }
         }
     }

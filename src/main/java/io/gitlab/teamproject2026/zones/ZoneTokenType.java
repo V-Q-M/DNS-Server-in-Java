@@ -17,6 +17,7 @@ public enum ZoneTokenType {
     LPAREN,
     RPAREN,
     NEWLINE,
+    SPACE,
 
     // Keywords
     ORIGIN,

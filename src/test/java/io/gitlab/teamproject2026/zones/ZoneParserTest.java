@@ -38,30 +38,33 @@ public class ZoneParserTest {
 
     @Test
     void testParser() throws UnknownHostException {
-        String input =""" 
-            $ORIGIN example.com.
-            $TTL 3200
-            @ IN SOA ns1.testing.com. admin\\.foo.testing.com. (
-                2026051201
-                3600
-                1800
-                1209600
-                3600
-            )
-            www     IN A      192.0.2.2
-            ipv6    IN AAAA   2001:db8::1
-            ns2     IN A      192.0.2.54
-            alias   IN CNAME  www.testing.com.
-            @       IN NS     ns1.testing.com.
-                   IN MX     10 mail1.testing.com.
-            @       IN TXT    "hello world"
-            split   IN TXT    "one" "two" "three"
-
-            multitxt IN TXT (
-                "this is "
-                "multiple txt chunks"
-            )
-         """;
+        String input =  "$ORIGIN example.com.\n" +
+                        "$TTL 3200\n" +
+                        "@ IN SOA ns1.testing.com. admin\\.foo.testing.com. (\n" +
+                        "    2026051201\n" +
+                        "    3600\n" +
+                        "    1800\n" +
+                        "    1209600\n" +
+                        "    3600\n" +
+                        ")\n" +
+                        "www     IN A      192.0.2.2\n" +
+                        "ipv6    IN AAAA   2001:db8::1\n" +
+                        "ns2     IN A      192.0.2.54\n" +
+                        "alias   IN CNAME  www.testing.com.\n" +
+                        "@       IN NS     ns1.testing.com.\n" +
+                        "        IN MX     10 mail1.testing.com.\n" +
+                        "@       IN TXT    \"hello world\"\n" +
+                        "split   IN TXT    \"one\" \"two\" \"three\"\n" +
+                        "\n" +
+                        "multitxt IN TXT (\n" +
+                        "    \"this is \"\n" +
+                        "    \"multiple txt chunks\"\n" +
+                        ")\n" +
+                        "ns2     IN A      192.0.2.54\n" +
+                        "ab      IN PTR www.example.com\n" +
+                        "54a     IN PTR ns2.example.com\n" +
+                        "1a      IN PTR ipv6.examp.e.com\n";
+                ;
         ZoneParser testParser = new ZoneParser(input);
         List<ResourceRecord> ourRecords =  testParser.getZoneRecords();
         List<ResourceRecord> testRecords =  new ArrayList<>();
@@ -82,28 +85,18 @@ public class ZoneParserTest {
         ResourceRecord aRec = new ResourceRecord( new String[]{"www", "example", "com"}, RRClass.IN, 3200, aData );
         testRecords.add(aRec);
 
-
-        RDataAAAA aaaaData = new RDataAAAA(
-                InetAddress.getByName("2001:db8::1").getAddress()
-        );
-
+        RDataAAAA aaaaData = new RDataAAAA( InetAddress.getByName("2001:db8::1").getAddress() );
         ResourceRecord aaaaRec = new ResourceRecord( new String[]{"ipv6", "example", "com"}, RRClass.IN, 3200, aaaaData );
-
         testRecords.add(aaaaRec);
 
 
         RDataA ns2Data = new RDataA( InetAddress.getByName("192.0.2.54").getAddress() );
-
         ResourceRecord ns2Rec = new ResourceRecord( new String[]{"ns2", "example", "com"}, RRClass.IN, 3200, ns2Data );
         testRecords.add(ns2Rec);
 
 
-        RDataCNAME cnameData = new RDataCNAME(
-                new String[]{"www", "testing", "com"}
-        );
-
+        RDataCNAME cnameData = new RDataCNAME( new String[]{"www", "testing", "com"} );
         ResourceRecord cnameRec = new ResourceRecord( new String[]{"alias", "example", "com"}, RRClass.IN, 3200, cnameData );
-
         testRecords.add(cnameRec);
 
 
@@ -149,6 +142,19 @@ public class ZoneParserTest {
 
         testRecords.add(multiTxtRec);
          */
+        testRecords.add(ns2Rec);
+
+        RDataPTR ptrData = new RDataPTR(new String[]{"www", "example", "com"});
+        ResourceRecord ptrRec = new ResourceRecord( new String[]{"ab", "example", "com"}, RRClass.IN, 3200, ptrData );
+        testRecords.add(ptrRec);
+
+        RDataPTR ptr2Data = new RDataPTR(new String[]{"ns2", "example", "com"});
+        ResourceRecord ptr2Rec = new ResourceRecord( new String[]{"54a", "example", "com"}, RRClass.IN, 3200, ptr2Data );
+        testRecords.add(ptr2Rec);
+
+        RDataPTR ptr3Data = new RDataPTR(new String[]{"ipv6", "examp", "e", "com"});
+        ResourceRecord ptr3Rec = new ResourceRecord( new String[]{"1a", "example", "com"}, RRClass.IN, 3200, ptr3Data );
+        testRecords.add(ptr3Rec);
 
         // @TODO assertEquals(testRecords.size(), ourRecords.size());
         assertFalse(testParser.hasParserError());
@@ -157,6 +163,9 @@ public class ZoneParserTest {
             ResourceRecord ourRecord = ourRecords.get(i);
             ResourceRecord testRecord = testRecords.get(i);
 
+            IO.println(Arrays.toString(ourRecord.getName()));
+            IO.println(Arrays.toString(testRecord.getName()));
+            IO.println();
             assertArrayEquals(testRecord.getName(), ourRecord.getName());
             assertEquals(testRecord.getTtl(), ourRecord.getTtl());
             assertEquals(testRecord.getRrclass(), ourRecord.getRrclass());
@@ -164,7 +173,6 @@ public class ZoneParserTest {
 
             if (ourRecord.getRdata() instanceof RDataSOA ourSOARData && testRecord.getRdata() instanceof RDataSOA testSOARData) {
                 assertArrayEquals(testSOARData.getMname(), ourSOARData.getMname());
-                IO.println(Arrays.toString(ourSOARData.getRname()));
                 assertArrayEquals(testSOARData.getRname(), ourSOARData.getRname());
 
                 assertEquals(testSOARData.getSerial(), ourSOARData.getSerial());
@@ -204,16 +212,20 @@ public class ZoneParserTest {
                     testRecord.getRdata() instanceof RDataTXT testTXT) {
 //@TODO                assertArrayEquals(testTXT.getTxtdata(), ourTXT.getTxtdata());
             }
+            if (ourRecord.getRdata() instanceof  RDataPTR ourPTR &&
+                    testRecord.getRdata() instanceof RDataPTR testPTR) {
+                IO.println(ourPTR.getPtrdname());
+                IO.println(testPTR.getPtrdname());
+                assertArrayEquals(testPTR.getPtrdname(),ourPTR.getPtrdname());
+            }
         }
     }
 
     @Test
     void testFileParser() {
         try {
-            //Path file = Path.of("zones/small.zone");
-            Path file = Path.of("dnszones/dnssec.zone");
-            //IO.println("Zone file: " + file.getFileName());
-            ZoneParser testParser = new ZoneParser(Files.readString(file));
+            ConfigManager.setZoneDir("src/test/java/io/gitlab/teamproject2026/zones/");
+            ZoneParser testParser = new ZoneParser( Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.129.0.0")) );
             IO.println("Record amount: " + testParser.getZoneRecords().size());
             for (ResourceRecord r : testParser.getZoneRecords()) {
                IO.println(r);
@@ -221,18 +233,18 @@ public class ZoneParserTest {
             assertFalse(testParser.hasParserError());
         } catch (IOException e) {
             System.err.println("ERROR: File not found");
+            assertFalse(true);
         }
     }
 
 
     @Test
     void testLeadingTtlUsesPreviousName() {
-        ZoneParser parser = new ZoneParser("""
-        $ORIGIN example.com.
-        www IN A 192.0.2.1
-        3600 IN A 192.0.2.2
-        """);
-
+        ZoneParser parser = new ZoneParser(
+                "$ORIGIN example.com.\n" +
+                        "www IN A 192.0.2.1\n" +
+                        "    3600 IN A 192.0.2.2\n"
+        );
         assertFalse(parser.hasParserError());
 
         List<ResourceRecord> records = parser.getZoneRecords();
@@ -469,20 +481,16 @@ public class ZoneParserTest {
     @Test
     void testTokensAfterClosingParenOnSameLineAreTrailingGarbage() {
         String err = captureStderr(() -> {
-            ZoneParser parser = new ZoneParser("""
-            $ORIGIN example.com.
-            @ IN TXT (
-                "hello"
-            ) www IN A 192.0.2.1
-            """);
-            List<ResourceRecord> records = parser.getZoneRecords();
-            for (ResourceRecord r : records){
-                IO.println(r);
-            }
+            ZoneParser parser = new ZoneParser(
+                    "$ORIGIN example.com.\n" +
+                            "@ IN TXT (\n" +
+                            "    \"hello\"\n" +
+                            ") www IN A 192.0.2.1\n"
+            );
+
             assertTrue(parser.hasParserError());
         });
-
-        assertTrue(err.contains("invalid"));
+        assertTrue(err.toLowerCase().contains("invalid"));
     }
 
     @Test

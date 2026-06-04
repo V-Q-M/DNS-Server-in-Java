@@ -47,6 +47,8 @@ public class ZoneParser {
     private String defaultTtl = "";
     /** Previous owner name used for BIND-style owner inheritance. */
     private String prevName = "";
+    /** Use previous owner name. */
+    private boolean currentRecordStartsWithSpace = false;
 
     private boolean parserError = false;
 
@@ -186,10 +188,16 @@ public class ZoneParser {
                     bracketOpen = false;
                     //finishRecordIfPresent();
                 }
+                case SPACE -> {
+                    if (tokenBuffer.isEmpty()) {
+                        currentRecordStartsWithSpace = true;
+                    }
+                }
 
                 case NEWLINE -> {
                     if(!bracketOpen){
                         finishRecordIfPresent();
+                        currentRecordStartsWithSpace = false;
                     }
                 }
 
@@ -199,6 +207,7 @@ public class ZoneParser {
                         return;
                     }
                     finishRecordIfPresent();
+                    currentRecordStartsWithSpace = false;
                 }
 
                 default -> {
@@ -213,12 +222,21 @@ public class ZoneParser {
         }
     }
 
+    private int skipSpaces(int i) {
+        while (i < tokens.size() && tokens.get(i).type() == ZoneTokenType.SPACE) {
+            i++;
+        }
+        return i;
+    }
+
     private int parseOriginDirective(int i){
-        if (i+1 >= tokens.size()){
+        int valueIndex = skipSpaces(i + 1);
+
+        if (valueIndex >= tokens.size()){
             error("No origin found",tokens.get(i).lineNumber());
             return i;
         }
-        ZoneToken originToken = tokens.get(i + 1);
+        ZoneToken originToken = tokens.get(valueIndex);
         if (originToken.type() != ZoneTokenType.ATOM) {
             error("Invalid origin name: " + originToken.literal(), originToken.lineNumber());
             return i;
@@ -228,15 +246,16 @@ public class ZoneParser {
         parseDomainLabels(normalized, "$ORIGIN", originToken.lineNumber());
         if (parserError) return i;
         origin = normalized;
-        return i + 1;
+        return valueIndex;
     }
 
     private int parseTtlDirective(int i ) {
-        if (i + 1 >= tokens.size()) {
+        int valueIndex = skipSpaces(i + 1);
+        if (valueIndex >= tokens.size()) {
             error("No TTL found",tokens.get(i).lineNumber());
             return i;
         }
-        ZoneToken ttlToken = tokens.get(i + 1);
+        ZoneToken ttlToken = tokens.get(valueIndex);
         if (!isTTLToken(ttlToken)) {
             error("Invalid TTL: " + ttlToken.literal(), ttlToken.lineNumber());
             return i;
@@ -246,53 +265,61 @@ public class ZoneParser {
         if (parserError) { return i; }
 
         defaultTtl = String.valueOf(ttl);
-        return i + 1;
+        return valueIndex;
     }
 
-    private int parseIncludeDirective(int i){
-        if (i + 1 >= tokens.size()){
-            error("No INCLUDE FILE found",tokens.get(i).lineNumber());
+    private int parseIncludeDirective(int i) {
+        int includeIndex = skipSpaces(i + 1);
+
+        if (includeIndex >= tokens.size()) {
+            error("No INCLUDE FILE found", tokens.get(i).lineNumber());
             return i;
         }
-        ZoneToken includeToken = tokens.get(i + 1);
+
+        ZoneToken includeToken = tokens.get(includeIndex);
 
         if (includeToken.type() != ZoneTokenType.ATOM && includeToken.type() != ZoneTokenType.TXT) {
             error("Invalid file name: " + includeToken.literal(), includeToken.lineNumber());
-            error("Type is: " + includeToken.type(), includeToken.lineNumber());
             return i;
         }
-        int offset = 1;
+
+        int nextIndex = skipSpaces(includeIndex + 1);
+        int returnIndex = includeIndex;
+
         String subOrigin = origin;
-        if (i + 2 < tokens.size()){
-            ZoneToken subOriginToken = tokens.get(i + 2);
+
+        if (nextIndex < tokens.size()
+                && tokens.get(nextIndex).type() != ZoneTokenType.NEWLINE
+                && tokens.get(nextIndex).type() != ZoneTokenType.EOF) {
+            ZoneToken subOriginToken = tokens.get(nextIndex);
 
             if (subOriginToken.type() != ZoneTokenType.ATOM) {
                 error("Invalid new origin: " + subOriginToken.literal(), subOriginToken.lineNumber());
                 return i;
             }
+
             subOrigin = subOriginToken.literal();
-            offset = 2;
+            returnIndex = nextIndex;
         }
+
         String subInput;
-        //IO.println(ConfigManager.getZoneDir() + "/" + includeToken.literal());
+
         try {
             subInput = Files.readString(Path.of(ConfigManager.getZoneDir() + "/" + includeToken.literal()));
         } catch (IOException e) {
             error("Failed to read file: " + includeToken.literal(), includeToken.lineNumber());
             return i;
         }
+
         ZoneParser subParser = new ZoneParser(subInput, subOrigin, this.defaultTtl);
+
         if (subParser.hasParserError()) {
             error("Failed to parse zone: " + includeToken.literal(), includeToken.lineNumber());
             return i;
         }
-        if (parserError) { return i; }
 
-        List<ResourceRecord> zoneRecords = subParser.getZoneRecords();
-        if (parserError) { return i; }
-
-        this.zoneRecords.addAll(zoneRecords);
-        return i + offset;
+        this.zoneRecords.addAll(subParser.getZoneRecords());
+        return returnIndex;
     }
 
     private void finishRecordIfPresent() {
@@ -339,11 +366,11 @@ public class ZoneParser {
 
         int i = 0;
 
-        if (looksLikeOwnerAt(i)) {
+        if (currentRecordStartsWithSpace) {
+            recordName = prevName;
+        } else {
             recordName = normalizeDomainName(tokenBuffer.get(i).literal());
             i++;
-        } else {
-            recordName = prevName;
         }
 
         if (recordName == null || recordName.isEmpty()) {
@@ -448,23 +475,6 @@ public class ZoneParser {
             }
         };
     }
-
-    private boolean looksLikeOwnerAt(int i ) {
-        if (i >= tokenBuffer.size()) {
-            return false;
-        }
-
-        ZoneToken first = tokenBuffer.get(i);
-
-        if (isRRType(first) || first.type() == ZoneTokenType.CLASS) { return false; }
-
-        if (first.type() == ZoneTokenType.NUMBER) {
-            return i + 1 < tokenBuffer.size() && tokenBuffer.get(i + 1).type() == ZoneTokenType.NUMBER;
-        }
-
-        return first.type() == ZoneTokenType.ATOM;
-    }
-
 
     private boolean isRRType(ZoneToken t) {
         return ALL_RR_TYPES.contains(t.type());
