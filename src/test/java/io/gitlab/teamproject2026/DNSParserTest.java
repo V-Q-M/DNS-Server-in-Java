@@ -4,6 +4,8 @@ import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 import java.util.HexFormat;
 
 //for parameterized tests (testing decompression):
@@ -90,8 +92,11 @@ public class DNSParserTest {
         assertEquals(2, rDataSOA.getExpire());
         assertEquals(2, rDataSOA.getMinimum());
 
-        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e6465"),0);
-        assertEquals("uni-tuebingen.de", rDataTxt.getTxtdata());
+        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e646500"),0);
+        assertArrayEquals(new String[]{"uni-tuebingen.de"}, rDataTxt.getTxtdata());
+
+        RDataTXT rDataTxtMultiLabel = RDataTXT.fromBytes(HexFormat.of().parseHex("0568656c6c6F05776F726C64012100"),0);
+        assertArrayEquals(new String[]{"hello", "world", "!"}, rDataTxtMultiLabel.getTxtdata());
     }
     @Test
     void fullPacketTest(){

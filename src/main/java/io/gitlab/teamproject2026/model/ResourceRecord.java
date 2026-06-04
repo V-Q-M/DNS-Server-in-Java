@@ -90,7 +90,7 @@ public class ResourceRecord {
      * @return byte array representing this answer section
      */
     public byte[] toBytes() {
-        byte[] name  = encodeName(String.join(".", this.name) + ".");
+        byte[] name  = encodeName(this.name);
         byte[] rdata = this.getRdata().toBytes();
         byte[] result = new byte[name.length + 10 + rdata.length];
 

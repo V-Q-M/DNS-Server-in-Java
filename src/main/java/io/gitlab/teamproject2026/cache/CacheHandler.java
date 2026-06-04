@@ -153,7 +153,7 @@ public class CacheHandler {
                         "SELECT * FROM txt_rdata WHERE LOWER(name) = ? AND now() < expires_at",
                         RRType.TXT, rs -> {
                             RDataTXT rdata = new RDataTXT();
-                            rdata.setTxtdata(rs.getString("txtdata"));
+                            rdata.setTxtdata((String[]) rs.getArray("txtdata").getArray());
                             return rdata;
                         });
             default:
@@ -224,7 +224,7 @@ public class CacheHandler {
 
     private void fillTXT(PreparedStatement stmt, ResourceRecord r) throws SQLException {
         fillCommon(stmt, r);
-        stmt.setString(4, ((RDataTXT) r.getRdata()).getTxtdata());
+        stmt.setArray(4, conn.createArrayOf("text", ((RDataTXT) r.getRdata()).getTxtdata()));
         stmt.setLong(5, r.getTtl());
     }
 

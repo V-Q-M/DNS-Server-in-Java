@@ -41,7 +41,7 @@ CREATE TABLE ptr_rdata (
 ) INHERITS (ResourceRecord);
 
 CREATE TABLE txt_rdata (
-    txtdata text
+    txtdata text[]
 ) INHERITS (ResourceRecord);
 
 CREATE TABLE mx_rdata (

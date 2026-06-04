@@ -364,18 +364,25 @@ public class DNSPacket {
     }
 
     // Helper function to encode a name
-    public static byte[] encodeName(String name) {
-        byte[] result = new byte[name.length() + 2];
+    public static byte[] encodeName(String[] name) throws IllegalArgumentException{
+        int nameLength = 0;
+        for (String value : name) {
+            int labelLength = value.length();
+            if(labelLength > 255){
+                throw new IllegalArgumentException("Malformatted labels. Must be <256 characters, including length, in size.");
+            }
+            nameLength += labelLength + 1;
+        }
+        byte[] result = new byte[nameLength + 1];
         int pos = 0;
 
-        for (String label : name.split("\\.")) {
+        for (String label : name) {
             byte[] labelBytes = label.getBytes(StandardCharsets.US_ASCII);
             result[pos++] = (byte) labelBytes.length;
             System.arraycopy(labelBytes, 0, result, pos, labelBytes.length);
             pos += labelBytes.length;
         }
         result[pos++] = 0;
-
         return Arrays.copyOf(result, pos);
     }
 }
