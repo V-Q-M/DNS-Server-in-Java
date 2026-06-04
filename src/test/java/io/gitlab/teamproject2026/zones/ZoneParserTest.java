@@ -146,9 +146,6 @@ public class ZoneParserTest {
             ResourceRecord ourRecord = ourRecords.get(i);
             ResourceRecord testRecord = testRecords.get(i);
 
-            IO.println(Arrays.toString(ourRecord.getName()));
-            IO.println(Arrays.toString(testRecord.getName()));
-            IO.println();
             assertArrayEquals(testRecord.getName(), ourRecord.getName());
             assertEquals(testRecord.getTtl(), ourRecord.getTtl());
             assertEquals(testRecord.getRrclass(), ourRecord.getRrclass());
@@ -197,8 +194,6 @@ public class ZoneParserTest {
             }
             if (ourRecord.getRdata() instanceof  RDataPTR ourPTR &&
                     testRecord.getRdata() instanceof RDataPTR testPTR) {
-                IO.println(Arrays.toString(ourPTR.getPtrdname()));
-                IO.println(Arrays.toString(testPTR.getPtrdname()));
                 assertArrayEquals(testPTR.getPtrdname(),ourPTR.getPtrdname());
             }
         }
@@ -229,7 +224,7 @@ public class ZoneParserTest {
                         www IN A 192.0.2.1
                             3600 IN A 192.0.2.2
                         """
-        );
+        ,false);
         assertFalse(parser.hasParserError());
 
         List<ResourceRecord> records = parser.getZoneRecords();
@@ -244,7 +239,7 @@ public class ZoneParserTest {
         ZoneParser parser = new ZoneParser("""
         $ORIGIN example.com.
         123 3600 IN A 192.0.2.1
-        """);
+        """,false);
 
         assertFalse(parser.hasParserError());
 
@@ -271,7 +266,7 @@ public class ZoneParserTest {
         ZoneParser parser = new ZoneParser("""
         $ORIGIN example.com.
         @ IN MX 0 mail.example.com.
-        """);
+        """,false);
 
         assertFalse(parser.hasParserError());
 
@@ -314,7 +309,7 @@ public class ZoneParserTest {
         $ORIGIN example.com.
         $TTL 1h
         www 30m IN A 192.0.2.1
-        """);
+        """, false);
 
         assertFalse(parser.hasParserError());
 
@@ -366,7 +361,7 @@ public class ZoneParserTest {
         price\\$tag    IN TXT   "world"
         semi\\;colon   IN TXT   "test"
         space\\ label  IN TXT   "space"
-        """);
+        """, false);
 
         assertFalse(parser.hasParserError());
         List<ResourceRecord> records = parser.getZoneRecords();
@@ -389,7 +384,7 @@ public class ZoneParserTest {
     hello\\032world    IN TXT   "space"
     literal\\064sign   IN TXT   "at"
     backslash\\092test IN TXT   "slash"
-    """);
+    """,false);
         assertFalse(parser.hasParserError());
         var records = parser.getZoneRecords();
         for (var record : records) {
@@ -404,13 +399,13 @@ public class ZoneParserTest {
     @Test
     void testTxtDecimalEscapes() {
         ZoneParser parser = new ZoneParser("""
-    $ORIGIN example.com.
+            $ORIGIN example.com.
 
-    @ IN TXT "hello\\032world"
-    @ IN TXT "price\\036tag"
-    @ IN TXT "quote\\034test\\034"
-    @ IN TXT "backslash\\092test"
-    """);
+            @ IN TXT "hello\\032world"
+            @ IN TXT "price\\036tag"
+            @ IN TXT "quote\\034test\\034"
+            @ IN TXT "backslash\\092test"
+            """,false);
 
         assertFalse(parser.hasParserError());
 
@@ -437,7 +432,7 @@ public class ZoneParserTest {
             "world"
         )
         www IN A 192.0.2.1
-        """);
+        """, false);
         assertFalse(parser.hasParserError());
 
         List<ResourceRecord> records = parser.getZoneRecords();
@@ -479,6 +474,9 @@ public class ZoneParserTest {
         for (ResourceRecord r: records){
             IO.println(r);
         }
+
+        assertFalse(parser.hasParserError());
+
         assertEquals(6, records.size());
 
         assertEquals(RRType.SOA, records.get(0).getType());
@@ -498,4 +496,42 @@ public class ZoneParserTest {
 
         assertEquals(RRType.A, records.get(5).getType());
         assertArrayEquals(new String[]{"www", "example", "com"}, records.get(5).getName());
-    }}
+    }
+
+    @Test
+    void testDuplicateSoaFails() {
+        String err = captureStderr(() -> {
+            ZoneParser parser = new ZoneParser(
+                    "$ORIGIN example.com.\n" +
+                            "@ IN SOA ns1.example.com. admin.example.com. (\n" +
+                            "    2026051201\n" +
+                            "    3600\n" +
+                            "    1800\n" +
+                            "    1209600\n" +
+                            "    3600\n" +
+                            ")\n" +
+                            "@ IN SOA ns2.example.com. admin.example.com. (\n" +
+                            "    2026051202\n" +
+                            "    3600\n" +
+                            "    1800\n" +
+                            "    1209600\n" +
+                            "    3600\n" +
+                            ")\n"
+            );
+            assertTrue(parser.hasParserError());
+        });
+        assertTrue(err.contains("more than one SOA"));
+
+    }
+    @Test
+    void testMissingSoaFails() {
+        ZoneParser parser = new ZoneParser(
+                "$ORIGIN example.com.\n" +
+                        "$TTL 3200\n" +
+                        "www IN A 192.0.2.1\n"
+        );
+
+        assertTrue(parser.hasParserError());
+    }
+
+}

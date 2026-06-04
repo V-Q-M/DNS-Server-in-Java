@@ -49,6 +49,8 @@ public class ZoneParser {
     private String prevName = "";
     /** Use previous owner name. */
     private boolean currentRecordStartsWithSpace = false;
+    /** Whether this zone already contains an SOA record. */
+    private boolean seenSoaRecord = false;
 
     private boolean parserError = false;
 
@@ -59,18 +61,25 @@ public class ZoneParser {
         this.input = input;
         startParser();
     }
+    public ZoneParser(String input, boolean checkForSOA) {
+        this.input = input;
+        this.seenSoaRecord = !checkForSOA; // Act as though a soa already exists
+        startParser();
+    }
+
     public ZoneParser(String input, String origin) {
         this.input = input;
         this.origin = origin;
         startParser();
     }
-
-    public ZoneParser(String input, String origin, String defaultTtl) {
+    public ZoneParser(String input, String origin, String defaultTtl, boolean checkForSOA) {
         this.input = input;
         this.origin = origin;
         this.defaultTtl = defaultTtl;
+        this.seenSoaRecord = !checkForSOA; // Act as tho a soa already exists
         startParser();
     }
+
 
     public List<ResourceRecord> getZoneRecords() {
         return List.copyOf(zoneRecords);
@@ -220,6 +229,9 @@ public class ZoneParser {
                 }
             }
         }
+        if (!parserError && !seenSoaRecord) {
+            error("Zone must contain exactly one SOA record", tokens.getLast().lineNumber());
+        }
     }
 
     private int skipSpaces(int i) {
@@ -311,7 +323,7 @@ public class ZoneParser {
             return i;
         }
 
-        ZoneParser subParser = new ZoneParser(subInput, subOrigin, this.defaultTtl);
+        ZoneParser subParser = new ZoneParser(subInput, subOrigin, this.defaultTtl, false);
 
         if (subParser.hasParserError()) {
             error("Failed to parse zone: " + includeToken.literal(), includeToken.lineNumber());
@@ -417,6 +429,13 @@ public class ZoneParser {
         if (recordType == null) {
             error("Record has no RR type", tokenBuffer.getLast().lineNumber());
             return;
+        }
+        if (recordType == RRType.SOA) {
+            if (seenSoaRecord) {
+                error("Zone must not contain more than one SOA record", tokenBuffer.getLast().lineNumber());
+                return;
+            }
+            seenSoaRecord = true;
         }
 
         if (i >= tokenBuffer.size()) {
