@@ -364,18 +364,21 @@ public class DNSPacket {
     }
 
     // Helper function to encode a name
-    public static byte[] encodeName(String name) {
-        byte[] result = new byte[name.length() + 2];
+    public static byte[] encodeName(String[] name) {
+        int nameLength = 0;
+        for (String value : name) {
+            nameLength += value.length() + 1;
+        }
+        byte[] result = new byte[nameLength + 1];
         int pos = 0;
 
-        for (String label : name.split("\\.")) {
+        for (String label : name) {
             byte[] labelBytes = label.getBytes(StandardCharsets.US_ASCII);
             result[pos++] = (byte) labelBytes.length;
             System.arraycopy(labelBytes, 0, result, pos, labelBytes.length);
             pos += labelBytes.length;
         }
         result[pos++] = 0;
-
         return Arrays.copyOf(result, pos);
     }
 }

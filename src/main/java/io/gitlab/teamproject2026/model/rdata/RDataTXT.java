@@ -35,11 +35,10 @@ public class RDataTXT implements RData {
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", txtdata));
+        return encodeName(txtdata);
     }
 
     public static RDataTXT fromBytes(byte[] bytes, int byteIndex) {
-        int txtLength = bytes[byteIndex] & 0xFF;
         return new RDataTXT(DNSParser.parseName(bytes, byteIndex));
     }
 }

@@ -38,7 +38,7 @@ public class QuestionSection {
      * @return byte array representing this question section
      */
     public byte[] toBytes() {
-        byte[] name = encodeName(String.join(".", this.getName())+ ".");
+        byte[] name = encodeName(this.getName());
         byte[] result = new byte[name.length + 4];
 
         System.arraycopy(name, 0, result, 0, name.length);

@@ -34,7 +34,7 @@ public class RDataPTR implements RData {
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", ptrdname) + ".");
+        return encodeName(ptrdname); // Used to end with empty byte Text ( + "."), but encodeName already appends a 0 length byte. Appeared redundant, removed
     }
 
     public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {

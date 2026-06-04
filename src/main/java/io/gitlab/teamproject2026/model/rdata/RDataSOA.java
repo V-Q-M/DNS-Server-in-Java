@@ -66,8 +66,8 @@ public class RDataSOA implements RData {
 
     @Override
     public byte[] toBytes() {
-        byte[] mname   = encodeName(String.join(".", this.getMname()) + ".");
-        byte[] rname   = encodeName(String.join(".", this.getRname()) + ".");
+        byte[] mname   = encodeName(this.getMname());
+        byte[] rname   = encodeName(this.getRname());
         byte[] result  = new byte[mname.length + rname.length + 20]; // 5 x 4-byte ints
         int pos = 0;
 

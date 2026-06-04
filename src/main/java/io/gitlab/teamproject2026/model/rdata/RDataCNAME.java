@@ -33,8 +33,7 @@ public class RDataCNAME implements RData {
 
     @Override
     public byte[] toBytes() {
-        String domain = String.join(".", cname);
-        return encodeName(domain);
+        return encodeName(cname);
     }
 
     public static RDataCNAME fromBytes(byte[] bytes, int byteIndex) {

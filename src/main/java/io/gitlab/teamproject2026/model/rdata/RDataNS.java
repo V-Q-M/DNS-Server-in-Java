@@ -35,7 +35,7 @@ public class RDataNS implements RData {
 
     @Override
     public byte[] toBytes() {
-        return encodeName(String.join(".", nsdname) + ".");
+        return encodeName(nsdname);
     }
 
     public static RDataNS fromBytes(byte[] bytes, int byteIndex) {

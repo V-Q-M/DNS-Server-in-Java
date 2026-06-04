@@ -90,8 +90,8 @@ public class DNSParserTest {
         assertEquals(2, rDataSOA.getExpire());
         assertEquals(2, rDataSOA.getMinimum());
 
-        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e6465"),0);
-        assertEquals("uni-tuebingen.de", rDataTxt.getTxtdata());
+        RDataTXT rDataTxt = RDataTXT.fromBytes(HexFormat.of().parseHex("10756e692d74756562696e67656e2e646500"),0);
+        assertArrayEquals(new String[]{"uni-tuebingen.de"}, rDataTxt.getTxtdata());
     }
     @Test
     void fullPacketTest(){

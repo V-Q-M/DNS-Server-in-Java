@@ -41,7 +41,7 @@ public class RDataMX implements RData {
 
     @Override
     public byte[] toBytes() {
-        byte[] name = encodeName(String.join(".", exchange) + ".");
+        byte[] name = encodeName(exchange);
         byte[] result = new byte[2 + name.length];
         result[0] = (byte) (preference >> 8);
         result[1] = (byte) (preference);
