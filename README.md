@@ -210,11 +210,11 @@ mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.arg
 Internally, this sets a parameter in the `DNS_SERVER` class and can be accessed by calling the `getTestingStatus` function.
 
 ## DNS server config file (`named.conf`)
-The DNS server supports a BIND-style configuration file named named.conf.
+The DNS server supports a BIND-style configuration file called `named.conf`.
 
 
 
-If a file called named.conf exists in the server’s working directory, it can be used to configure default server settings such as the listening address, port, and zone definitions. Command-line arguments take precedence over values defined in the configuration file.
+If a file called `named.conf` exists in the server’s working directory, it can be used to configure default server settings such as the listening address, port, and zone definitions. Command-line arguments take precedence over values defined in the configuration file.
 Example config;
 
 
@@ -402,8 +402,6 @@ Relative include paths are resolved relative to the zone directory configured in
 A zone must contain exactly one SOA record.
 
 Included files must therefore not introduce an additional SOA record. Loading a zone that contains multiple SOA records will fail validation.
-
-The optional origin parameter supported by BIND's `$INCLUDE` directive is currently not implemented.
 
 ### Comments
 

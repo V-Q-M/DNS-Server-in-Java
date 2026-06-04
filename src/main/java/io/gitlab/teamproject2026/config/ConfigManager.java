@@ -14,8 +14,6 @@ import java.util.Map;
 
 /**
  * Loads and stores DNS zones parsed from BIND-style zone files.
- * Provides lookup support for finding the authoritative zone
- * with the longest matching suffix for a queried domain name.
  */
 public class ConfigManager {
     /** Loaded zones indexed by their normalized origin name. */

@@ -51,7 +51,7 @@ public class ZoneParser {
     private boolean currentRecordStartsWithSpace = false;
     /** Whether this zone already contains an SOA record. */
     private boolean seenSoaRecord = false;
-    /** Whether this zone already contains an SOA record. */
+    /** Whether this zone already contains an NS record. */
     private boolean seenNSRecord = false;
 
     private boolean parserError = false;
