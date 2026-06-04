@@ -51,6 +51,8 @@ public class ZoneParser {
     private boolean currentRecordStartsWithSpace = false;
     /** Whether this zone already contains an SOA record. */
     private boolean seenSoaRecord = false;
+    /** Whether this zone already contains an SOA record. */
+    private boolean seenNSRecord = false;
 
     private boolean parserError = false;
 
@@ -63,7 +65,8 @@ public class ZoneParser {
     }
     public ZoneParser(String input, boolean checkForSOA) {
         this.input = input;
-        this.seenSoaRecord = !checkForSOA; // Act as though a soa already exists
+        this.seenSoaRecord = !checkForSOA; // Act as though a SOA already exists
+        this.seenNSRecord = !checkForSOA;
         startParser();
     }
 
@@ -76,7 +79,8 @@ public class ZoneParser {
         this.input = input;
         this.origin = origin;
         this.defaultTtl = defaultTtl;
-        this.seenSoaRecord = !checkForSOA; // Act as tho a soa already exists
+        this.seenSoaRecord = !checkForSOA; // Act as though a SOA already exists
+        this.seenNSRecord = !checkForSOA;
         startParser();
     }
 
@@ -231,6 +235,9 @@ public class ZoneParser {
         }
         if (!parserError && !seenSoaRecord) {
             error("Zone must contain exactly one SOA record", tokens.getLast().lineNumber());
+        }
+        if (!parserError && !seenNSRecord) {
+            error("Zone must contain at least one NS record", tokens.getLast().lineNumber());
         }
     }
 
@@ -436,6 +443,9 @@ public class ZoneParser {
                 return;
             }
             seenSoaRecord = true;
+        }
+        if (recordType == RRType.NS) {
+            seenNSRecord = true;
         }
 
         if (i >= tokenBuffer.size()) {
@@ -797,6 +807,7 @@ public class ZoneParser {
     }
      */
 
+    /*
     private byte[] hexToBytes(String hex) {
         byte[] bytes = new byte[hex.length() / 2];
 
@@ -807,6 +818,7 @@ public class ZoneParser {
 
         return bytes;
     }
+     */
 
     /*
     private RData parseRRSIG(int start) {
@@ -932,6 +944,7 @@ public class ZoneParser {
     }
      */
 
+    /*
     private byte[] buildTypeBitMaps(List<RRType> types) {
         int maxType = 0;
         for (RRType type : types) {
@@ -948,6 +961,7 @@ public class ZoneParser {
         }
         return bitmap;
     }
+     */
 
 
 
@@ -1026,6 +1040,7 @@ public class ZoneParser {
     }
      */
 
+    /*
     private byte[] parseHexOrDash(ZoneToken token, String fieldName) {
         String literal = token.literal();
         if (literal.equals("-")) {
@@ -1038,6 +1053,7 @@ public class ZoneParser {
         }
         return hexToBytes(literal);
     }
+     */
 
     private String normalizeDomainName(String name) {
         if (name.equals("@")){ return origin; }
@@ -1045,9 +1061,11 @@ public class ZoneParser {
         return name + "." + origin;
     }
 
+    /*
     private int parseUInt8(ZoneToken token, String fieldName) {
         return parseUnsignedInt(token, fieldName, 0, 255);
     }
+     */
 
     private int parseUInt16(ZoneToken token, String fieldName) {
         return parseUnsignedInt(token, fieldName, 0, 65535);

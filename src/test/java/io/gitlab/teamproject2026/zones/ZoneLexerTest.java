@@ -394,4 +394,98 @@ public class ZoneLexerTest {
             assertEquals(testTok.literal(), ourTok.literal());
         }
     }
+
+    @Test
+    void testCommentIsSkippedButNewlineRemains() {
+        ZoneLexer lexer = new ZoneLexer("""
+            www IN A 192.0.2.1 ; comment
+            next
+            """);
+
+        ZoneToken tok;
+
+        do {
+            tok = lexer.nextToken();
+        } while (tok.type() != ZoneTokenType.NEWLINE);
+
+        assertEquals(ZoneTokenType.NEWLINE, tok.type());
+
+        ZoneToken next = lexer.nextToken();
+        assertEquals(ZoneTokenType.ATOM, next.type());
+        assertEquals("next", next.literal());
+    }
+
+    @Test
+    void testUnterminatedTxtStringIsIllegal() {
+        ZoneLexer lexer = new ZoneLexer("@ IN TXT \"hello\\\n");
+
+        ZoneToken tok;
+        do {
+            tok = lexer.nextToken();
+        } while (tok.type() != ZoneTokenType.ILLEGAL && tok.type() != ZoneTokenType.EOF);
+
+        assertEquals(ZoneTokenType.ILLEGAL, tok.type());
+        assertEquals("Unterminated TXT string", tok.literal());
+    }
+
+    @Test
+    void testWhitespaceIsCollapsedToSingleSpaceToken() {
+        ZoneLexer lexer = new ZoneLexer("A      IN\t\tTXT");
+
+        assertEquals(ZoneTokenType.A_RECORD, lexer.nextToken().type());
+
+        ZoneToken firstSpace = lexer.nextToken();
+        assertEquals(ZoneTokenType.SPACE, firstSpace.type());
+
+        ZoneToken in = lexer.nextToken();
+        assertEquals(ZoneTokenType.CLASS, in.type());
+
+        ZoneToken secondSpace = lexer.nextToken();
+        assertEquals(ZoneTokenType.SPACE, secondSpace.type());
+
+        ZoneToken txt = lexer.nextToken();
+        assertEquals(ZoneTokenType.TXT_RECORD, txt.type());
+
+        assertEquals(ZoneTokenType.EOF, lexer.nextToken().type());
+    }
+
+    @Test
+    void testEscapedDomainAtom() {
+        ZoneLexer lexer = new ZoneLexer("foo\\.bar.example.com.");
+
+        ZoneToken tok = lexer.nextToken();
+
+        assertEquals(ZoneTokenType.ATOM, tok.type());
+        assertEquals("foo\\.bar.example.com.", tok.literal());
+
+        assertEquals(ZoneTokenType.EOF, lexer.nextToken().type());
+    }
+
+    @Test
+    void testEofToken() {
+        ZoneLexer lexer = new ZoneLexer("");
+
+        ZoneToken tok = lexer.nextToken();
+
+        assertEquals(ZoneTokenType.EOF, tok.type());
+        assertEquals("", tok.literal());
+    }
+
+    @Test
+    void testIllegalCharacter() {
+        ZoneLexer lexer = new ZoneLexer("#");
+
+        ZoneToken tok = lexer.nextToken();
+
+        assertEquals(ZoneTokenType.ILLEGAL, tok.type());
+    }
+
+    @Test
+    void lineNumbersIncrease() {
+        ZoneLexer lexer = new ZoneLexer("a\nb");
+
+        assertEquals(1, lexer.nextToken().lineNumber());
+        assertEquals(1, lexer.nextToken().lineNumber()); // NEWLINE
+        assertEquals(2, lexer.nextToken().lineNumber());
+    }
 }

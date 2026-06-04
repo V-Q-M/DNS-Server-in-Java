@@ -96,6 +96,9 @@ public class ZoneLexer {
         // consume opening quote
         this.readNextChar();
         while (this.ch != '\0') {
+            if (this.ch == '\n' || this.ch == '\r'){
+                return new ZoneToken(ZoneTokenType.ILLEGAL, "Unterminated TXT string", lineCount);
+            }
             if (escaped) {
                 text.append('\\');
                 text.append(this.ch);
@@ -103,16 +106,13 @@ public class ZoneLexer {
             } else if (this.ch == '\\') {
                 escaped = true;
             } else if (this.ch == '"') {
-                break;
+                return new ZoneToken(ZoneTokenType.TXT, text.toString(), lineCount);
             } else {
                 text.append(this.ch);
             }
             this.readNextChar();
         }
-        if(escaped){
-            text.append('\\');
-        }
-        return new ZoneToken(ZoneTokenType.TXT, text.toString(), lineCount);
+        return new ZoneToken(ZoneTokenType.ILLEGAL, "Unterminated TXT string", lineCount);
     }
     /**
      * Parses an identifier-like token and determines its concrete type.
