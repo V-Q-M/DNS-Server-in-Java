@@ -224,7 +224,7 @@ public class CacheHandler {
 
     private void fillTXT(PreparedStatement stmt, ResourceRecord r) throws SQLException {
         fillCommon(stmt, r);
-        stmt.setString(4, String.join(", ", ((RDataTXT) r.getRdata()).getTxtdata()));
+        stmt.setArray(4, conn.createArrayOf("text", ((RDataTXT) r.getRdata()).getTxtdata()));
         stmt.setLong(5, r.getTtl());
     }
 
