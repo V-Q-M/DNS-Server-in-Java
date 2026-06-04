@@ -153,7 +153,7 @@ public class CacheHandler {
                         "SELECT * FROM txt_rdata WHERE LOWER(name) = ? AND now() < expires_at",
                         RRType.TXT, rs -> {
                             RDataTXT rdata = new RDataTXT();
-                            rdata.setTxtdata(rs.getString("txtdata"));
+                            rdata.setTxtdata((String[]) rs.getArray("txtdata").getArray());
                             return rdata;
                         });
             default:

@@ -16,7 +16,7 @@ public class RDataTXT implements RData {
     private String[] txtdata;
 
     public RDataTXT(){}
-    public RDataTXT(String[] txtdata){
+    public RDataTXT(String... txtdata){
         this.txtdata = txtdata;
     }
 

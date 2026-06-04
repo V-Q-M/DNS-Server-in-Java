@@ -68,6 +68,10 @@ public class DNSSerializerTest {
         RDataTXT rDataTxt = new RDataTXT();
         rDataTxt.setTxtdata("uni-tuebingen.de");
         assertArrayEquals(HexFormat.of().parseHex("10756e692d74756562696e67656e2e646500"), rDataTxt.toBytes());
+
+        RDataTXT rDataTxtMultiLabel = new RDataTXT();
+        rDataTxtMultiLabel.setTxtdata("hello", "world", "!");
+        assertArrayEquals(HexFormat.of().parseHex("0568656c6c6F05776F726C64012100"), rDataTxtMultiLabel.toBytes());
     }
     @Test
     void RRTest(){

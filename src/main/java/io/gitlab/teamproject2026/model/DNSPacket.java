@@ -364,10 +364,14 @@ public class DNSPacket {
     }
 
     // Helper function to encode a name
-    public static byte[] encodeName(String[] name) {
+    public static byte[] encodeName(String[] name) throws IllegalArgumentException{
         int nameLength = 0;
         for (String value : name) {
-            nameLength += value.length() + 1;
+            int labelLength = value.length();
+            if(labelLength > 255){
+                throw new IllegalArgumentException("Malformatted labels. Must be <256 characters, including length, in size.");
+            }
+            nameLength += labelLength + 1;
         }
         byte[] result = new byte[nameLength + 1];
         int pos = 0;
