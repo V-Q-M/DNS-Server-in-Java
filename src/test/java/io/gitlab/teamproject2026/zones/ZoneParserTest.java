@@ -38,33 +38,33 @@ public class ZoneParserTest {
 
     @Test
     void testParser() throws UnknownHostException {
-        String input =  "$ORIGIN example.com.\n" +
-                        "$TTL 3200\n" +
-                        "@ IN SOA ns1.testing.com. admin\\.foo.testing.com. (\n" +
-                        "    2026051201\n" +
-                        "    3600\n" +
-                        "    1800\n" +
-                        "    1209600\n" +
-                        "    3600\n" +
-                        ")\n" +
-                        "www     IN A      192.0.2.2\n" +
-                        "ipv6    IN AAAA   2001:db8::1\n" +
-                        "ns2     IN A      192.0.2.54\n" +
-                        "alias   IN CNAME  www.testing.com.\n" +
-                        "@       IN NS     ns1.testing.com.\n" +
-                        "        IN MX     10 mail1.testing.com.\n" +
-                        "@       IN TXT    \"hello world\"\n" +
-                        "split   IN TXT    \"one\" \"two\" \"three\"\n" +
-                        "\n" +
-                        "multitxt IN TXT (\n" +
-                        "    \"this is \"\n" +
-                        "    \"multiple txt chunks\"\n" +
-                        ")\n" +
-                        "ns2     IN A      192.0.2.54\n" +
-                        "ab      IN PTR www.example.com\n" +
-                        "54a     IN PTR ns2.example.com\n" +
-                        "1a      IN PTR ipv6.examp.e.com\n";
-                ;
+        String input = """
+                $ORIGIN example.com.
+                $TTL 3200
+                @ IN SOA ns1.testing.com. admin\\.foo.testing.com. (
+                    2026051201
+                    3600
+                    1800
+                    1209600
+                    3600
+                )
+                www     IN A      192.0.2.2
+                ipv6    IN AAAA   2001:db8::1
+                ns2     IN A      192.0.2.54
+                alias   IN CNAME  www.testing.com.
+                @       IN NS     ns1.testing.com.
+                        IN MX     10 mail1.testing.com.
+                @       IN TXT    "hello world"
+                split   IN TXT    "one" "two" "three"
+                
+                multitxt IN TXT (
+                    "this is "
+                    "multiple txt chunks"
+                )
+                2      IN PTR www.example.com.
+                54     IN PTR ns2.example.com.
+                1      IN PTR ipv6.examp.e.com.
+                """;
         ZoneParser testParser = new ZoneParser(input);
         List<ResourceRecord> ourRecords =  testParser.getZoneRecords();
         List<ResourceRecord> testRecords =  new ArrayList<>();
@@ -100,63 +100,46 @@ public class ZoneParserTest {
         testRecords.add(cnameRec);
 
 
-        RDataNS nsData = new RDataNS(
-                new String[]{"ns1", "testing", "com"}
-        );
-
+        RDataNS nsData = new RDataNS( new String[]{"ns1", "testing", "com"} );
         ResourceRecord nsRec = new ResourceRecord( new String[]{"example", "com"}, RRClass.IN, 3200, nsData );
-
         testRecords.add(nsRec);
 
 
         RDataMX mxData = new RDataMX( 10, new String[]{"mail1", "testing", "com"} );
-
         ResourceRecord mxRec = new ResourceRecord( new String[]{"example", "com"}, RRClass.IN, 3200, mxData );
-
         testRecords.add(mxRec);
 
-        /*
-
-        RDataTXT txtData = new RDataTXT(
-                new String[]{"hello world"}
-        );
-
-        ResourceRecord txtRec = new ResourceRecord( new String[]{"example", "com"}, RRType.TXT, RRClass.IN, 3200, txtData );
-
+        RDataTXT txtData = new RDataTXT( "hello world" );
+        ResourceRecord txtRec = new ResourceRecord( new String[]{"example", "com"}, RRClass.IN, 3200, txtData );
         testRecords.add(txtRec);
-         */
 
 
-        /*
-        RDataTXT splitTxtData = new RDataTXT( new String[]{"one", "two", "three"} );
+        RDataTXT splitTxtData = new RDataTXT( "one", "two", "three" );
 
-        ResourceRecord splitTxtRec = new ResourceRecord( new String[]{"split", "example", "com"}, RRType.TXT, RRClass.IN, 3200, splitTxtData );
+        ResourceRecord splitTxtRec = new ResourceRecord( new String[]{"split", "example", "com"}, RRClass.IN, 3200, splitTxtData );
 
         testRecords.add(splitTxtRec);
-         */
 
-        /*
-        RDataTXT multiTxtData = new RDataTXT( new String[]{"this is ", "multiple txt chunks"} );
+        RDataTXT multiTxtData = new RDataTXT( "this is ", "multiple txt chunks" );
 
-        ResourceRecord multiTxtRec = new ResourceRecord( new String[]{"multitxt", "example", "com"}, RRType.TXT, RRClass.IN, 3200, multiTxtData );
+        ResourceRecord multiTxtRec = new ResourceRecord( new String[]{"multitxt", "example", "com"}, RRClass.IN, 3200, multiTxtData );
 
         testRecords.add(multiTxtRec);
-         */
-        testRecords.add(ns2Rec);
+
 
         RDataPTR ptrData = new RDataPTR(new String[]{"www", "example", "com"});
-        ResourceRecord ptrRec = new ResourceRecord( new String[]{"ab", "example", "com"}, RRClass.IN, 3200, ptrData );
+        ResourceRecord ptrRec = new ResourceRecord( new String[]{"2", "example", "com"}, RRClass.IN, 3200, ptrData );
         testRecords.add(ptrRec);
 
         RDataPTR ptr2Data = new RDataPTR(new String[]{"ns2", "example", "com"});
-        ResourceRecord ptr2Rec = new ResourceRecord( new String[]{"54a", "example", "com"}, RRClass.IN, 3200, ptr2Data );
+        ResourceRecord ptr2Rec = new ResourceRecord( new String[]{"54", "example", "com"}, RRClass.IN, 3200, ptr2Data );
         testRecords.add(ptr2Rec);
 
         RDataPTR ptr3Data = new RDataPTR(new String[]{"ipv6", "examp", "e", "com"});
-        ResourceRecord ptr3Rec = new ResourceRecord( new String[]{"1a", "example", "com"}, RRClass.IN, 3200, ptr3Data );
+        ResourceRecord ptr3Rec = new ResourceRecord( new String[]{"1", "example", "com"}, RRClass.IN, 3200, ptr3Data );
         testRecords.add(ptr3Rec);
 
-        // @TODO assertEquals(testRecords.size(), ourRecords.size());
+        assertEquals(testRecords.size(), ourRecords.size());
         assertFalse(testParser.hasParserError());
 
         for (int i = 0; i < testRecords.size(); i++) {
@@ -210,12 +193,12 @@ public class ZoneParserTest {
 
             if (ourRecord.getRdata() instanceof RDataTXT ourTXT &&
                     testRecord.getRdata() instanceof RDataTXT testTXT) {
-//@TODO                assertArrayEquals(testTXT.getTxtdata(), ourTXT.getTxtdata());
+                    assertArrayEquals(testTXT.getTxtdata(), ourTXT.getTxtdata());
             }
             if (ourRecord.getRdata() instanceof  RDataPTR ourPTR &&
                     testRecord.getRdata() instanceof RDataPTR testPTR) {
-                IO.println(ourPTR.getPtrdname());
-                IO.println(testPTR.getPtrdname());
+                IO.println(Arrays.toString(ourPTR.getPtrdname()));
+                IO.println(Arrays.toString(testPTR.getPtrdname()));
                 assertArrayEquals(testPTR.getPtrdname(),ourPTR.getPtrdname());
             }
         }
@@ -233,7 +216,7 @@ public class ZoneParserTest {
             assertFalse(testParser.hasParserError());
         } catch (IOException e) {
             System.err.println("ERROR: File not found");
-            assertFalse(true);
+            fail();
         }
     }
 
@@ -241,9 +224,11 @@ public class ZoneParserTest {
     @Test
     void testLeadingTtlUsesPreviousName() {
         ZoneParser parser = new ZoneParser(
-                "$ORIGIN example.com.\n" +
-                        "www IN A 192.0.2.1\n" +
-                        "    3600 IN A 192.0.2.2\n"
+                """
+                        $ORIGIN example.com.
+                        www IN A 192.0.2.1
+                            3600 IN A 192.0.2.2
+                        """
         );
         assertFalse(parser.hasParserError());
 
@@ -436,21 +421,10 @@ public class ZoneParserTest {
         RDataTXT txt3 = (RDataTXT) records.get(2).getRdata();
         RDataTXT txt4 = (RDataTXT) records.get(3).getRdata();
 
-        /* @TODO
-        System.out.println(txt1.getTxtdata()[0]);
-        System.out.println(txt2.getTxtdata()[0]);
-        System.out.println(txt3.getTxtdata()[0]);
-        System.out.println(txt4.getTxtdata()[0]);
-
         assertEquals("hello world", txt1.getTxtdata()[0]);
         assertEquals("price$tag", txt2.getTxtdata()[0]);
         assertEquals("quote\"test\"", txt3.getTxtdata()[0]);
         assertEquals("backslash\\test", txt4.getTxtdata()[0]);
-         */
-        assertEquals("hello world", txt1.getTxtdata());
-        assertEquals("price$tag", txt2.getTxtdata());
-        assertEquals("quote\"test\"", txt3.getTxtdata());
-        assertEquals("backslash\\test", txt4.getTxtdata());
     }
 
 
@@ -476,16 +450,18 @@ public class ZoneParserTest {
         assertArrayEquals(new String[]{"www", "example", "com"}, records.get(1).getName());
 
         RDataTXT txt = (RDataTXT) records.get(0).getRdata();
-        //assertArrayEquals(new String[]{"hello", "world"}, txt.getTxtdata());
+        assertArrayEquals(new String[]{"hello", "world"}, txt.getTxtdata());
     }
     @Test
     void testTokensAfterClosingParenOnSameLineAreTrailingGarbage() {
         String err = captureStderr(() -> {
             ZoneParser parser = new ZoneParser(
-                    "$ORIGIN example.com.\n" +
-                            "@ IN TXT (\n" +
-                            "    \"hello\"\n" +
-                            ") www IN A 192.0.2.1\n"
+                    """
+                            $ORIGIN example.com.
+                            @ IN TXT (
+                                "hello"
+                            ) www IN A 192.0.2.1
+                            """
             );
 
             assertTrue(parser.hasParserError());

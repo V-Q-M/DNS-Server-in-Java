@@ -91,13 +91,15 @@ public class ZoneLexerTest {
 
     @Test
     void testSOARecordToken() {
-        String input =  "@ IN SOA ns1.testing.com. admin.testing.com. (\n" +
-                        "2026051201\n" +
-                        "3600\n" +
-                        "1800\n" +
-                        "1209600\n" +
-                        "3600\n" +
-                        ")\n";
+        String input = """
+                @ IN SOA ns1.testing.com. admin.testing.com. (
+                2026051201
+                3600
+                1800
+                1209600
+                3600
+                )
+                """;
         ArrayList<ZoneToken> testTokens = new ArrayList<>();
         testTokens.add(new ZoneToken(ZoneTokenType.ATOM, "@"));
         testTokens.add(new ZoneToken(ZoneTokenType.SPACE, ' '));
@@ -164,12 +166,14 @@ public class ZoneLexerTest {
 
     @Test
     void testRecordTokens() {
-        String input =  "@       IN NS     ns1.testing.com.\n" +
-                        "www     IN A      192.0.2.2\n" +
-                        "ipv6    IN AAAA   2001:db8::1\n" +
-                        "ns2     IN A      192.0.2.54\n" +
-                        "alias   IN CNAME  www.testing.com.\n" +
-                        "@       IN MX     10 mail1.testing.com.\n";
+        String input = """
+                @       IN NS     ns1.testing.com.
+                www     IN A      192.0.2.2
+                ipv6    IN AAAA   2001:db8::1
+                ns2     IN A      192.0.2.54
+                alias   IN CNAME  www.testing.com.
+                @       IN MX     10 mail1.testing.com.
+                """;
         ArrayList<ZoneToken> testTokens = new ArrayList<>();
         testTokens.add(new ZoneToken(ZoneTokenType.ATOM, "@"));
         testTokens.add(new ZoneToken(ZoneTokenType.SPACE, ' '));
@@ -240,13 +244,15 @@ public class ZoneLexerTest {
 
     @Test
     void testTextRecord() {
-        String input =  "@       IN TXT    \"hello world\"\n" +
-                        "split   IN TXT    \"one\" \"two\" \"three\"\n" +
-                        "\n" +
-                        "multitxt IN TXT (\n" +
-                        "    \"this is \"\n" +
-                        "    \"multiple txt chunks\"\n" +
-                        ")\n";
+        String input = """
+                @       IN TXT    "hello world"
+                split   IN TXT    "one" "two" "three"
+                
+                multitxt IN TXT (
+                    "this is "
+                    "multiple txt chunks"
+                )
+                """;
 
         ArrayList<ZoneToken> testTokens = new ArrayList<>();
         testTokens.add(new ZoneToken(ZoneTokenType.ATOM, "@"));
@@ -305,13 +311,15 @@ public class ZoneLexerTest {
 
     @Test
     void testEscapedTextRecord() {
-        String input =  "@       IN TXT    \"hello \\\"world\\\"\"\n" +
-                        "split   IN TXT    \"one\" \"two\" \"three\"\n" +
-                        "\n" +
-                        "multitxt IN TXT (\n" +
-                        "    \"this is \"\n" +
-                        "    \"multiple \\\"\\\"txt\\\" chunks\"\n" +
-                        ")\n";
+        String input = """
+                @       IN TXT    "hello \\"world\\""
+                split   IN TXT    "one" "two" "three"
+                
+                multitxt IN TXT (
+                    "this is "
+                    "multiple \\"\\"txt\\" chunks"
+                )
+                """;
 
         ArrayList<ZoneToken> testTokens = new ArrayList<>();
         testTokens.add(new ZoneToken(ZoneTokenType.ATOM, "@"));

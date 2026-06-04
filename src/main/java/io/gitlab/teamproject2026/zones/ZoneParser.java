@@ -661,7 +661,7 @@ public class ZoneParser {
             }
             txt[i] = value;
         }
-        return new RDataTXT(txt[0]); // @TODO Needs to be adjusted, once rdatatxt ist fixed
+        return new RDataTXT(txt);
     }
 
     private String unescapeText(String raw, int lineNumber) {
