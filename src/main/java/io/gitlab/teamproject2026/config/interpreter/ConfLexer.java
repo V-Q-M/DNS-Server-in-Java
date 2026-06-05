@@ -49,6 +49,9 @@ public class ConfLexer {
         while (true) {
             // Skip whitespace
             while (this.ch == ' ' || this.ch == '\t' || this.ch == '\n' || this.ch == '\r') {
+                if (this.ch == '\n'){
+                    lineCount++;
+                }
                 this.readNextChar();
             }
             // Skip comments
@@ -91,6 +94,9 @@ public class ConfLexer {
             } else if (this.ch == '"') {
                 break;
             } else {
+                if (this.ch == '\n'){
+                    lineCount++;
+                }
                 str.append(this.ch);
             }
             this.readNextChar();
