@@ -1,6 +1,8 @@
 package io.gitlab.teamproject2026.config;
 
 import io.gitlab.teamproject2026.DNSZone;
+import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
+import io.gitlab.teamproject2026.config.interpreter.ConfParser;
 import io.gitlab.teamproject2026.zones.ZoneParser;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 
@@ -8,9 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Loads and stores DNS zones parsed from BIND-style zone files.
@@ -43,7 +43,7 @@ public class ConfigManager {
                     + RESET);
             return null;
         }
-        return  ConfLoader.fromAst(confParser.getRootNodes());
+        return  ConfInterpreter.fromAst(confParser.getRootNodes());
     }
 
     /**

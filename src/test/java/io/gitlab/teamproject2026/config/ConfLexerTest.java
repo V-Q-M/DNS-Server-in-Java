@@ -1,5 +1,8 @@
 package io.gitlab.teamproject2026.config;
 
+import io.gitlab.teamproject2026.config.interpreter.ConfLexer;
+import io.gitlab.teamproject2026.config.interpreter.ConfToken;
+import io.gitlab.teamproject2026.config.interpreter.ConfTokenType;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

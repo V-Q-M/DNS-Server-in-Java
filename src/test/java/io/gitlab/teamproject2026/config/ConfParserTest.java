@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.config;
 
+import io.gitlab.teamproject2026.config.interpreter.ConfNode;
+import io.gitlab.teamproject2026.config.interpreter.ConfParser;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -4,8 +4,9 @@ import java.io.IOException;
 
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
-import io.gitlab.teamproject2026.config.OptionConfig;
-import io.gitlab.teamproject2026.config.ZoneConfig;
+import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -25,6 +26,8 @@ import io.gitlab.teamproject2026.logging.DNSEventInfo;
 import io.gitlab.teamproject2026.logging.DNSEventDebug;
 import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.LoggingFeature;
+import io.gitlab.teamproject2026.resolver.Forwarder;
+import io.gitlab.teamproject2026.resolver.StubResolver;
 
 
 public class DNS_SERVER {
@@ -55,9 +58,11 @@ public class DNS_SERVER {
 
     static void main(String[] args) throws Exception {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
-        // Named.conf
+        // named.conf
         Config namedConfig = ConfigManager.loadConfig("named.conf");
-        OptionConfig options = namedConfig.options();
+        OptionSection options = namedConfig.options();
+        ResolverSection resolverOptions = options.resolverSection();
+
         try {
             loadedZones = loadZonesFromConf(namedConfig);
         } catch (IOException e){
@@ -93,11 +98,11 @@ public class DNS_SERVER {
 
         String forwardMode = options.forwardMode(); // Determines if we should only forward or also recurse ourselves
 
-        List<StubResolver.Forwarder> forwarders = options.forwarders().stream()
-                .map(ip -> new StubResolver.Forwarder(ip, 53, ip))
+        List<Forwarder> forwarders = options.forwarders().stream()
+                .map(ip -> new Forwarder(ip, 53, ip))
                 .toList();
         StubResolver stubResolver = new StubResolver(
-                forwarders, options.resolverTimeout(), options.resolverMaxRetries(), options.resolverRetryDelay(), options.resolverStrategy());
+                forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
 
         // Open UDP socket
         InetAddress bindAddress;
@@ -202,13 +207,13 @@ public class DNS_SERVER {
                             if (payload.notCached.contains(request)) {
                                 IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                             } else {
                                 IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart));
                                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
-                                            options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
+                                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
 
                             }
 
@@ -230,7 +235,7 @@ public class DNS_SERVER {
                             payload.notCached.add(request);
                             LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
                             LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
-                                    options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
+                                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
                         }
                     }
                 } else {
@@ -239,7 +244,7 @@ public class DNS_SERVER {
                         payload.notCached.add(request);
                         LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L)); //since cache isn't checked latency is 0
                         LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
-                                options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
+                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
 
                     }
                 }
@@ -505,12 +510,12 @@ public class DNS_SERVER {
     }
 
     private static List<DNSZone> loadZonesFromConf(Config config) throws IOException {
-        OptionConfig options = config.options();
+        OptionSection options = config.options();
         String dir = options.dir();
-        List<ZoneConfig> declaredZones = config.zones();
+        List<ZoneSection> declaredZones = config.zones();
 
         List<DNSZone> zones = new ArrayList<>(); //@TODO Aufgabe05
-        for (ZoneConfig zone : declaredZones){
+        for (ZoneSection zone : declaredZones){
             // Collect all zones specified in the config
             zones.add(ConfigManager.loadZoneFile(dir, zone.file(), zone.name())); //@TODO Zonecatalog
         }

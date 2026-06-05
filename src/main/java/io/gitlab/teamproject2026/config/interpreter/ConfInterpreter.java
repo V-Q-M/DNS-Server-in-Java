@@ -1,14 +1,19 @@
-package io.gitlab.teamproject2026.config;
+package io.gitlab.teamproject2026.config.interpreter;
 
-import io.gitlab.teamproject2026.StubResolver;
+import io.gitlab.teamproject2026.config.Config;
+import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.config.zones.ZoneSection;
+import io.gitlab.teamproject2026.config.zones.ZoneType;
+import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ConfLoader {
+public class ConfInterpreter {
     public static Config fromAst(List<ConfNode> rootNodes){
-        OptionConfig option = null;
-        List<ZoneConfig>zones = new ArrayList<>();
+        OptionSection option = null;
+        List<ZoneSection>zones = new ArrayList<>();
 
         for (ConfNode node : rootNodes) {
             String name = node.name().toLowerCase();
@@ -26,17 +31,19 @@ public class ConfLoader {
         return new Config(option, zones);
     }
 
-    public static OptionConfig parseOptionConfig(ConfNode root) {
+    public static OptionSection parseOptionConfig(ConfNode root) {
+        // Default values
         String directoryPath = "";
         int port = 4242;
         String ipAddress = "0.0.0.0";
         boolean recursion = false;
         String forwardMode = "forward-only";
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
+
         int resolverTimeOut = 2000;
         int resolverMaxRetries = 2;
         long resolverRetryDelay = 100;
-        StubResolver.Strategy resolverStrategy = StubResolver.Strategy.FAILOVER;
+        StubResolverStrategy resolverStrategy = StubResolverStrategy.FAILOVER;
 
         for (ConfNode node : root.children()){
             if (node.name().equalsIgnoreCase("directory")){
@@ -92,15 +99,18 @@ public class ConfLoader {
                         }
                     } else if (child.name().equalsIgnoreCase("strategy")){
                         if (child.args().isEmpty()){ throw  new IllegalArgumentException("strategy requires a value"); }
-                        resolverStrategy = StubResolver.Strategy.valueOf(child.args().getFirst());
+                        resolverStrategy = StubResolverStrategy.fromValue(child.args().getFirst());
                     }
                 }
             }
         }
-        return new OptionConfig(directoryPath, port, ipAddress, recursion, forwardMode, forwarders, resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy );
+
+        ResolverSection resolverSection = new ResolverSection( resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy );
+
+        return new OptionSection(directoryPath, port, ipAddress, recursion, forwardMode, forwarders, resolverSection);
     }
 
-    public static ZoneConfig parseZoneConfig(ConfNode root) {
+    public static ZoneSection parseZoneConfig(ConfNode root) {
         if (root.args().isEmpty()){
             throw new IllegalArgumentException("zone requires a name");
         }
@@ -132,6 +142,6 @@ public class ConfLoader {
             throw new IllegalArgumentException("zone " + name + " is missing type");
         }
 
-        return new ZoneConfig(name, file, type);
+        return new ZoneSection(name, file, type);
     }
 }

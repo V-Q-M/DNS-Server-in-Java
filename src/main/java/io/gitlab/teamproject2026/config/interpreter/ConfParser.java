@@ -1,4 +1,5 @@
-package io.gitlab.teamproject2026.config;
+package io.gitlab.teamproject2026.config.interpreter;
+
 import java.util.ArrayList;
 import java.util.List;
 

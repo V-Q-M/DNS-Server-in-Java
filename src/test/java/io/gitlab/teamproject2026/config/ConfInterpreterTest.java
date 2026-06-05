@@ -1,10 +1,16 @@
 package io.gitlab.teamproject2026.config;
 
+import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
+import io.gitlab.teamproject2026.config.interpreter.ConfNode;
+import io.gitlab.teamproject2026.config.interpreter.ConfParser;
+import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.zones.ZoneSection;
+import io.gitlab.teamproject2026.config.zones.ZoneType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class ConfLoaderTest {
+public class ConfInterpreterTest {
 
     @Test
     void testLoadSimpleConfig() {
@@ -23,18 +29,18 @@ public class ConfLoaderTest {
 
         assertFalse(parser.hasParserError());
 
-        Config config = ConfLoader.fromAst(parser.getRootNodes());
+        Config config = ConfInterpreter.fromAst(parser.getRootNodes());
 
         assertTrue(config.options() != null);
         assertEquals(1, config.zones().size());
 
-        OptionConfig options = config.options();
+        OptionSection options = config.options();
         assertEquals("zones", options.dir());
         assertEquals(2222, options.port());
         assertEquals("127.0.0.1", options.ipAddress());
         assertFalse(options.recursionDesired());
 
-        ZoneConfig zone = config.zones().get(0);
+        ZoneSection zone = config.zones().get(0);
         assertEquals("example.com", zone.name());
         assertEquals("db.example.com", zone.file());
         assertEquals(ZoneType.PRIMARY, zone.type());
@@ -49,8 +55,8 @@ public class ConfLoaderTest {
 
         assertFalse(parser.hasParserError());
 
-        Config config = ConfLoader.fromAst(parser.getRootNodes());
-        OptionConfig options = config.options();
+        Config config = ConfInterpreter.fromAst(parser.getRootNodes());
+        OptionSection options = config.options();
 
         assertEquals("", options.dir());
         assertEquals(4242, options.port());
@@ -66,7 +72,7 @@ public class ConfLoaderTest {
             };
             """);
 
-        Config config = ConfLoader.fromAst(parser.getRootNodes());
+        Config config = ConfInterpreter.fromAst(parser.getRootNodes());
 
         assertTrue(config.options().recursionDesired());
     }
@@ -77,7 +83,7 @@ public class ConfLoaderTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ConfLoader.parseZoneConfig(zone)
+                () -> ConfInterpreter.parseZoneConfig(zone)
         );
     }
 
@@ -91,7 +97,7 @@ public class ConfLoaderTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ConfLoader.fromAst(parser.getRootNodes())
+                () -> ConfInterpreter.fromAst(parser.getRootNodes())
         );
     }
 
@@ -105,7 +111,7 @@ public class ConfLoaderTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ConfLoader.fromAst(parser.getRootNodes())
+                () -> ConfInterpreter.fromAst(parser.getRootNodes())
         );
     }
 
@@ -119,7 +125,7 @@ public class ConfLoaderTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> ConfLoader.fromAst(parser.getRootNodes())
+                () -> ConfInterpreter.fromAst(parser.getRootNodes())
         );
     }
 }

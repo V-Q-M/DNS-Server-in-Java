@@ -1,15 +1,12 @@
-package io.gitlab.teamproject2026;
+package io.gitlab.teamproject2026.resolver;
 
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.*;
-
-import java.io.IOException;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
-import java.net.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -22,13 +19,8 @@ import io.gitlab.teamproject2026.logging.DNSEventType;
 
 public class StubResolver {
     public enum Status{SUCCESS, TIMEOUT, IO_ERROR}
-    public enum Strategy{FAILOVER, ROUND_ROBIN}
     public record ForwardResult(Status status, byte[] response, String errorMessage, long latencyMs){
         //public boolean isSuccess() {return status== Status.SUCCESS;}
-    }
-    //host should be ip, name can be additional info
-    public record Forwarder(String host, int port, String name) {
-        @Override public String toString() {return name + "(" + host + ":" + port + ")";}
     }
     public static final int MAX_UDP_SIZE=4096;
 
@@ -36,7 +28,7 @@ public class StubResolver {
     private final int timeoutMs;
     private final int maxRetries;
     private final long retryDelay;
-    private final Strategy strategy;
+    private final StubResolverStrategy strategy;
     private int RRindex=0;
 
     private static final String RESET  = "\u001B[0m";
@@ -45,7 +37,7 @@ public class StubResolver {
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
 
-    public StubResolver(List<Forwarder> forwarders, int timeoutMs, int maxRetries, long retryDelay, Strategy strategy){
+    public StubResolver(List<Forwarder> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){
         if(forwarders==null || forwarders.isEmpty())
             throw new IllegalArgumentException("at least one name server is required");
         this.forwarders=List.copyOf(forwarders);
@@ -117,7 +109,7 @@ public class StubResolver {
                     logQuestionEvents(DNSEventType.TIMEOUT, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     IO.println(YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET);
                     if (attempt + 1 < maxAttempts) {
-                        if (strategy == Strategy.FAILOVER) {
+                        if (strategy == StubResolverStrategy.FAILOVER) {
                             IO.println("[STUB] Switching to next available nameserver..");
                             startIndex = (startIndex + 1) % totalServers;
                         } else {
@@ -133,7 +125,7 @@ public class StubResolver {
                     logQuestionEvents(DNSEventType.IO_ERROR, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     IO.println(RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET);
                     if (attempt + 1 < maxAttempts) {
-                        if (strategy == Strategy.FAILOVER) {
+                        if (strategy == StubResolverStrategy.FAILOVER) {
                             startIndex = (startIndex + 1) % totalServers;
                         }
                         sleep(retryDelay);
@@ -195,7 +187,7 @@ public class StubResolver {
      * @return
      */
     private synchronized int nextStartIndex(int total){
-        if(strategy== Strategy.ROUND_ROBIN){
+        if(strategy== StubResolverStrategy.ROUND_ROBIN){
             int index=RRindex;
             RRindex=(RRindex+1)%total;
             return index;
