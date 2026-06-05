@@ -108,16 +108,15 @@ public class DNS_SERVER {
             portNumber = DEFAULT_PORT;
         }
 
-        String upstreamRaw = resolvConf.getProperty("dns.upstreams", "8.8.8.8, 1.1.1.1");
-        int dnsTimeout = Integer.parseInt(resolvConf.getProperty("dns.timeout.ms", "2000").trim());
-        int maxRetries = Integer.parseInt(resolvConf.getProperty("dns.max.retries", "2").trim());
-        long retryDelay = Long.parseLong(resolvConf.getProperty("dns.retry.delay.ms", "100").trim());
-        String strategyString = resolvConf.getProperty("dns.strategy", "FAILOVER").replaceAll("\\r", "").trim().toUpperCase();
+        String forwardMode = options.forwardMode(); // Determines if we should only forward or also recurse ourselves
 
+        int maxRetries = Integer.parseInt(options.resolverMaxTries());
+        long retryDelay = Long.parseLong(options.resolverMaxTries());
+        int dnsTimeout = Integer.parseInt(options.resolverTimeout());
+        String strategyString = options.resolverStrategy().toUpperCase();
         StubResolver.Strategy strategy = StubResolver.Strategy.valueOf(strategyString);
-        List<StubResolver.Forwarder> forwarders = Arrays.stream(upstreamRaw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
+
+        List<StubResolver.Forwarder> forwarders = options.forwarders().stream()
                 .map(ip -> new StubResolver.Forwarder(ip, 53, ip))
                 .toList();
         StubResolver stubResolver = new StubResolver(forwarders, dnsTimeout, maxRetries, retryDelay, strategy);

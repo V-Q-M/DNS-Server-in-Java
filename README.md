@@ -468,16 +468,104 @@ which correspond to:
 ```
 
 
-## StubResolver config file (`resolv.conf`)
-The default upstream name servers used for routing can be configured in `resolv.conf`. Extend this config file if the need arises.
+## Stub Resolver Configuration
+The stub resolver can be configured in the `options` section of `named.conf`.
 
-Example StubResolver configuration:
-```aiignore
-# Stub Resolver Upstream configuration
-resolver.timeout=1000
-resolver.max_retries=2
-resolver.strategy=FAILOVER
+If a setting is not specified, a built-in default value is used.
+
+Example configuration:
+
+```conf
+options {
+    # Upstream DNS servers used for forwarding queries
+    forwarders {
+        8.8.8.8;
+        1.1.1.1;
+    };
+
+    # Forwarding mode
+    forward only;
+
+    # Resolver tuning options
+    resolver {
+        timeout 2000;
+        max-retries 2;
+        retry-delay 100;
+        strategy failover;
+    };
+};
 ```
+
+### Forwarders
+
+The forwarders section defines one or more upstream DNS servers to which queries are forwarded.
+
+```conf
+forwarders {
+    8.8.8.8;
+    1.1.1.1;
+};
+```
+If no forwarders are configured, the default servers are used.
+
+### Forwarding mode
+
+The forward directive controls how queries are resolved.
+
+```conf
+forward only;
+```
+
+- only - Queries are sent exclusively to the configured forwarders.
+- first - Queries are sent to the configured forwarders first. If all forwarders fail, the server performs recursive resolution itself.
+
+### Resolver options
+
+The optional resolver section controls internal resolver behavior.
+
+```conf
+resolver {
+    timeout 2000;
+    max-retries 2;
+    retry-delay 100;
+    strategy failover;
+};
+```
+
+#### timeout
+
+Specifies the timeout for a forwarded query in milliseconds.
+
+```conf
+timeout 2000;
+```
+
+#### max-retries
+
+Specifies the maximum number of retry attempts before a query is considered failed.
+
+```conf
+max-retries 2;
+```
+
+#### retry-delay
+
+Specifies the delay between retry attempts in milliseconds.
+
+```conf
+retry-delay 100;
+```
+
+#### strategy
+
+Specifies how upstream servers are selected.
+
+Supported values:
+
+- `failover` - Try forwarders in the order they are configured until one responds.
+- `round-robin` - Rotate through the configured forwarders.
+- `random` - Select a random forwarder for each query.
+- `parallel` - Query all forwarders simultaneously and use the first response.
 
 ## Database config files
 You can change the configuration of the PostgreSQL server both in the `compose.yaml` and the `postgres/postgres.conf` files.  
