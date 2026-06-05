@@ -31,15 +31,12 @@ import java.time.format.DateTimeParseException;
  * owner-name inheritance, $ORIGIN, $TTL, TTL suffixes, and line-aware diagnostics.
  */
 public class ZoneParser {
-    /** All tokens produced by the lexer before parsing begins.*/
-    private final List<ZoneToken> tokens = new ArrayList<>();
     /** Tokens belonging to the currently parsed logical resource record.*/
     private final List<ZoneToken> tokenBuffer = new ArrayList<>();
     /** Parsed resource records from the zone file.*/
     private final List<ResourceRecord> zoneRecords = new ArrayList<>();
-
-    private String input; // Allow it to be freed later
-    //private String directoryName = "zones/";
+    /** The lexer which manages tokens */
+    private final ZoneLexer lexer;
 
     /** Current zone origin used to resolve relative domain names. */
     private String origin = "";
@@ -53,37 +50,38 @@ public class ZoneParser {
     private boolean seenSoaRecord = false;
     /** Whether this zone already contains an NS record. */
     private boolean seenNSRecord = false;
-
+    /** Whether this zone had an error and should reject the zone. */
     private boolean parserError = false;
+    /** Whether a multiline record has been opened by a bracket. */
+    private boolean bracketOpen = false;
 
     private static final Pattern TTL_PATTERN =
             Pattern.compile("\\d+[smhdwSMHDW]?");
 
     public ZoneParser(String input) {
-        this.input = input;
-        startParser();
+        this.lexer = new ZoneLexer(input);
+        parseZone();
     }
     public ZoneParser(String input, boolean checkForSOA) {
-        this.input = input;
+        this.lexer = new ZoneLexer(input);
         this.seenSoaRecord = !checkForSOA; // Act as though a SOA already exists
         this.seenNSRecord = !checkForSOA;
-        startParser();
+        parseZone();
     }
 
     public ZoneParser(String input, String origin) {
-        this.input = input;
+        this.lexer = new ZoneLexer(input);
         this.origin = origin;
-        startParser();
+        parseZone();
     }
     public ZoneParser(String input, String origin, String defaultTtl, boolean checkForSOA) {
-        this.input = input;
+        this.lexer = new ZoneLexer(input);
         this.origin = origin;
         this.defaultTtl = defaultTtl;
         this.seenSoaRecord = !checkForSOA; // Act as though a SOA already exists
         this.seenNSRecord = !checkForSOA;
-        startParser();
+        parseZone();
     }
-
 
     public List<ResourceRecord> getZoneRecords() {
         return List.copyOf(zoneRecords);
@@ -124,23 +122,17 @@ public class ZoneParser {
 
     /**
      * Starts lexing and parsing the input zone file.
-     * The original input reference is released after lexer creation.
      */
-    private void startParser() {
-        ZoneLexer lexer = new ZoneLexer(input);
-        input = null; // Parser no longer needs its own reference
-
-        // Collect Tokens
+    private void parseZone() {
         while (true) {
             ZoneToken tok = lexer.nextToken();
-            tokens.add(tok);
-            //    IO.println(tok.getLiteral() + ":" +tok.getType());
+            parseToken(tok);
             if (tok.type() == ZoneTokenType.EOF) {
                 break;
             }
         }
-        parseTokens();
-        tokens.clear();
+        validateZoneEnd();
+        tokenBuffer.clear();
         /*
         for (ResourceRecord r : zoneRecords) {
             IO.println(r.getType() + ":" + r);
@@ -148,177 +140,160 @@ public class ZoneParser {
          */
     }
 
+    private void validateZoneEnd(){
+        if (!parserError && !seenSoaRecord) {
+            error("Zone must contain exactly one SOA record", tokenBuffer.isEmpty() ? 0 : tokenBuffer.getLast().lineNumber());
+        }
+        if (!parserError && !seenNSRecord) {
+            error("Zone must contain at least one NS record", tokenBuffer.isEmpty() ? 0 : tokenBuffer.getLast().lineNumber());
+        }
+    }
+
     /**
      * Groups tokens into logical resource records and handles zone directives.
      */
-    private void parseTokens() {
-        tokenBuffer.clear();
-        boolean bracketOpen = false;
+    private void parseToken(ZoneToken t) {
+        if (parserError) {
+            return;
+        }
+        //IO.println(t.getLiteral() + ":" + t.getType());
 
-        for (int i = 0; i < tokens.size(); i++) {
-            if (parserError) {
-                return;
+        switch (t.type()) {
+            case ORIGIN -> {
+                if (!tokenBuffer.isEmpty() || bracketOpen) {
+                    error("$ORIGIN not allowed inside record", t.lineNumber());
+                    return;
+                }
+                parseOriginDirective();
+            }
+            case TTL -> {
+                if (!tokenBuffer.isEmpty() || bracketOpen) {
+                    error("$TTL not allowed inside record", t.lineNumber());
+                    return;
+                }
+                parseTtlDirective();
+            }
+            case INCLUDE -> {
+                if (!tokenBuffer.isEmpty() || bracketOpen) {
+                    error("$INCLUDE not allowed inside record", t.lineNumber());
+                    return;
+                }
+                parseIncludeDirective();
+            }
+            case LPAREN -> {
+                if (bracketOpen) {
+                    error("Nested parentheses are not allowed", t.lineNumber());
+                    return;
+                }
+                bracketOpen = true;
             }
 
-            ZoneToken t = tokens.get(i);
-            //IO.println(t.getLiteral() + ":" + t.getType());
+            case RPAREN -> {
+                if (!bracketOpen) {
+                    error("Closed parenthesis without opening parenthesis", t.lineNumber());
+                    return;
+                }
+                bracketOpen = false;
+                //finishRecordIfPresent();
+            }
+            case SPACE -> {
+                if (tokenBuffer.isEmpty()) {
+                    currentRecordStartsWithSpace = true;
+                }
+            }
 
-            switch (t.type()){
-                case ORIGIN -> {
-                    if (!tokenBuffer.isEmpty() || bracketOpen) {
-                        error("$ORIGIN not allowed inside record", t.lineNumber());
-                        return;
-                    }
-                    i = parseOriginDirective(i);
-                }
-                case TTL -> {
-                    if (!tokenBuffer.isEmpty() || bracketOpen) {
-                        error("$TTL not allowed inside record",t.lineNumber());
-                        return;
-                    }
-                    i = parseTtlDirective(i);
-                }
-                case INCLUDE -> {
-                    if (!tokenBuffer.isEmpty() || bracketOpen) {
-                        error("$INCLUDE not allowed inside record",t.lineNumber());
-                        return;
-                    }
-                    i = parseIncludeDirective(i);
-                }
-                case LPAREN -> {
-                    if(bracketOpen) {
-                        error("Nested parentheses are not allowed",t.lineNumber());
-                        return;
-                    }
-                    bracketOpen = true;
-                }
-
-                case RPAREN -> {
-                    if (!bracketOpen){
-                        error("Closed parenthesis without opening parenthesis",t.lineNumber());
-                        return;
-                    }
-                    bracketOpen = false;
-                    //finishRecordIfPresent();
-                }
-                case SPACE -> {
-                    if (tokenBuffer.isEmpty()) {
-                        currentRecordStartsWithSpace = true;
-                    }
-                }
-
-                case NEWLINE -> {
-                    if(!bracketOpen){
-                        finishRecordIfPresent();
-                        currentRecordStartsWithSpace = false;
-                    }
-                }
-
-                case EOF -> {
-                    if (bracketOpen) {
-                        error("Unclosed parentheses",t.lineNumber());
-                        return;
-                    }
+            case NEWLINE -> {
+                if (!bracketOpen) {
                     finishRecordIfPresent();
                     currentRecordStartsWithSpace = false;
                 }
+            }
 
-                default -> {
-                    if (isRecordToken(t)) {
-                        tokenBuffer.add(t);
-                    } else {
-                        error("Unexpected token: " + t.literal(), t.lineNumber());
-                        return;
-                    }
+            case EOF -> {
+                if (bracketOpen) {
+                    error("Unclosed parentheses", t.lineNumber());
+                    return;
+                }
+                finishRecordIfPresent();
+                currentRecordStartsWithSpace = false;
+            }
+
+            default -> {
+                if (isRecordToken(t)) {
+                    tokenBuffer.add(t);
+                } else {
+                    error("Unexpected token: " + t.literal(), t.lineNumber());
                 }
             }
         }
-        if (!parserError && !seenSoaRecord) {
-            error("Zone must contain exactly one SOA record", tokens.getLast().lineNumber());
-        }
-        if (!parserError && !seenNSRecord) {
-            error("Zone must contain at least one NS record", tokens.getLast().lineNumber());
-        }
     }
 
-    private int skipSpaces(int i) {
-        while (i < tokens.size() && tokens.get(i).type() == ZoneTokenType.SPACE) {
-            i++;
+    private ZoneToken skipSpaces() {
+        ZoneToken t = lexer.nextToken();
+        while (t.type() != ZoneTokenType.EOF && t.type() == ZoneTokenType.SPACE) {
+            t = lexer.nextToken();
         }
-        return i;
+        return t;
     }
 
-    private int parseOriginDirective(int i){
-        int valueIndex = skipSpaces(i + 1);
+    private void parseOriginDirective(){
+        ZoneToken originToken = skipSpaces();
 
-        if (valueIndex >= tokens.size()){
-            error("No origin found",tokens.get(i).lineNumber());
-            return i;
+        if (originToken.type() == ZoneTokenType.EOF){
+            error("No origin found",originToken.lineNumber());
+            return;
         }
-        ZoneToken originToken = tokens.get(valueIndex);
         if (originToken.type() != ZoneTokenType.ATOM) {
             error("Invalid origin name: " + originToken.literal(), originToken.lineNumber());
-            return i;
+            return;
         }
 
         String normalized = normalizeOrigin(originToken.literal());
         parseDomainLabels(normalized, "$ORIGIN", originToken.lineNumber());
-        if (parserError) return i;
+        if (parserError) return;
         origin = normalized;
-        return valueIndex;
     }
 
-    private int parseTtlDirective(int i ) {
-        int valueIndex = skipSpaces(i + 1);
-        if (valueIndex >= tokens.size()) {
-            error("No TTL found",tokens.get(i).lineNumber());
-            return i;
+    private void parseTtlDirective() {
+        ZoneToken ttlToken = skipSpaces();
+
+        if (ttlToken.type() == ZoneTokenType.EOF){
+            error("No TTL found", ttlToken.lineNumber());
+            return;
         }
-        ZoneToken ttlToken = tokens.get(valueIndex);
         if (!isTTLToken(ttlToken)) {
             error("Invalid TTL: " + ttlToken.literal(), ttlToken.lineNumber());
-            return i;
+            return;
         }
 
         long ttl = parseTTL(ttlToken, "$TTL");
-        if (parserError) { return i; }
+        if (parserError) { return; }
 
         defaultTtl = String.valueOf(ttl);
-        return valueIndex;
     }
 
-    private int parseIncludeDirective(int i) {
-        int includeIndex = skipSpaces(i + 1);
+    private void parseIncludeDirective() {
+        ZoneToken includeToken = skipSpaces();
 
-        if (includeIndex >= tokens.size()) {
-            error("No INCLUDE FILE found", tokens.get(i).lineNumber());
-            return i;
+        if (includeToken.type() == ZoneTokenType.EOF){
+            error("No INCLUDE FILE found", includeToken.lineNumber());
+            return;
         }
-
-        ZoneToken includeToken = tokens.get(includeIndex);
 
         if (includeToken.type() != ZoneTokenType.ATOM && includeToken.type() != ZoneTokenType.TXT) {
             error("Invalid file name: " + includeToken.literal(), includeToken.lineNumber());
-            return i;
+            return;
         }
 
-        int nextIndex = skipSpaces(includeIndex + 1);
-        int returnIndex = includeIndex;
-
         String subOrigin = origin;
+        ZoneToken subOriginToken = skipSpaces();
 
-        if (nextIndex < tokens.size()
-                && tokens.get(nextIndex).type() != ZoneTokenType.NEWLINE
-                && tokens.get(nextIndex).type() != ZoneTokenType.EOF) {
-            ZoneToken subOriginToken = tokens.get(nextIndex);
-
+        if (subOriginToken.type() != ZoneTokenType.NEWLINE && subOriginToken.type() != ZoneTokenType.EOF) {
             if (subOriginToken.type() != ZoneTokenType.ATOM) {
                 error("Invalid new origin: " + subOriginToken.literal(), subOriginToken.lineNumber());
-                return i;
+                return;
             }
-
             subOrigin = subOriginToken.literal();
-            returnIndex = nextIndex;
         }
 
         String subInput;
@@ -327,18 +302,17 @@ public class ZoneParser {
             subInput = Files.readString(Path.of(ConfigManager.getZoneDir() + "/" + includeToken.literal()));
         } catch (IOException e) {
             error("Failed to read file: " + includeToken.literal(), includeToken.lineNumber());
-            return i;
+            return;
         }
 
         ZoneParser subParser = new ZoneParser(subInput, subOrigin, this.defaultTtl, false);
 
         if (subParser.hasParserError()) {
             error("Failed to parse zone: " + includeToken.literal(), includeToken.lineNumber());
-            return i;
+            return;
         }
 
         this.zoneRecords.addAll(subParser.getZoneRecords());
-        return returnIndex;
     }
 
     private void finishRecordIfPresent() {
