@@ -54,7 +54,7 @@ class StubResolverTest {
     }
     @Test
     void testSuccessfulResolution(){
-        StubResolver.NameServer server= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(),
+        StubResolver.Forwarder server = new StubResolver.Forwarder("127.0.0.1", mockServer.getLocalPort(),
                 "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),1000,2,50,StubResolver.Strategy.FAILOVER);
         byte[] query= new byte[]{0x12, 0x34, // id
@@ -70,7 +70,7 @@ class StubResolverTest {
     @Test
     void testTimeoutAndServFail(){
         serverDelayMs=200;
-        StubResolver.NameServer server= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(), "MockLocal");
+        StubResolver.Forwarder server= new StubResolver.Forwarder("127.0.0.1", mockServer.getLocalPort(), "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),100,1,10,StubResolver.Strategy.FAILOVER);
         byte[] query= new byte[12];
         byte[] response= resolver.resolve(query);
@@ -81,8 +81,8 @@ class StubResolverTest {
     @Test
     void testFailoverSwitchesServer(){
         serverDelayMs=200;
-        StubResolver.NameServer badServer = new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(), "BadPrimary");
-        StubResolver.NameServer deadServer= new StubResolver.NameServer("127.0.0.1", 54321, "Dead");
+        StubResolver.Forwarder badServer = new StubResolver.Forwarder("127.0.0.1", mockServer.getLocalPort(), "BadPrimary");
+        StubResolver.Forwarder deadServer= new StubResolver.Forwarder("127.0.0.1", 54321, "Dead");
         StubResolver resolver = new StubResolver(List.of(badServer, deadServer),50,1,10, StubResolver.Strategy.FAILOVER);
         byte[] query= new byte[12];
         byte[] response= resolver.resolve(query);
@@ -91,8 +91,8 @@ class StubResolverTest {
     }
     @Test
     void testRoundRobinStrategy(){
-        StubResolver.NameServer server1= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(), "server1");
-        StubResolver.NameServer server2= new StubResolver.NameServer("127.0.0.1", mockServer.getLocalPort(), "server2");
+        StubResolver.Forwarder server1 = new StubResolver.Forwarder("127.0.0.1", mockServer.getLocalPort(), "server1");
+        StubResolver.Forwarder server2 = new StubResolver.Forwarder("127.0.0.1", mockServer.getLocalPort(), "server2");
         StubResolver resolver = new StubResolver(List.of(server1, server2),1000,0,10, StubResolver.Strategy.ROUND_ROBIN);
         byte[] query = new byte[12];
         resolver.resolve(query);
@@ -113,7 +113,7 @@ class StubResolverTest {
         });
         t.start();
         try {
-            StubResolver.NameServer server = new StubResolver.NameServer("127.0.0.1", shortServer.getLocalPort(), "ShortResponse");
+            StubResolver.Forwarder server = new StubResolver.Forwarder("127.0.0.1", shortServer.getLocalPort(), "ShortResponse");
             StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolver.Strategy.FAILOVER);
             byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             byte[] response = resolver.resolve(query);
@@ -140,7 +140,7 @@ class StubResolverTest {
         });
         t.start();
         try {
-            StubResolver.NameServer server = new StubResolver.NameServer("127.0.0.1", badIdServer.getLocalPort(), "BadId");
+            StubResolver.Forwarder server = new StubResolver.Forwarder("127.0.0.1", badIdServer.getLocalPort(), "BadId");
             StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolver.Strategy.FAILOVER);
             byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             byte[] response = resolver.resolve(query);

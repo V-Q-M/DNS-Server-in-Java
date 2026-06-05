@@ -86,13 +86,6 @@ public class DNS_SERVER {
             bindIP = options.ipAddress();
         }
 
-        /*
-        if (props.getProperty("server.port") != null)
-            portNumber = Integer.parseInt(props.getProperty("server.port").trim());
-        if (props.getProperty("server.ip") != null)
-            bindIP = props.getProperty("server.ip").trim();
-         */
-
         // Layer 3: CLI args (highest priority)
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-p") && i + 1 < args.length) {
@@ -122,12 +115,12 @@ public class DNS_SERVER {
         String strategyString = resolvConf.getProperty("dns.strategy", "FAILOVER").replaceAll("\\r", "").trim().toUpperCase();
 
         StubResolver.Strategy strategy = StubResolver.Strategy.valueOf(strategyString);
-        List<StubResolver.NameServer> nameServers = Arrays.stream(upstreamRaw.split(","))
+        List<StubResolver.Forwarder> forwarders = Arrays.stream(upstreamRaw.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .map(ip -> new StubResolver.NameServer(ip, 53, ip))
+                .map(ip -> new StubResolver.Forwarder(ip, 53, ip))
                 .toList();
-        StubResolver stubResolver = new StubResolver(nameServers, dnsTimeout, maxRetries, retryDelay, strategy);
+        StubResolver stubResolver = new StubResolver(forwarders, dnsTimeout, maxRetries, retryDelay, strategy);
 
         // Open UDP socket
         InetAddress bindAddress;

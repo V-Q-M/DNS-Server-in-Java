@@ -27,12 +27,12 @@ public class StubResolver {
         //public boolean isSuccess() {return status== Status.SUCCESS;}
     }
     //host should be ip, name can be additional info
-    public record NameServer(String host, int port, String name) {
-        @Override public String toString() {return name+ "(" + host+ ":" +port+ ")";}
+    public record Forwarder(String host, int port, String name) {
+        @Override public String toString() {return name + "(" + host + ":" + port + ")";}
     }
     public static final int MAX_UDP_SIZE=4096;
 
-    private final List<NameServer> nameServers;
+    private final List<Forwarder> forwarders;
     private final int timeoutMs;
     private final int maxRetries;
     private final long retryDelay;
@@ -45,10 +45,10 @@ public class StubResolver {
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
 
-    public StubResolver(List<NameServer> nameServers, int timeoutMs, int maxRetries, long retryDelay, Strategy strategy){
-        if(nameServers==null || nameServers.isEmpty())
+    public StubResolver(List<Forwarder> forwarders, int timeoutMs, int maxRetries, long retryDelay, Strategy strategy){
+        if(forwarders==null || forwarders.isEmpty())
             throw new IllegalArgumentException("at least one name server is required");
-        this.nameServers=List.copyOf(nameServers);
+        this.forwarders=List.copyOf(forwarders);
         this.timeoutMs=timeoutMs;
         this.maxRetries=maxRetries;
         this.retryDelay=retryDelay;
@@ -64,12 +64,11 @@ public class StubResolver {
      */
     public byte[] resolve(byte[] query){
 
-        int totalServers =nameServers.size();
-        int maxAttempts= maxRetries+1;
-        int startIndex= nextStartIndex(totalServers);
+        int totalServers = forwarders.size();
+        int maxAttempts = maxRetries+1;
+        int startIndex = nextStartIndex(totalServers);
         long startTime = System.currentTimeMillis();
         //parse query
-        //DNSPacket queryPacket = DNSPacket.fromBytes(query);
         DNSPacket queryPacket;
         try {
             queryPacket = DNSPacket.fromBytes(query);
@@ -77,8 +76,8 @@ public class StubResolver {
             return buildServFail(query);
         }
         for(int attempt=0; attempt<maxAttempts;attempt++){
-            NameServer server=nameServers.get(startIndex);
-            //log QUERY_SENT for every question section seperately (usually different qType or domain queried)
+            Forwarder server = forwarders.get(startIndex);
+            //log QUERY_SENT for every question section separately (usually different qType or domain queried)
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
 
@@ -146,7 +145,7 @@ public class StubResolver {
             DNSEventType.ATTEMPTS_EXHAUSTED,
             queryPacket,
             System.currentTimeMillis() - startTime,
-            nameServers.get(startIndex),
+            forwarders.get(startIndex),
             maxAttempts - 1, //-1 because of "attempt+1" in def of logQuestionEvents
             "All structural retries exhausted. Returning SERVFAIL.",
             RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
@@ -163,7 +162,7 @@ public class StubResolver {
      * @param server
      * @return
      */
-    private ForwardResult forwardOnce(byte[] query, NameServer server){
+    private ForwardResult forwardOnce(byte[] query, Forwarder server){
         long start= System.currentTimeMillis();
         try(DatagramSocket socket= new DatagramSocket()){socket.setSoTimeout(timeoutMs);
 
@@ -247,7 +246,7 @@ public class StubResolver {
      * (possibly different queried domains and qTypes in every questionSection, so for dashboard statistics probably relevant)
      * @params : all input needed by logDebug
      */
-    private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, NameServer server, int attempt, String error, RCode rCode) {
+    private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, Forwarder server, int attempt, String error, RCode rCode) {
         byte[] idBytes = packet.getId();
         String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
         if (packet.getQdcount() == 0 || packet.getQuestionSections() == null ) {
