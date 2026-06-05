@@ -3,34 +3,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConfParser {
-    private final List<ConfToken> tokens = new ArrayList<>();
-    private int pos = 0;
+    private final ConfLexer lexer;
+    private ConfToken current;
 
     private final List<ConfNode> rootNodes = new ArrayList<>();
     private boolean parserError = false;
 
-    String input;
-
     public ConfParser(String input){
-        this.input = input;
-        startParser();
-    }
-    private void startParser(){
-        ConfLexer lexer = new ConfLexer(input);
-        input = null;
-
-        // Collect Tokens
-        while (true) {
-            ConfToken tok = lexer.nextToken();
-            tokens.add(tok);
-
-            //IO.println(tok.literal() + ":" +tok.type());
-            if (tok.type() == ConfTokenType.EOF) {
-                break;
-            }
-        }
+        this.lexer = new ConfLexer(input);
+        this.current = lexer.nextToken();
         parseConfig();
-        tokens.clear();
     }
 
     private void parseConfig() {
@@ -63,7 +45,9 @@ public class ConfParser {
                     children.add(parseStatement());
             }
             consume(ConfTokenType.RBRACE, "Expected closing brace");
-            consume(ConfTokenType.SEMICOLON, "Expected semicolon after block");
+            if (!parserError) {
+                consume(ConfTokenType.SEMICOLON, "Expected semicolon after block");
+            }
         } else {
             consume(ConfTokenType.SEMICOLON, "Expected semicolon");
         }
@@ -72,35 +56,25 @@ public class ConfParser {
     }
 
     private boolean match(ConfTokenType type){
-        if (!check(type)){
-            return false;
-        }
-
+        if (!check(type)) return false;
         advance();
         return true;
     }
 
     private boolean check(ConfTokenType type){
-        if (pos >= tokens.size()){ return false; }
-
-        return tokens.get(pos).type() == type;
+        return current.type() == type;
     }
 
     private ConfToken advance(){
-        if (pos < tokens.size()){
-            pos++;
-        }
-        return tokens.get(pos - 1);
+        ConfToken previous = current;
+        current = lexer.nextToken();
+        return previous;
     }
 
     private ConfToken consume(ConfTokenType type, String message){
-        if (check(type)){
-            return advance();
-        }
-
-        ConfToken t = tokens.get(Math.min(pos, tokens.size() - 1));
-        error(message + ", got: " + t.literal(), t.lineNumber());
-        return t;
+        if (check(type)) return advance();
+        error(message + ", got: " + current.literal(), current.lineNumber());
+        return current;
     }
 
     public List<ConfNode> getRootNodes() {
@@ -113,7 +87,7 @@ public class ConfParser {
     private static final String CYAN   = "\u001B[36m";
     private static final String BOLD   = "\u001B[1m";
     /**
-     * Reports a fatal zone parsing error and marks the parser as failed.
+     * Reports a fatal config parsing error and marks the parser as failed.
      */
     private void error(String message, int lineNumber) {
         System.err.println(RED + BOLD + "[CONF-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
