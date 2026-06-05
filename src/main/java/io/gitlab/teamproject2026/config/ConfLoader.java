@@ -1,40 +1,47 @@
 package io.gitlab.teamproject2026.config;
 
+import io.gitlab.teamproject2026.StubResolver;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class ConfLoader {
     public static Config fromAst(List<ConfNode> rootNodes){
-        List<OptionConfig>options = new ArrayList<>();
+        OptionConfig option = null;
         List<ZoneConfig>zones = new ArrayList<>();
 
         for (ConfNode node : rootNodes) {
             String name = node.name().toLowerCase();
             switch (name){
-                case "options" -> options.add(parseOptionConfig(node));
+                case "options" ->{
+                    if (option != null){
+                        throw new IllegalArgumentException("ERROR: Only one option section allowed but found more!");
+                    }
+                    option = parseOptionConfig(node);
+                }
                 case "zone" -> zones.add(parseZoneConfig(node));
             }
         }
 
-        return new Config(options, zones);
+        return new Config(option, zones);
     }
 
     public static OptionConfig parseOptionConfig(ConfNode root) {
         String directoryPath = "";
-        int port = 53;
+        int port = 4242;
         String ipAddress = "0.0.0.0";
         boolean recursion = false;
         String forwardMode = "forward-only";
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
-        String timeOut = "2000";
-        String maxRetries = "2";
-        String retryDelay = "100";
-        String strategy = "failover";
+        int resolverTimeOut = 2000;
+        int resolverMaxRetries = 2;
+        long resolverRetryDelay = 100;
+        StubResolver.Strategy resolverStrategy = StubResolver.Strategy.FAILOVER;
 
         for (ConfNode node : root.children()){
             if (node.name().equalsIgnoreCase("directory")){
                 if(node.args().isEmpty()){ throw new IllegalArgumentException("options.directory requires a path"); }
-                directoryPath = node.args().get(0);
+                directoryPath = node.args().getFirst();
             } else if (node.name().equalsIgnoreCase("listen-on")){
                 if (node.args().size() >= 2 && node.args().getFirst().equalsIgnoreCase("port")) {
                     port = Integer.parseInt(node.args().get(1));
@@ -61,21 +68,36 @@ public class ConfLoader {
                 for (ConfNode child : node.children()){
                     if (child.name().equalsIgnoreCase("timeout")){
                         if (child.args().isEmpty()){ throw  new IllegalArgumentException("timeout requires a value"); }
-                        timeOut = child.args().getFirst();
+                        String rawTimeOut = child.args().getFirst();
+                        try {
+                            resolverTimeOut = Integer.parseInt(rawTimeOut);
+                        } catch (NumberFormatException _){
+
+                        }
                     } else if (child.name().equalsIgnoreCase("max-retries")){
                         if (child.args().isEmpty()){ throw  new IllegalArgumentException("max-retries requires a value"); }
-                        timeOut = child.args().getFirst();
+                        String rawMaxRetries = child.args().getFirst();
+                        try {
+                            resolverMaxRetries = Integer.parseInt(rawMaxRetries);
+                        } catch (NumberFormatException _){
+
+                        }
                     } else if (child.name().equalsIgnoreCase("retry-delay")){
                         if (child.args().isEmpty()){ throw  new IllegalArgumentException("retry-delay requires a value"); }
-                        timeOut = child.args().getFirst();
+                        String rawRetry = child.args().getFirst();
+                        try {
+                            resolverRetryDelay = Integer.parseInt(rawRetry);
+                        } catch (NumberFormatException _){
+
+                        }
                     } else if (child.name().equalsIgnoreCase("strategy")){
                         if (child.args().isEmpty()){ throw  new IllegalArgumentException("strategy requires a value"); }
-                        timeOut = child.args().getFirst();
+                        resolverStrategy = StubResolver.Strategy.valueOf(child.args().getFirst());
                     }
                 }
             }
         }
-        return new OptionConfig(directoryPath, port, ipAddress, recursion, forwardMode, forwarders,timeOut,maxRetries, retryDelay,strategy );
+        return new OptionConfig(directoryPath, port, ipAddress, recursion, forwardMode, forwarders, resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy );
     }
 
     public static ZoneConfig parseZoneConfig(ConfNode root) {
@@ -83,7 +105,7 @@ public class ConfLoader {
             throw new IllegalArgumentException("zone requires a name");
         }
 
-        String name = root.args().get(0);
+        String name = root.args().getFirst();
         String file = "";
         ZoneType type = null;
 
@@ -92,13 +114,13 @@ public class ConfLoader {
                 if (node.args().isEmpty()){
                     throw new IllegalArgumentException("zone " + name + " file requires a path");
                 }
-                file = node.args().get(0);
+                file = node.args().getFirst();
             }
             if (node.name().equals("type")){
                 if (node.args().isEmpty()){
                     throw new IllegalArgumentException("zone " + name + " type requires a value");
                 }
-                type = ZoneType.fromValue(node.args().get(0).toLowerCase());
+                type = ZoneType.fromValue(node.args().getFirst().toLowerCase());
             }
         }
 

@@ -25,10 +25,10 @@ public class ConfLoaderTest {
 
         Config config = ConfLoader.fromAst(parser.getRootNodes());
 
-        assertEquals(1, config.options().size());
+        assertTrue(config.options() != null);
         assertEquals(1, config.zones().size());
 
-        OptionConfig options = config.options().get(0);
+        OptionConfig options = config.options();
         assertEquals("zones", options.dir());
         assertEquals(2222, options.port());
         assertEquals("127.0.0.1", options.ipAddress());
@@ -50,10 +50,10 @@ public class ConfLoaderTest {
         assertFalse(parser.hasParserError());
 
         Config config = ConfLoader.fromAst(parser.getRootNodes());
-        OptionConfig options = config.options().get(0);
+        OptionConfig options = config.options();
 
         assertEquals("", options.dir());
-        assertEquals(53, options.port());
+        assertEquals(4242, options.port());
         assertEquals("0.0.0.0", options.ipAddress());
         assertFalse(options.recursionDesired());
     }
@@ -68,7 +68,7 @@ public class ConfLoaderTest {
 
         Config config = ConfLoader.fromAst(parser.getRootNodes());
 
-        assertTrue(config.options().get(0).recursionDesired());
+        assertTrue(config.options().recursionDesired());
     }
 
     @Test

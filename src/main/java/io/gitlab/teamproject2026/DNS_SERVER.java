@@ -1,6 +1,5 @@
 package io.gitlab.teamproject2026;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 
 import io.gitlab.teamproject2026.config.Config;
@@ -50,7 +49,7 @@ public class DNS_SERVER {
             LinkedList<ResourceRecord> authority,
             LinkedList<ResourceRecord> additional,
             LinkedList<QuestionSection> notCached) {
-    };
+    }
 
     private static List<DNSZone> loadedZones;
 
@@ -58,7 +57,7 @@ public class DNS_SERVER {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
         // Named.conf
         Config namedConfig = ConfigManager.loadConfig("named.conf");
-        OptionConfig options = namedConfig.options().getFirst();
+        OptionConfig options = namedConfig.options();
         try {
             loadedZones = loadZonesFromConf(namedConfig);
         } catch (IOException e){
@@ -66,27 +65,11 @@ public class DNS_SERVER {
             loadedZones = null;
         }
 
-        // Resolv.conf
-        Properties resolvConf = new Properties();
-        try (FileInputStream fis = new FileInputStream("resolv.conf")) {
-            resolvConf.load(fis);
-        } catch (IOException e) {
-            IO.println("No resolv.conf found — using defaults.");
-        }
+        // Default options from the config
+        int portNumber = options.port();
+        String bindIP = options.ipAddress();
 
-        // Layer 1: defaults
-        int portNumber = DEFAULT_PORT;
-        String bindIP = DEFAULT_IP;
-
-        // Layer 2: config file
-        if (options.port() != 0){
-            portNumber = options.port();
-        }
-        if (!options.ipAddress().isEmpty()){
-            bindIP = options.ipAddress();
-        }
-
-        // Layer 3: CLI args (highest priority)
+        // Overwrite with CLI args (highest priority)
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-p") && i + 1 < args.length) {
                 portNumber = Integer.parseInt(args[i + 1]);
@@ -110,16 +93,11 @@ public class DNS_SERVER {
 
         String forwardMode = options.forwardMode(); // Determines if we should only forward or also recurse ourselves
 
-        int maxRetries = Integer.parseInt(options.resolverMaxTries());
-        long retryDelay = Long.parseLong(options.resolverMaxTries());
-        int dnsTimeout = Integer.parseInt(options.resolverTimeout());
-        String strategyString = options.resolverStrategy().toUpperCase();
-        StubResolver.Strategy strategy = StubResolver.Strategy.valueOf(strategyString);
-
         List<StubResolver.Forwarder> forwarders = options.forwarders().stream()
                 .map(ip -> new StubResolver.Forwarder(ip, 53, ip))
                 .toList();
-        StubResolver stubResolver = new StubResolver(forwarders, dnsTimeout, maxRetries, retryDelay, strategy);
+        StubResolver stubResolver = new StubResolver(
+                forwarders, options.resolverTimeout(), options.resolverMaxRetries(), options.resolverRetryDelay(), options.resolverStrategy());
 
         // Open UDP socket
         InetAddress bindAddress;
@@ -224,13 +202,13 @@ public class DNS_SERVER {
                             if (payload.notCached.contains(request)) {
                                 IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, strategyString, "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                             } else {
                                 IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart));
                                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
-                                            strategyString, "Local Cache", "127.0.0.1", 1, null, null));
+                                            options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
 
                             }
 
@@ -252,9 +230,8 @@ public class DNS_SERVER {
                             payload.notCached.add(request);
                             LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
                             LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
-                                    strategyString, "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
+                                    options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
                         }
-                        ;
                     }
                 } else {
                     // if testing is active, do not check cache
@@ -262,10 +239,9 @@ public class DNS_SERVER {
                         payload.notCached.add(request);
                         LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L)); //since cache isn't checked latency is 0
                         LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
-                                strategyString, "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
+                                options.resolverStrategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
 
                     }
-                    ;
                 }
 
                 // Stubresolver should only be queried if there are queries not answered by the
@@ -529,7 +505,7 @@ public class DNS_SERVER {
     }
 
     private static List<DNSZone> loadZonesFromConf(Config config) throws IOException {
-        OptionConfig options = config.options().getFirst();
+        OptionConfig options = config.options();
         String dir = options.dir();
         List<ZoneConfig> declaredZones = config.zones();
 
