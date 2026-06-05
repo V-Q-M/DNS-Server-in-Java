@@ -11,31 +11,42 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ConfInterpreter {
-    public static Config fromAst(List<ConfNode> rootNodes){
+    private boolean interpreterError = false;
+
+    public Config fromAst(List<ConfNode> rootNodes){
         OptionSection option = null;
-        List<ZoneSection>zones = new ArrayList<>();
+        List<ZoneSection> zones = new ArrayList<>();
 
         for (ConfNode node : rootNodes) {
             String name = node.name().toLowerCase();
             switch (name){
-                case "options" ->{
-                    if (option != null){
-                        throw new IllegalArgumentException("ERROR: Only one option section allowed but found more!");
+                case "options" -> {
+                    // Check first if option is already set
+                    if (option == null) {
+                        option = parseOptionConfig(node);
+                    } else {
+                        error("Only one options section allowed", node.lineNumber());
                     }
-                    option = parseOptionConfig(node);
                 }
-                case "zone" -> zones.add(parseZoneConfig(node));
+                case "zone" -> {
+                    ZoneSection zone = parseZoneConfig(node);
+                    if (zone != null) {
+                        zones.add(zone);
+                    }
+                }
+                default -> error("Unknown top-level section: \"" + node.name() + "\"", node.lineNumber());
             }
         }
 
-        return new Config(option, zones);
+        return interpreterError ? null : new Config(option, zones);
     }
 
-    public static OptionSection parseOptionConfig(ConfNode root) {
+    public OptionSection parseOptionConfig(ConfNode root) {
         // Default values
         String directoryPath = "";
         int port = 4242;
         String ipAddress = "0.0.0.0";
+        String ipv6Address = "0.0.0.0";
         boolean recursion = false;
         String forwardMode = "forward-only";
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
@@ -47,74 +58,104 @@ public class ConfInterpreter {
 
         for (ConfNode node : root.children()){
             if (node.name().equalsIgnoreCase("directory")){
-                if(node.args().isEmpty()){ throw new IllegalArgumentException("options.directory requires a path"); }
+                if (node.args().isEmpty()) {
+                    error("options.directory requires a path", node.lineNumber());
+                    continue;
+                }
                 directoryPath = node.args().getFirst();
             } else if (node.name().equalsIgnoreCase("listen-on")){
                 if (node.args().size() >= 2 && node.args().getFirst().equalsIgnoreCase("port")) {
-                    port = Integer.parseInt(node.args().get(1));
+                    port = parseInt(node.args().get(1), "options.listen-on port", node.lineNumber());
                 }
-                if (node.children().isEmpty()) { throw new IllegalArgumentException("options.listen-on requires an IP address or 'none'"); }
-
+                if (node.children().isEmpty()) {
+                    error("options.listen-on requires an IP address or 'none'", node.lineNumber());
+                    continue;
+                }
                 ipAddress = node.children().getFirst().name();
+            } else if (node.name().equalsIgnoreCase("listen-on-v6")){
+                if (node.args().size() >= 2 && node.args().getFirst().equalsIgnoreCase("port")) {
+                    port = parseInt(node.args().get(1), "options.listen-on port", node.lineNumber());
+                }
+                if (node.children().isEmpty()) {
+                    error("options.listen-on-v6 requires an IP address or 'none'", node.lineNumber());
+                    continue;
+                }
+                ipv6Address = node.children().getFirst().name();
             } else if (node.name().equalsIgnoreCase("recursion")){
-                if(node.args().isEmpty()){ throw new IllegalArgumentException("options.recursion requires yes or no"); }
+                if (node.args().isEmpty()) {
+                    error("options.recursion requires yes or no", node.lineNumber());
+                    continue;
+                }
                 recursion = node.args().getFirst().equalsIgnoreCase("yes");
             } else if (node.name().equalsIgnoreCase("forwarders")){
                 if (node.children().isEmpty()) {
-                    throw new IllegalArgumentException("options.forwarders requires at least one server");
+                    error("options.forwarders requires at least one server", node.lineNumber());
+                    continue;
                 }
                 forwarders = node.children()
                         .stream()
                         .map(ConfNode::name)
                         .toList();
             } else if (node.name().equalsIgnoreCase("forward")){
-                if (node.args().isEmpty()) { throw new IllegalArgumentException("forward requires one mode"); }
+                if (node.args().isEmpty()) {
+                    error("forward requires one mode", node.lineNumber());
+                    continue;
+                }
                 forwardMode = node.args().getFirst();
             } else if (node.name().equalsIgnoreCase("resolver")){
-                if (node.children().isEmpty()) { throw new IllegalArgumentException("options.resolvers requires at least one entry"); }
+                if (node.children().isEmpty()) {
+                    error("options.resolver requires at least one entry", node.lineNumber());
+                    continue;
+                }
                 for (ConfNode child : node.children()){
                     if (child.name().equalsIgnoreCase("timeout")){
-                        if (child.args().isEmpty()){ throw  new IllegalArgumentException("timeout requires a value"); }
-                        String rawTimeOut = child.args().getFirst();
-                        try {
-                            resolverTimeOut = Integer.parseInt(rawTimeOut);
-                        } catch (NumberFormatException _){
-
+                        if (child.args().isEmpty()) {
+                            error("resolver.timeout requires a value", child.lineNumber());
+                            continue;
                         }
+                        resolverTimeOut = parseInt(child.args().getFirst(), "resolver.timeout", child.lineNumber());
                     } else if (child.name().equalsIgnoreCase("max-retries")){
-                        if (child.args().isEmpty()){ throw  new IllegalArgumentException("max-retries requires a value"); }
-                        String rawMaxRetries = child.args().getFirst();
-                        try {
-                            resolverMaxRetries = Integer.parseInt(rawMaxRetries);
-                        } catch (NumberFormatException _){
-
+                        if (child.args().isEmpty()) {
+                            error("resolver.max-retries requires a value", child.lineNumber());
+                            continue;
                         }
+                        resolverMaxRetries = parseInt(child.args().getFirst(), "resolver.max-retries", child.lineNumber());
                     } else if (child.name().equalsIgnoreCase("retry-delay")){
-                        if (child.args().isEmpty()){ throw  new IllegalArgumentException("retry-delay requires a value"); }
-                        String rawRetry = child.args().getFirst();
-                        try {
-                            resolverRetryDelay = Integer.parseInt(rawRetry);
-                        } catch (NumberFormatException _){
-
+                        if (child.args().isEmpty()) {
+                            error("resolver.retry-delay requires a value", child.lineNumber());
+                            continue;
                         }
+                        resolverRetryDelay = parseLong(child.args().getFirst(), "resolver.retry-delay", child.lineNumber());
                     } else if (child.name().equalsIgnoreCase("strategy")){
-                        if (child.args().isEmpty()){ throw  new IllegalArgumentException("strategy requires a value"); }
-                        resolverStrategy = StubResolverStrategy.fromValue(child.args().getFirst());
+                        if (child.args().isEmpty()) {
+                            error("resolver.strategy requires a value", child.lineNumber());
+                            continue;
+                        }
+                        try {
+                            resolverStrategy = StubResolverStrategy.fromValue(child.args().getFirst());
+                        } catch (IllegalArgumentException e) {
+                            error("Invalid resolver.strategy: \"" + child.args().getFirst() + "\"", child.lineNumber());
+                        }
+                    } else {
+                        error("Unknown resolver directive: \"" + child.name() + "\"", child.lineNumber());
                     }
                 }
+            } else {
+                error("Unknown options directive: \"" + node.name() + "\"", node.lineNumber());
             }
         }
 
+        // Build the resolverSection first. It's syntactically part of options but logically its own thing
         ResolverSection resolverSection = new ResolverSection( resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy );
 
         return new OptionSection(directoryPath, port, ipAddress, recursion, forwardMode, forwarders, resolverSection);
     }
 
-    public static ZoneSection parseZoneConfig(ConfNode root) {
-        if (root.args().isEmpty()){
-            throw new IllegalArgumentException("zone requires a name");
+    public ZoneSection parseZoneConfig(ConfNode root) {
+        if (root.args().isEmpty()) {
+            error("zone requires a name", root.lineNumber());
+            return null;
         }
-
         String name = root.args().getFirst();
         String file = "";
         ZoneType type = null;
@@ -122,26 +163,75 @@ public class ConfInterpreter {
         for (ConfNode node : root.children()){
             if (node.name().equalsIgnoreCase("file")){
                 if (node.args().isEmpty()){
-                    throw new IllegalArgumentException("zone " + name + " file requires a path");
+                    error("zone " + name + " file requires a path", node.lineNumber());
+                    continue;
                 }
                 file = node.args().getFirst();
-            }
-            if (node.name().equals("type")){
+            } else if (node.name().equalsIgnoreCase("type")){
                 if (node.args().isEmpty()){
-                    throw new IllegalArgumentException("zone " + name + " type requires a value");
+                    error("zone " + name + " type requires a value", node.lineNumber());
+                    continue;
                 }
-                type = ZoneType.fromValue(node.args().getFirst().toLowerCase());
+                try {
+                    type = ZoneType.fromValue(node.args().getFirst().toLowerCase());
+                } catch (IllegalArgumentException e) {
+                    error("Invalid zone type: " + node.args().getFirst(), node.lineNumber());
+                }
             }
         }
 
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("zone " + name + " is missing file");
+            error("zone " + name + " is missing file", root.lineNumber());
+            return null;
         }
 
         if (type == null) {
-            throw new IllegalArgumentException("zone " + name + " is missing type");
+            error("zone " + name + " is missing type", root.lineNumber());
+            return null;
         }
 
         return new ZoneSection(name, file, type);
+    }
+
+    private int parseInt(String value, String field, int line) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            error(field + " must be an integer: " + value, line);
+            return 0;
+        }
+    }
+
+    private long parseLong(String value, String field, int line) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            error(field + " must be a long: " + value, line);
+            return 0;
+        }
+    }
+
+    private static final String RESET  = "\u001B[0m";
+    private static final String RED    = "\u001B[31m";
+    private static final String YELLOW = "\u001B[33m";
+    private static final String CYAN   = "\u001B[36m";
+    private static final String BOLD   = "\u001B[1m";
+
+    /**
+     * Reports a fatal config interpreting error and marks the interpreter as failed.
+     */
+    private void error(String message, int lineNumber) {
+        System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
+        interpreterError = true;
+    }
+
+    /**
+     * Reports a non-fatal config  warning.
+     */
+    private void warning(String message, int lineNumber) {
+        System.err.println(YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
+    }
+    public boolean hasInterpreterError(){
+        return this.interpreterError;
     }
 }

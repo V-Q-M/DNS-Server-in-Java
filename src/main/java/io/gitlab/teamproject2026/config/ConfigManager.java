@@ -3,6 +3,9 @@ package io.gitlab.teamproject2026.config;
 import io.gitlab.teamproject2026.DNSZone;
 import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
+import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import io.gitlab.teamproject2026.zones.ZoneParser;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 
@@ -26,24 +29,41 @@ public class ConfigManager {
     private static final String BLUE   = "\u001B[34m";
     private static final String BOLD   = "\u001B[1m";
 
+    public static Config defaultConfig() {
+        return new Config(
+                OptionSection.defaultOptions(),
+                List.of()
+        );
+    }
 
     public static Config loadConfig(String configName) {
-       Path confPath = Path.of(configName);
-       String input = "";
-       try {
-           input = Files.readString(confPath);
-       } catch (IOException e){
-           e.printStackTrace();
-       }
-       ConfParser confParser = new ConfParser(input);
-        if (confParser.hasParserError()) {
-            System.err.println(RED
-                    + "[ZONE] ERROR: Failed to parse config file: "
-                    + confPath.getFileName()
-                    + RESET);
-            return null;
+        Path confPath = Path.of(configName);
+
+        String input;
+        try {
+            input = Files.readString(confPath);
+        } catch (IOException e) {
+            System.err.println(RED + "[CONF] ERROR: Failed to read config file: " + confPath + RESET);
+            IO.println(YELLOW + "[CONF] WARNING: using default config" + RESET );
+            return defaultConfig();
         }
-        return  ConfInterpreter.fromAst(confParser.getRootNodes());
+
+        ConfParser parser = new ConfParser(input);
+        if (parser.hasParserError()) {
+            System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " Failed to parse config file: \"" + confPath.getFileName() + "\"" + RESET);
+            System.err.println(YELLOW + "[CONFIG] WARNING: Using default config" + RESET );
+            return defaultConfig();
+        }
+
+        ConfInterpreter interpreter = new ConfInterpreter();
+        Config config = interpreter.fromAst(parser.getRootNodes());
+        if (interpreter.hasInterpreterError()) {
+            System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " Failed to interpret config file: \"" + confPath.getFileName() +"\"" + RESET);
+            System.err.println(YELLOW + "[CONFIG] WARNING: Using default config" + RESET );
+            return defaultConfig();
+        }
+
+        return config;
     }
 
     /**
@@ -54,7 +74,7 @@ public class ConfigManager {
      * @param filePath path containing a filePath as String
      * @returns DNSZone
      */
-    public static DNSZone loadZoneFile(String dir, String filePath, String origin) throws IOException {
+    public static DNSZone loadZoneFile(String dir, String filePath, String origin) {
         zoneDir = dir;
         Path f;
         if (filePath.startsWith("/")){
@@ -64,7 +84,13 @@ public class ConfigManager {
         }
         IO.println("[ZONE] Parsing zonefile: \"" + f.getFileName() + "\"");
 
-        String content = Files.readString(f);
+        String content;
+        try {
+            content = Files.readString(f);
+        } catch (IOException e) {
+            System.err.println(RED + "[ZONE] ERROR: Failed to read zone file: " + f + RESET);
+            return null;
+        }
         ZoneParser parser = new ZoneParser(content, origin);
         if (parser.hasParserError()) {
             System.err.println(RED + "[ZONE] ERROR: Failed to parse zone: " + f.getFileName() + RESET);
@@ -91,7 +117,6 @@ public class ConfigManager {
 
         return zone;
     }
-
 
     public static String getZoneDir(){
         return zoneDir;

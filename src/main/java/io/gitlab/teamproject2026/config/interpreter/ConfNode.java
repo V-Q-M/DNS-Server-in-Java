@@ -3,7 +3,7 @@ package io.gitlab.teamproject2026.config.interpreter;
 import java.util.List;
 import java.util.StringJoiner;
 
-public record ConfNode(String name, List<String> args, List<ConfNode> children) {
+public record ConfNode(String name, List<String> args, List<ConfNode> children, int lineNumber ) {
     public ConfNode {
         args =  List.copyOf(args);
         children = List.copyOf(children);

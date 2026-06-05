@@ -24,7 +24,7 @@ public class ConfParser {
 
     private ConfNode parseStatement() {
         ConfToken nameToken = consume(ConfTokenType.ATOM, "Expected statement name");
-        if (parserError) { return new ConfNode("", List.of(), List.of()); }
+        if (parserError) { return new ConfNode("", List.of(), List.of(), nameToken.lineNumber()); }
 
         String name = nameToken.literal();
 
@@ -53,7 +53,7 @@ public class ConfParser {
             consume(ConfTokenType.SEMICOLON, "Expected semicolon");
         }
 
-        return new ConfNode(name, args, children);
+        return new ConfNode(name, args, children, nameToken.lineNumber());
     }
 
     private boolean match(ConfTokenType type){
@@ -91,7 +91,7 @@ public class ConfParser {
      * Reports a fatal config parsing error and marks the parser as failed.
      */
     private void error(String message, int lineNumber) {
-        System.err.println(RED + BOLD + "[CONF-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
+        System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
         parserError = true;
     }
 
@@ -99,7 +99,7 @@ public class ConfParser {
      * Reports a non-fatal zone parsing warning.
      */
     private void warning(String message, int lineNumber) {
-        System.err.println(YELLOW + BOLD + "[CONF-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
+        System.err.println(YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
     }
     public boolean hasParserError(){
         return this.parserError;

@@ -13,7 +13,7 @@ public enum ZoneType {
             case "secondary" -> SECONDARY;
             case "master" -> MASTER;
             case "slave" -> SLAVE;
-            default -> throw new IllegalStateException("Unexpected value: " + val);
+            default -> throw new IllegalArgumentException("Unexpected value: " + val);
         };
     }
 }

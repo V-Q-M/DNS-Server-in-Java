@@ -34,6 +34,9 @@ public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
+    private static final String DEFAULT_FORWARD_MODE = "forward only";
+
+
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
     private static final int MAX_CNAME_HOPS = 8;
 
@@ -54,7 +57,6 @@ public class DNS_SERVER {
             LinkedList<QuestionSection> notCached) {
     }
 
-    private static List<DNSZone> loadedZones;
 
     static void main(String[] args) throws Exception {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
@@ -63,12 +65,8 @@ public class DNS_SERVER {
         OptionSection options = namedConfig.options();
         ResolverSection resolverOptions = options.resolverSection();
 
-        try {
-            loadedZones = loadZonesFromConf(namedConfig);
-        } catch (IOException e){
-            System.err.println("ERROR: Failed parsing zone files");
-            loadedZones = null;
-        }
+        // @TODO database should use these
+        List<DNSZone> loadedZones = loadZonesFromConf(namedConfig);
 
         // Default options from the config
         int portNumber = options.port();
@@ -509,7 +507,7 @@ public class DNS_SERVER {
         return response;
     }
 
-    private static List<DNSZone> loadZonesFromConf(Config config) throws IOException {
+    private static List<DNSZone> loadZonesFromConf(Config config) {
         OptionSection options = config.options();
         String dir = options.dir();
         List<ZoneSection> declaredZones = config.zones();
@@ -521,6 +519,5 @@ public class DNS_SERVER {
         }
         return zones;
     }
-
 
 }

@@ -238,10 +238,13 @@ public class ZoneParserTest {
                         Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.129.0.0"))
                 );
 
-                IO.println("Record amount: " + testParser.getZoneRecords().size());
+                //IO.println("Record amount: " + testParser.getZoneRecords().size());
+                /*
                 for (ResourceRecord r : testParser.getZoneRecords()) {
                     IO.println(r);
                 }
+
+                 */
 
                 assertFalse(testParser.hasParserError());
             } catch (IOException e) {
@@ -460,9 +463,12 @@ public class ZoneParserTest {
             assertFalse(parser.hasParserError());
 
             List<ResourceRecord> records = parser.getZoneRecords();
+            /*
             for (var record : records) {
                 System.out.println(Arrays.toString(record.getName()));
             }
+
+             */
 
             assertEquals("[foo.bar, example, com]", Arrays.toString(records.get(0).getName()));
             assertEquals("[literal@, example, com]", Arrays.toString(records.get(1).getName()));
@@ -485,9 +491,12 @@ public class ZoneParserTest {
             assertFalse(parser.hasParserError());
 
             var records = parser.getZoneRecords();
+            /*
             for (var record : records) {
                 System.out.println(Arrays.toString(record.getName()));
             }
+
+             */
 
             assertEquals("[foo.bar, example, com]", Arrays.toString(records.get(0).getName()));
             assertEquals("[hello world, example, com]", Arrays.toString(records.get(1).getName()));

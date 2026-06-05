@@ -2,86 +2,246 @@ package io.gitlab.teamproject2026.config;
 
 import io.gitlab.teamproject2026.config.interpreter.ConfNode;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ConfParserTest {
-    @Test
-    void testSimpleNamedConfTree() {
-        ConfParser parser = new ConfParser("""
-            options {
-                directory "zones";
 
-                listen-on port 2222 {127.0.0.1; };
-                listen-on-v6 { none; };
+    private String captureStderr(Runnable runnable) {
+        PrintStream originalErr = System.err;
+        ByteArrayOutputStream errContent = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(errContent));
 
-                recursion no;
-            };
+        try {
+            runnable.run();
+        } finally {
+            System.setErr(originalErr);
+        }
 
-            zone "example.com" {
-                type primary;
-                file "db.example.com";
-            };
-            """);
+        return errContent.toString();
+    }
 
-        assertFalse(parser.hasParserError());
+    @Nested
+    class ValidParsing {
 
-        List<ConfNode> roots = parser.getRootNodes();
-        roots.forEach(IO::println);
+        @Test
+        void parsesSimpleNamedConfTree() {
+            ConfParser parser = new ConfParser("""
+                options {
+                    directory "zones";
 
-        assertEquals(2, roots.size());
+                    listen-on port 2222 {127.0.0.1; };
+                    listen-on-v6 { none; };
 
-        ConfNode options = roots.get(0);
-        assertEquals("options", options.name());
-        assertEquals(List.of(), options.args());
-        assertEquals(4, options.children().size());
+                    recursion no;
+                };
 
-        ConfNode directory = options.children().get(0);
-        assertEquals("directory", directory.name());
-        assertEquals(List.of("zones"), directory.args());
-        assertEquals(List.of(), directory.children());
+                zone "example.com" {
+                    type primary;
+                    file "db.example.com";
+                };
+                """);
 
-        ConfNode listenOn = options.children().get(1);
-        assertEquals("listen-on", listenOn.name());
-        assertEquals(List.of("port", "2222"), listenOn.args());
-        assertEquals(1, listenOn.children().size());
+            assertFalse(parser.hasParserError());
 
-        ConfNode listenOnAddress = listenOn.children().get(0);
-        assertEquals("127.0.0.1", listenOnAddress.name());
-        assertEquals(List.of(), listenOnAddress.args());
-        assertEquals(List.of(), listenOnAddress.children());
+            List<ConfNode> roots = parser.getRootNodes();
+            assertEquals(2, roots.size());
 
-        ConfNode listenOnV6 = options.children().get(2);
-        assertEquals("listen-on-v6", listenOnV6.name());
-        assertEquals(List.of(), listenOnV6.args());
-        assertEquals(1, listenOnV6.children().size());
+            ConfNode options = roots.get(0);
+            assertEquals("options", options.name());
+            assertEquals(List.of(), options.args());
+            assertEquals(4, options.children().size());
 
-        ConfNode listenOnV6Value = listenOnV6.children().get(0);
-        assertEquals("none", listenOnV6Value.name());
-        assertEquals(List.of(), listenOnV6Value.args());
-        assertEquals(List.of(), listenOnV6Value.children());
+            ConfNode directory = options.children().get(0);
+            assertEquals("directory", directory.name());
+            assertEquals(List.of("zones"), directory.args());
+            assertEquals(List.of(), directory.children());
 
-        ConfNode recursion = options.children().get(3);
-        assertEquals("recursion", recursion.name());
-        assertEquals(List.of("no"), recursion.args());
-        assertEquals(List.of(), recursion.children());
+            ConfNode listenOn = options.children().get(1);
+            assertEquals("listen-on", listenOn.name());
+            assertEquals(List.of("port", "2222"), listenOn.args());
+            assertEquals(1, listenOn.children().size());
 
-        ConfNode zone = roots.get(1);
-        assertEquals("zone", zone.name());
-        assertEquals(List.of("example.com"), zone.args());
-        assertEquals(2, zone.children().size());
+            ConfNode listenOnAddress = listenOn.children().get(0);
+            assertEquals("127.0.0.1", listenOnAddress.name());
 
-        ConfNode type = zone.children().get(0);
-        assertEquals("type", type.name());
-        assertEquals(List.of("primary"), type.args());
-        assertEquals(List.of(), type.children());
+            ConfNode listenOnV6 = options.children().get(2);
+            assertEquals("listen-on-v6", listenOnV6.name());
+            assertEquals(1, listenOnV6.children().size());
+            assertEquals("none", listenOnV6.children().getFirst().name());
 
-        ConfNode file = zone.children().get(1);
-        assertEquals("file", file.name());
-        assertEquals(List.of("db.example.com"), file.args());
-        assertEquals(List.of(), file.children());
-    }}
+            ConfNode recursion = options.children().get(3);
+            assertEquals("recursion", recursion.name());
+            assertEquals(List.of("no"), recursion.args());
+
+            ConfNode zone = roots.get(1);
+            assertEquals("zone", zone.name());
+            assertEquals(List.of("example.com"), zone.args());
+            assertEquals(2, zone.children().size());
+
+            assertEquals("type", zone.children().get(0).name());
+            assertEquals(List.of("primary"), zone.children().get(0).args());
+
+            assertEquals("file", zone.children().get(1).name());
+            assertEquals(List.of("db.example.com"), zone.children().get(1).args());
+        }
+
+        @Test
+        void parsesForwardersAndResolverBlock() {
+            ConfParser parser = new ConfParser("""
+                options {
+                    forwarders {
+                        8.8.8.8;
+                        1.1.1.1;
+                    };
+
+                    resolver {
+                        timeout 2000;
+                        max-retries 2;
+                        retry-delay 100;
+                        strategy failover;
+                    };
+                };
+                """);
+
+            assertFalse(parser.hasParserError());
+
+            ConfNode options = parser.getRootNodes().getFirst();
+            assertEquals("options", options.name());
+            assertEquals(2, options.children().size());
+
+            ConfNode forwarders = options.children().get(0);
+            assertEquals("forwarders", forwarders.name());
+            assertEquals(2, forwarders.children().size());
+            assertEquals("8.8.8.8", forwarders.children().get(0).name());
+            assertEquals("1.1.1.1", forwarders.children().get(1).name());
+
+            ConfNode resolver = options.children().get(1);
+            assertEquals("resolver", resolver.name());
+            assertEquals(4, resolver.children().size());
+
+            assertEquals("timeout", resolver.children().get(0).name());
+            assertEquals(List.of("2000"), resolver.children().get(0).args());
+
+            assertEquals("max-retries", resolver.children().get(1).name());
+            assertEquals(List.of("2"), resolver.children().get(1).args());
+
+            assertEquals("retry-delay", resolver.children().get(2).name());
+            assertEquals(List.of("100"), resolver.children().get(2).args());
+
+            assertEquals("strategy", resolver.children().get(3).name());
+            assertEquals(List.of("failover"), resolver.children().get(3).args());
+        }
+
+        @Test
+        void parsesQuotedStringsAsArguments() {
+            ConfParser parser = new ConfParser("""
+                options {
+                    directory "/var/named/zones";
+                };
+                """);
+
+            assertFalse(parser.hasParserError());
+
+            ConfNode directory = parser.getRootNodes()
+                    .getFirst()
+                    .children()
+                    .getFirst();
+
+            assertEquals("directory", directory.name());
+            assertEquals(List.of("/var/named/zones"), directory.args());
+        }
+
+        @Test
+        void emptyInputProducesNoNodes() {
+            ConfParser parser = new ConfParser("");
+
+            assertFalse(parser.hasParserError());
+            assertEquals(List.of(), parser.getRootNodes());
+        }
+    }
+
+    @Nested
+    class InvalidSyntax {
+
+        @Test
+        void missingSemicolonFails() {
+            String err = captureStderr(() -> {
+                ConfParser parser = new ConfParser("""
+                    options {
+                        directory "zones"
+                    };
+                    """);
+
+                assertTrue(parser.hasParserError());
+            });
+
+            assertTrue(err.contains("Expected Argument"));
+        }
+
+        @Test
+        void missingClosingBraceFails() {
+            String err = captureStderr(() -> {
+                ConfParser parser = new ConfParser("""
+                    options {
+                        directory "zones";
+                    """);
+
+                assertTrue(parser.hasParserError());
+            });
+
+            assertTrue(err.contains("Expected closing brace"));
+        }
+
+        @Test
+        void missingSemicolonAfterBlockFails() {
+            String err = captureStderr(() -> {
+                ConfParser parser = new ConfParser("""
+                    options {
+                        directory "zones";
+                    }
+                    """);
+
+                assertTrue(parser.hasParserError());
+            });
+
+            assertTrue(err.contains("Expected semicolon after block"));
+        }
+
+        @Test
+        void invalidStatementNameFails() {
+            String err = captureStderr(() -> {
+                ConfParser parser = new ConfParser("""
+                    {
+                        directory "zones";
+                    };
+                    """);
+
+                assertTrue(parser.hasParserError());
+            });
+
+            assertTrue(err.contains("Expected statement name"));
+        }
+
+        @Test
+        void unexpectedTokenInArgumentsFails() {
+            String err = captureStderr(() -> {
+                ConfParser parser = new ConfParser("""
+                    options {
+                        directory { "zones"; };
+                    };
+                    """);
+
+                assertTrue(parser.hasParserError());
+            });
+
+            assertTrue(err.contains("Expected statement name"));
+        }
+    }
+}
