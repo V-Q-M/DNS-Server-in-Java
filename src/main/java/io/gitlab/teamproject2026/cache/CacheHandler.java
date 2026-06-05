@@ -10,6 +10,7 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.sql.Timestamp;
 
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
@@ -53,6 +54,11 @@ public class CacheHandler {
         this.conn = provider.getConnection();
     }
 
+    private static long remainingTtlSeconds(Timestamp expiresAt) {
+        long seconds = (expiresAt.getTime() - System.currentTimeMillis()) / 1000;
+        return Math.max(1, seconds);
+    }
+
     private ResourceRecord[] lookupType(String name, String sql, RRType type, RDataRowMapper mapper)
             throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
@@ -64,7 +70,7 @@ public class CacheHandler {
                     rr.setName(rs.getString("name").split("\\."));
                     //rr.setType(type);
                     rr.setRrclass(RRClass.IN);
-                    rr.setTtl(rs.getLong("ttl"));
+                    rr.setTtl(remainingTtlSeconds(rs.getTimestamp("expires_at")));
                     //rr.setRdlength(rs.getInt("rdlength"));
                     rr.setRdata(mapper.map(rs));
                     records.add(rr);

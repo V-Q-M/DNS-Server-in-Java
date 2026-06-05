@@ -91,6 +91,29 @@ class CacheHandlerTest {
     }
 
     @Test
+    void ttlReturnedAsRemainingTest() throws Exception {
+        handler.insert(makeA("ttlremain.example.com", 300, new byte[] { 1, 2, 3, 4 }));
+        Thread.sleep(1500);
+
+        ResourceRecord[] results = handler.lookup("ttlremain.example.com", RRType.A);
+        assertEquals(1, results.length);
+        long ttl = results[0].getTtl();
+        // TTL must be decremented by the elapsed time, not the original 300
+        assertTrue(ttl <= 299, "expected decremented TTL <= 299 but was " + ttl);
+        assertTrue(ttl >= 1, "TTL should never drop below 1, was " + ttl);
+    }
+
+    @Test
+    void ttlFlooredAtOneTest() throws Exception {
+        handler.insert(makeA("ttlfloor.example.com", 1, new byte[] { 1, 2, 3, 4 }));
+
+        ResourceRecord[] results = handler.lookup("ttlfloor.example.com", RRType.A);
+        assertEquals(1, results.length);
+        // a record in its final second must report TTL 1, never 0
+        assertEquals(1, results[0].getTtl());
+    }
+
+    @Test
     void insertReplacesExistingTest() throws Exception {
         handler.insert(makeA("replace.example.com", 300, new byte[] { 1, 1, 1, 1 }));
         handler.insert(makeA("replace.example.com", 300, new byte[] { 2, 2, 2, 2 }));
