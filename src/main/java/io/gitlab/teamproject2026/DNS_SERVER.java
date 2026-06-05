@@ -400,9 +400,10 @@ public class DNS_SERVER {
                         }
                     }
                 } else if (request.getQtype() != RRType.CNAME) {
-                    // CNAME-type queries are handled by the direct lookup above 
+                    // CNAME-type queries are handled by the direct lookup above
                     // this branch only follows an alias when a different record type was requested
-                    if (!resolveCnameFromCache(qname, request.getQtype(), answer, cacheHandler)) {
+                    if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached,
+                            cacheHandler)) {
                         notCached.add(request);
                     }
                 } else {
@@ -418,11 +419,21 @@ public class DNS_SERVER {
         return new dnsPayload(answer, authority, additional, notCached);
     }
 
-    // Returns true only when the whole CNAME chain AND its final target are cached.
-    // Returns false otherwise, so the caller forwards the original query to the stub.
+    // Follows a CNAME chain for "name" through the cache, hop by hop, until it reaches a
+    // record of the requested targetType (e.g. A). Three outcomes:
+    //
+    //   full hit    - the whole chain AND the final target records are cached:
+    //                 append them all to "answer" and return true.
+    //   partial hit - the alias(es) are cached but the final target is not:
+    //                 append the cached CNAME(s) to "answer" and add the still-missing name
+    //                 to "notCached" so the stub only resolves the remaining tail; return true.
+    //   no help     - return false and change nothing, so the caller forwards the original
+    //                 query. Happens when "name" has no cached CNAME, the chain loops, or it
+    //                 is longer than MAX_CNAME_HOPS.
     private static boolean resolveCnameFromCache(
-            String name, RRType targetType,
+            String name, RRType targetType, RRClass targetClass,
             LinkedList<ResourceRecord> answer,
+            LinkedList<QuestionSection> notCached,
             CacheHandler cacheHandler) throws SQLException {
         String current = name.toLowerCase();
         LinkedList<ResourceRecord> chain = new LinkedList<>();
@@ -430,17 +441,31 @@ public class DNS_SERVER {
 
         for (int hop = 0; hop < MAX_CNAME_HOPS; hop++) {
             // visited.add returns false if current was already seen -> CNAME loop,
-            // bail out and let the StubResolver handle it
+            // bail out (committing nothing) and let the StubResolver handle it
             if (!visited.add(current)) return false;
 
             ResourceRecord[] cnames = cacheHandler.lookup(current, RRType.CNAME);
-            if (cnames.length == 0) break;
+            if (cnames.length == 0) {
+                // Reached the end of the cached chain.
+                if (chain.isEmpty()) return false; // no alias at the queried name -> forward whole query
+                // Partial hit: the alias(es) are cached but the terminal record is not.
+                // Commit the cached CNAME(s) and forward only the unresolved tail, so the
+                // chain is always completed by the stub (never a dangling CNAME-only answer).
+                answer.addAll(chain);
+                QuestionSection tail = new QuestionSection();
+                tail.setName(current.split("\\."));
+                tail.setQtype(targetType);
+                tail.setQclass(targetClass);
+                notCached.add(tail);
+                return true;
+            }
 
             chain.add(cnames[0]);
             String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname()).toLowerCase();
 
             ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
             if (targetRecords.length > 0) {
+                // Full hit: the whole chain and its terminal records are cached.
                 answer.addAll(chain);
                 for (ResourceRecord record : targetRecords) answer.add(record);
                 return true;
@@ -449,7 +474,7 @@ public class DNS_SERVER {
             current = target;
         }
 
-        // CNAME chain not fully resolvable from cache
+        // Chain longer than MAX_CNAME_HOPS without resolving
         // forward the whole query to the stub
         return false;
     }
