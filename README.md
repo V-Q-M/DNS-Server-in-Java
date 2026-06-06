@@ -36,6 +36,18 @@ src
                     ├── cache
                     │   ├── CacheConnectionProvider.java
                     │   └── CacheHandler.java
+                    ├── config
+                    │   ├── Config.java
+                    │   ├── ConfigManager.java
+                    │   ├── ConfLexer.java
+                    │   ├── ConfLoader.java
+                    │   ├── ConfNode.java
+                    │   ├── ConfParser.java
+                    │   ├── ConfToken.java
+                    │   ├── ConfTokenType.java
+                    │   ├── OptionConfig.java
+                    │   ├── ZoneConfig.java
+                    │   └── ZoneType.java
                     ├── data
                     │   └── MockResponses.java
                     ├── logging
@@ -61,8 +73,14 @@ src
                     │       ├── RDataPTR.java
                     │       ├── RDataSOA.java
                     │       └── RDataTXT.java
+                    ├── zones
+                    │   ├── ZoneLexer.java
+                    │   ├── ZoneParser.java
+                    │   ├── ZoneToken.java
+                    │   └── ZoneTokenType.java
                     ├── DNS_SERVER.java
                     ├── DNSParser.java
+                    ├── DNSZone.java
                     └── StubResolver.java
 ```
 
@@ -71,13 +89,17 @@ src
 | Package        | Purpose                                    |
 |----------------|--------------------------------------------|
 | `cache`        | Database-backed DNS cache implementation   |
+| `config`       | `named.conf` lexing, parsing and loading   | 
 | `data`         | Static mock DNS response data              |
 | `logging`      | DNS event logging infrastructure           |
 | `model`        | DNS packet, record, and protocol models    |
 | `model.rdata`  | Resource record data implementations       |
+| `zones`        | DNS zone-file lexer and parser (BIND9)     |
 | `DNS_SERVER`   | Main server entry point                    |
 | `DNSParser`    | DNS packet parsing and serialization       |
+| `DNSZone`      | Parsed DNS zone, contains zone records     |
 | `StubResolver` | Upstream DNS query forwarding and failover |
+
  
 ## Requirements
 - Java 25
@@ -168,9 +190,9 @@ Use the following credentials to log in:
 | Password | example   |
 | Database | dns       |
 
-## Configuration parameters
+# Configuration parameters
 
-### Command line
+## Command line
 The parameter `-p` is used in the command line to specify a custom port. 
 ```bash
 mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p 2222"
@@ -187,32 +209,365 @@ mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.arg
 ``` 
 Internally, this sets a parameter in the `DNS_SERVER` class and can be accessed by calling the `getTestingStatus` function.
 
-### DNS server config file
-If a file named `config.properties` exists, it can be used to define a new default port and IP address.
+## DNS server config file (`named.conf`)
+The DNS server supports a BIND-style configuration file called `named.conf`.
 
+
+
+If a file called `named.conf` exists in the server’s working directory, it can be used to configure default server settings such as the listening address, port, and zone definitions. Command-line arguments take precedence over values defined in the configuration file.
 Example config;
+
+
 ```aiignore
 # DNS server configuration
 # These values are overridden by command-line arguments if provided.
-server.port=1337
-server.ip=127.0.0.1
+options {
+    directory "zones";
+    listen-on port 2222 {127.0.0.1; };
+};
 ```
-This example specifies a default port `1337` and default IP address `127.0.0.1`.
+This configuration instructs the server to listen on 127.0.0.1:2222 and to use the zones directory as the default location for zone files.
 
-If no config file exists and no command line arguments are provided, the fallback port `4242` and fallback IP address `0.0.0.0` is used.
+The primary purpose of `named.conf` is to declare DNS zones that should be loaded when the server starts.
 
-### StubResolver config file
-The default upstream name servers used for routing can be configured in `config.properties`.
-
-Example StubResolver configuration:
 ```aiignore
-# Stub Resolver Upstream configuration
-resolver.timeout=1000
-resolver.max_retries=2
-resolver.strategy=FAILOVER
+options {
+    directory "zones";
+    listen-on port 2222 {127.0.0.1; };
+    listen-on-v6 { none; };
+};
+
+zone "example.com" {
+    type primary;
+    file "db.example.com";
+};
+
+zone "0.0.129.in-addr-arpa" {
+    type primary;
+    file "db.129.0.0";
+};
 ```
 
-### Database config files
+Two top-level declarations are supported:
+
+- options – server-wide configuration settings
+- zone – DNS zone definitions
+
+A zone declaration specifies:
+
+1. The zone origin (for example `"example.com"`)
+2. The zone type
+3. The zone file to load
+
+The zone types primary and master are treated as equivalent and indicate that this server is authoritative for the zone.
+
+The types secondary and slave indicate that the zone is managed by another server and would normally be synchronized through DNS zone transfers. Since this project does not implement zone transfers, only primary zones should be used.
+
+
+The file directive specifies the zone file that should be loaded. If the file path is relative (does not begin with `'/'`), it is resolved relative to the directory specified by the directory option.
+
+
+For example:
+```aiignore
+options {
+    directory "zones";
+};
+
+zone "example.com" {
+    type primary;
+    file "db.example.com";
+};
+```
+
+causes the server to load:
+```aiignore
+zones/db.example.com
+```
+
+## DNS Zone Files
+
+Zone data is stored in standard BIND-style zone files. Each zone declared in named.conf references a zone file containing the resource records for that zone.
+
+Example:
+```dns
+$ORIGIN example.com. 
+$TTL 3600  
+
+@ IN SOA ns1.example.com. admin.example.com. (
+     2026051201     
+     3600     
+     1800     
+     1209600     
+     3600 
+)  
+
+@       IN NS     ns1.example.com. 
+ns1     IN A      192.0.2.53 
+www     IN A      192.0.2.1 
+mail    IN A      192.0.2.2  
+@       IN MX     10 mail.example.com. 
+@       IN TXT    "Example DNS zone"
+```
+
+
+### Supported Directives
+
+#### $ORIGIN
+
+Sets the current zone origin. Relative domain names are automatically expanded using the active origin.
+
+Example:
+
+```dns
+$ORIGIN example.com.  www IN A 192.0.2.1
+```
+
+is interpreted as:
+
+```dns
+www.example.com. IN A 192.0.2.1
+```
+
+---
+
+#### $TTL
+
+Defines the default TTL (Time To Live) used by records that do not explicitly specify a TTL.
+
+Example:
+
+```dns
+$TTL 3600  www IN A 192.0.2.1
+```
+
+
+The record will receive a TTL of 3600 seconds.
+
+TTL values may also use DNS duration suffixes:
+
+| Suffix | Meaning |
+|--------|---------|
+| s      | seconds |
+| m      | minutes |
+| h      | hours   |
+| d      | days    |
+| w      | weeks   |
+
+Example:
+```dns
+$TTL 1h  
+www 30m IN A 192.0.2.1
+```
+
+---
+
+#### $INCLUDE
+
+Includes another zone file at the current location.
+
+Example:
+
+```dns
+$ORIGIN example.com.
+@ IN SOA ns1.example.com. admin.example.com. (
+     2026051201     
+     3600     
+     1800     
+     1209600     
+     3600 
+)  
+@ IN NS ns1.example.com.  
+
+$INCLUDE "subdomain.zone"  optional.new.origin
+
+www IN A 192.0.2.1
+```
+
+If subdomain.zone contains:
+```dns
+api  IN A 192.0.2.10 
+mail IN A 192.0.2.20
+```
+
+The parser behaves as if the included records were inserted directly at the location of the `$INCLUDE` directive.
+
+Included files inherit the currently active `$ORIGIN` and `$TTL` values unless an optional new origin is provided. If a new origin is specified, it is used only while parsing the included file. After the include has been processed, the parent zone file continues using its original origin.
+
+If no `$ORIGIN` directive exists in the zone file, the origin specified in `named.conf` is used.
+
+Relative include paths are resolved relative to the zone directory configured in `named.conf`.
+
+#### Restrictions
+
+A zone must contain exactly one SOA record.
+
+Included files must therefore not introduce an additional SOA record. Loading a zone that contains multiple SOA records will fail validation.
+
+### Comments
+
+Comments begin with a semicolon (`;`) and continue until the end of the line.
+
+Example:
+
+```dns
+www IN A 192.0.2.1 ; Web server
+```
+
+### Multiline Records
+
+Parentheses may be used to split records across multiple lines.
+
+This is commonly used for SOA records and large TXT records.
+
+Example:
+
+```dns
+@ IN SOA ns1.example.com. admin.example.com. (
+     2026051201     
+     3600     
+     1800     
+     1209600     
+     3600 
+)
+```
+
+TXT records may also span multiple quoted strings:
+
+```dns
+multitxt IN TXT (
+     "This text "     
+     "spans multiple "     
+     "strings" 
+)
+```
+
+### Escaping Special Characters
+
+Domain labels and TXT strings support DNS escape sequences.
+
+Examples:
+```dns
+foo\.bar      IN A   192.0.2.1 
+literal\@     IN TXT "hello" 
+space\ label  IN TXT "world"
+```
+
+Decimal escape sequences are also supported:
+```dns
+hello\032world IN TXT "example"
+foo\046bar     IN A   192.0.2.1
+```
+
+which correspond to:
+
+```text
+\032 = space 
+\046 = . 
+\064 = @ 
+\092 = \
+```
+
+
+## Stub Resolver Configuration
+The stub resolver can be configured in the `options` section of `named.conf`.
+
+If a setting is not specified, a built-in default value is used.
+
+Example configuration:
+
+```conf
+options {
+    # Upstream DNS servers used for forwarding queries
+    forwarders {
+        8.8.8.8;
+        1.1.1.1;
+    };
+
+    # Forwarding mode
+    forward only;
+
+    # Resolver tuning options
+    resolver {
+        timeout 2000;
+        max-retries 2;
+        retry-delay 100;
+        strategy failover;
+    };
+};
+```
+
+### Forwarders
+
+The forwarders section defines one or more upstream DNS servers to which queries are forwarded.
+
+```conf
+forwarders {
+    8.8.8.8;
+    1.1.1.1;
+};
+```
+If no forwarders are configured, the default servers are used.
+
+### Forwarding mode
+
+The forward directive controls how queries are resolved.
+
+```conf
+forward only;
+```
+
+- only - Queries are sent exclusively to the configured forwarders.
+- first - Queries are sent to the configured forwarders first. If all forwarders fail, the server performs recursive resolution itself.
+
+### Resolver options
+
+The optional resolver section controls internal resolver behavior.
+
+```conf
+resolver {
+    timeout 2000;
+    max-retries 2;
+    retry-delay 100;
+    strategy failover;
+};
+```
+
+#### timeout
+
+Specifies the timeout for a forwarded query in milliseconds.
+
+```conf
+timeout 2000;
+```
+
+#### max-retries
+
+Specifies the maximum number of retry attempts before a query is considered failed.
+
+```conf
+max-retries 2;
+```
+
+#### retry-delay
+
+Specifies the delay between retry attempts in milliseconds.
+
+```conf
+retry-delay 100;
+```
+
+#### strategy
+
+Specifies how upstream servers are selected.
+
+Supported values:
+
+- `failover` - Try forwarders in the order they are configured until one responds.
+- `round-robin` - Rotate through the configured forwarders.
+- `random` - Select a random forwarder for each query.
+- `parallel` - Query all forwarders simultaneously and use the first response.
+
+## Database config files
 You can change the configuration of the PostgreSQL server both in the `compose.yaml` and the `postgres/postgres.conf` files.  
 - `compose.yaml` determines how the Docker container is created and initialised. For example, it configures the container such that, the `postgres.conf`  file is mounted in the container to `/etc/postgresql/postgresql.conf` directory and used as the main config file for the PostgreSQL server. 
 - `postgres.conf` is the config file for the PostgreSQL server itself
@@ -221,9 +576,12 @@ Finally, you can configure the initial state of the database by mounting scripts
 
 
 ## Known issues and bugs
-- TXT Records can currently only be parsed if they contain only one string. 
+- None
 
 # Changelog
 ```diff
-~ README.md
+~ config/
+~ zones/
+~ DNSZone
+~ DNS_SERVER
 ```

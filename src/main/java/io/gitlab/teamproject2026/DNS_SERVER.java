@@ -1,19 +1,18 @@
 package io.gitlab.teamproject2026;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 
+import io.gitlab.teamproject2026.config.Config;
+import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
-import java.util.LinkedList;
-import java.util.HashSet;
-import java.util.Set;
 import java.sql.SQLException;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
@@ -27,12 +26,17 @@ import io.gitlab.teamproject2026.logging.DNSEventInfo;
 import io.gitlab.teamproject2026.logging.DNSEventDebug;
 import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.LoggingFeature;
+import io.gitlab.teamproject2026.resolver.Forwarder;
+import io.gitlab.teamproject2026.resolver.StubResolver;
 
 
 public class DNS_SERVER {
 
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
+    private static final String DEFAULT_FORWARD_MODE = "forward only";
+
+
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
     private static final int MAX_CNAME_HOPS = 8;
 
@@ -51,29 +55,24 @@ public class DNS_SERVER {
             LinkedList<ResourceRecord> authority,
             LinkedList<ResourceRecord> additional,
             LinkedList<QuestionSection> notCached) {
-    };
+    }
+
 
     static void main(String[] args) throws Exception {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
+        // named.conf
+        Config namedConfig = ConfigManager.loadConfig("named.conf");
+        OptionSection options = namedConfig.options();
+        ResolverSection resolverOptions = options.resolverSection();
 
-        // Layer 1: defaults
-        int portNumber = DEFAULT_PORT;
-        String bindIP = DEFAULT_IP;
+        // @TODO database should use these
+        List<DNSZone> loadedZones = loadZonesFromConf(namedConfig);
 
-        // Layer 2: config file
-        Properties props = new Properties();
-        try (FileInputStream fis = new FileInputStream("config.properties")) {
-            props.load(fis);
-        } catch (IOException e) {
-            IO.println(YELLOW + "[SERVER] No config.properties found — using defaults." + RESET);
-        }
+        // Default options from the config
+        int portNumber = options.port();
+        String bindIP = options.ipAddress();
 
-        if (props.getProperty("server.port") != null)
-            portNumber = Integer.parseInt(props.getProperty("server.port").trim());
-        if (props.getProperty("server.ip") != null)
-            bindIP = props.getProperty("server.ip").trim();
-
-        // Layer 3: CLI args (highest priority)
+        // Overwrite with CLI args (highest priority)
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-p") && i + 1 < args.length) {
                 portNumber = Integer.parseInt(args[i + 1]);
@@ -88,26 +87,20 @@ public class DNS_SERVER {
             }
         }
 
-        // port check (delete later if 0-1024 ports are allowed)
+        // port check
         if (portNumber < 0 || portNumber > 65535) {
-            System.err.println(RED + "Invalid port: " + portNumber + " — port must be between 1024 and 65535, using default "
+            System.err.println(RED + "Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
                     + DEFAULT_PORT + RESET);
             portNumber = DEFAULT_PORT;
         }
 
-        String upstreamRaw = props.getProperty("dns.upstreams", "8.8.8.8, 1.1.1.1");
-        int dnsTimeout = Integer.parseInt(props.getProperty("dns.timeout.ms", "2000").trim());
-        int maxRetries = Integer.parseInt(props.getProperty("dns.max.retries", "2").trim());
-        long retryDelay = Long.parseLong(props.getProperty("dns.retry.delay.ms", "100").trim());
-        String strategyString = props.getProperty("dns.strategy", "FAILOVER").replaceAll("\\r", "").trim().toUpperCase();
+        String forwardMode = options.forwardMode(); // Determines if we should only forward or also recurse ourselves
 
-        StubResolver.Strategy strategy = StubResolver.Strategy.valueOf(strategyString);
-        List<StubResolver.NameServer> nameServers = Arrays.stream(upstreamRaw.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(ip -> new StubResolver.NameServer(ip, 53, ip))
+        List<Forwarder> forwarders = options.forwarders().stream()
+                .map(ip -> new Forwarder(ip, 53, ip))
                 .toList();
-        StubResolver stubResolver = new StubResolver(nameServers, dnsTimeout, maxRetries, retryDelay, strategy);
+        StubResolver stubResolver = new StubResolver(
+                forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
 
         // Open UDP socket
         InetAddress bindAddress;
@@ -212,13 +205,13 @@ public class DNS_SERVER {
                             if (payload.notCached.contains(request)) {
                                 IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, strategyString, "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                             } else {
                                 IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET );
                                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart));
                                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
-                                            strategyString, "Local Cache", "127.0.0.1", 1, null, null));
+                                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
 
                             }
 
@@ -240,9 +233,8 @@ public class DNS_SERVER {
                             payload.notCached.add(request);
                             LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
                             LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
-                                    strategyString, "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
+                                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
                         }
-                        ;
                     }
                 } else {
                     // if testing is active, do not check cache
@@ -250,10 +242,9 @@ public class DNS_SERVER {
                         payload.notCached.add(request);
                         LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L)); //since cache isn't checked latency is 0
                         LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
-                                strategyString, "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
+                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
 
                     }
-                    ;
                 }
 
                 // Stubresolver should only be queried if there are queries not answered by the
@@ -514,6 +505,19 @@ public class DNS_SERVER {
         response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[payload.authority.size()]));
         response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[payload.additional.size()]));
         return response;
+    }
+
+    private static List<DNSZone> loadZonesFromConf(Config config) {
+        OptionSection options = config.options();
+        String dir = options.dir();
+        List<ZoneSection> declaredZones = config.zones();
+
+        List<DNSZone> zones = new ArrayList<>(); //@TODO Aufgabe05
+        for (ZoneSection zone : declaredZones){
+            // Collect all zones specified in the config
+            zones.add(ConfigManager.loadZoneFile(dir, zone.file(), zone.name())); //@TODO Zonecatalog
+        }
+        return zones;
     }
 
 }
