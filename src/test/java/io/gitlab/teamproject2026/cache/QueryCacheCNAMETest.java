@@ -1,8 +1,6 @@
 package io.gitlab.teamproject2026.cache;
 
 import io.gitlab.teamproject2026.DNS_SERVER;
-import io.gitlab.teamproject2026.cache.CacheConnectionProvider;
-import io.gitlab.teamproject2026.cache.CacheHandler;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
 import org.junit.jupiter.api.*;
@@ -72,7 +70,7 @@ class QueryCacheCNAMETest {
     void directHit() throws Exception {
         cache.insertAll(new ResourceRecord[]{ makeA("www.example.com", new byte[]{ 1, 2, 3, 4 }) });
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
         assertEquals(1, payload.answer().size());
         assertEquals(0, payload.notCached().size());
@@ -84,7 +82,7 @@ class QueryCacheCNAMETest {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("alias.example.com", "server.example.com") });
         cache.insertAll(new ResourceRecord[]{ makeA("server.example.com", new byte[]{ 1, 2, 3, 4 }) });
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
         assertEquals(3, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().get(0).getType());
@@ -98,7 +96,7 @@ class QueryCacheCNAMETest {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com", "server.example.com") });
         cache.insertAll(new ResourceRecord[]{ makeA("server.example.com", new byte[]{ 1, 2, 3, 4 }) });
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
         assertEquals(2, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().get(0).getType());
@@ -111,16 +109,16 @@ class QueryCacheCNAMETest {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com", "server.example.com") });
         // no A record for server.example.com
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
         // Partial hit: the cached CNAME goes in the answer and only the unresolved
         // tail (server.example.com A) is forwarded to the stub.
         assertEquals(1, payload.answer().size());
-        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
+        assertEquals(RRType.CNAME, payload.answer().getFirst().getType());
         assertEquals(1, payload.notCached().size());
-        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().get(0).getName());
-        assertEquals(RRType.A, payload.notCached().get(0).getQtype());
-        assertEquals(RRClass.IN, payload.notCached().get(0).getQclass());
+        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().getFirst().getName());
+        assertEquals(RRType.A, payload.notCached().getFirst().getQtype());
+        assertEquals(RRClass.IN, payload.notCached().getFirst().getQclass());
     }
 
     @Test
@@ -130,15 +128,15 @@ class QueryCacheCNAMETest {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("alias.example.com", "server.example.com") });
         // no A record for server.example.com
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
         // Both cached CNAMEs are committed, and only the deepest unresolved tail is forwarded.
         assertEquals(2, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().get(0).getType());
         assertEquals(RRType.CNAME, payload.answer().get(1).getType());
         assertEquals(1, payload.notCached().size());
-        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().get(0).getName());
-        assertEquals(RRType.A, payload.notCached().get(0).getQtype());
+        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().getFirst().getName());
+        assertEquals(RRType.A, payload.notCached().getFirst().getQtype());
     }
 
     @Test
@@ -147,7 +145,7 @@ class QueryCacheCNAMETest {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("a.example.com", "b.example.com") });
         cache.insertAll(new ResourceRecord[]{ makeCNAME("b.example.com", "a.example.com") });
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("a.example.com", RRType.A), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("a.example.com", RRType.A), cache);
 
         // loop detected 
         // nothing committed, whole query forwarded to the stub
@@ -159,10 +157,10 @@ class QueryCacheCNAMETest {
     void cnameTypeDirectHit() throws Exception {
         cache.insertAll(new ResourceRecord[]{ makeCNAME("www.example.com", "server.example.com") });
 
-        DNS_SERVER.dnsPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.CNAME), cache);
+        DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.CNAME), cache);
 
         assertEquals(1, payload.answer().size());
-        assertEquals(RRType.CNAME, payload.answer().get(0).getType());
+        assertEquals(RRType.CNAME, payload.answer().getFirst().getType());
         assertEquals(0, payload.notCached().size());
     }
 }
