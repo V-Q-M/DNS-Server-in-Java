@@ -136,7 +136,7 @@ public class ResourceRecord {
         RRClass rrclass = RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
         long ttl = DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
-        RData rdata = RData.fromBytes(bytes, byteIndex, type);
+        RData rdata = RData.fromBytes(bytes, byteIndex, rdlengthComp, type);
 
         ResourceRecord resourceRecord = new ResourceRecord(labels, rrclass, ttl, rdata);
         //resourceRecord.setRdlength(rdlengthComp, bytes, byteIndex);

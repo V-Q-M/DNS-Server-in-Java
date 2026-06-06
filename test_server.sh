@@ -80,6 +80,9 @@ testStubResolver(){
     doLookup "uni-tuebingen.de" "A" "134.2.5.1" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "ANSWER: 3" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "TXT" "ANSWER: 6" ${NOCACHE}
+    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${NOCACHE}
+
     # CNAME response
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "atlas.cs.uni-tuebingen.de" ${NOCACHE}
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "134.2.10.224" ${NOCACHE}
@@ -142,7 +145,7 @@ NC='\033[0m' # No Color
 ERRCOUNT=0
 CACHETIME=15
 NSCACHE=300
-NOCACHE=100
+NOCACHE=150
 PORT="1337"
 RESOLVER="127.0.0.1"
 

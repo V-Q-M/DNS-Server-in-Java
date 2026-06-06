@@ -43,8 +43,8 @@ public class ConfigManager {
         try {
             input = Files.readString(confPath);
         } catch (IOException e) {
-            System.err.println(RED + "[CONF] ERROR: Failed to read config file: " + confPath + RESET);
-            IO.println(YELLOW + "[CONF] WARNING: using default config" + RESET );
+            System.err.println(RED + "[CONFIG] ERROR: Failed to read config file: " + confPath + RESET);
+            IO.println(YELLOW + "[CONFIG] WARNING: using default config" + RESET );
             return defaultConfig();
         }
 
@@ -117,6 +117,7 @@ public class ConfigManager {
 
         return zone;
     }
+
 
     public static String getZoneDir(){
         return zoneDir;
