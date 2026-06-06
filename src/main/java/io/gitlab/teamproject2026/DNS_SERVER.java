@@ -1,5 +1,6 @@
 package io.gitlab.teamproject2026;
 
+import com.fasterxml.jackson.core.json.UTF8DataInputJsonParser;
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.options.*;
@@ -13,10 +14,9 @@ import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.resolver.*;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import javax.imageio.IIOException;
+import java.io.*;
+import java.net.*;
 import java.util.*;
 import java.sql.SQLException;
 
@@ -56,9 +56,13 @@ public class DNS_SERVER {
             LinkedList<QuestionSection> notCached) {
     }
 
-    static void main(String[] args) throws Exception {
+    static void main(String[] args) {
         initializeServer(args);
+        new Thread(DNS_SERVER::handleUDP).start();
+        new Thread(DNS_SERVER::handleTCP).start();
+    }
 
+    private static void handleUDP(){
         // Open UDP socket
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
             IO.println(GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET);
@@ -72,6 +76,7 @@ public class DNS_SERVER {
                 // and crash. Disable during testing
                 validateCache();
 
+
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -82,7 +87,7 @@ public class DNS_SERVER {
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
 
-                IO.println(BLUE + "[SERVER] Received packet from " + clientAddress + ":" + clientPort + RESET);
+                IO.println(BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET);
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
                 IO.println("[SERVER] IN: " + toHex(data));
 
@@ -99,11 +104,70 @@ public class DNS_SERVER {
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
 
-                IO.println(BLUE + "[SERVER] Send response to: " + clientAddress + ":" + clientPort + RESET);
+                IO.println(BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET);
                 IO.println("[SERVER] OUT: " + toHex(byteResponse));
             }
+        } catch (IOException e){
+            throw new RuntimeException(e);
         }
     }
+
+    private static void handleTCP(){
+        // Open TCP socket
+        try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress);) {
+            IO.println(GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET);
+
+            // Server loop
+            while (true) {
+                // validate Cache, if Cache cannot be validated, assume internal server error
+                // and crash. Disable during testing
+                validateCache();
+
+                try (Socket socket = serverSocket.accept()) {
+                    DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+                    DataOutputStream output = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+
+
+                    InetAddress clientAddress = socket.getInetAddress();
+                    int clientPort = socket.getPort();
+
+                    int length = input.readUnsignedShort();
+                    byte[] data = input.readNBytes(length);
+
+                    if (data.length != length) {
+                        System.err.println(RED + "[SERVER-ERROR] Incomplete DNS query" + RESET);
+                        continue;
+                    }
+                    IO.println(BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET);
+
+                    IO.println("[SERVER] IN: " + toHex(data));
+
+                    byte[] response = handleQuery(data);
+
+                    if (response.length > 65535) {
+                        System.err.println(RED + "[SERVER-ERROR] TCP DNS response too large" + RESET);
+                        continue;
+                    }
+
+                    output.writeShort(response.length);
+                    output.write(response);
+                    output.flush();
+
+                    IO.println(BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET);
+                    IO.println("[SERVER] OUT: " + toHex(response));
+
+
+                } catch (IOException e) {
+                    System.err.println(RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET);
+                }
+            }
+        } catch (IOException e){
+            throw new RuntimeException(e);
+        }
+    }
+
+
+
 
     // Startup helpers
     private static void initializeServer(String[] args){
@@ -184,10 +248,10 @@ public class DNS_SERVER {
         try {
             cacheHandler = new CacheHandler(new CacheConnectionProvider());
         } catch (ClassNotFoundException e) {
-            System.err.println(RED + "[CACHE] ERROR: JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
+            System.err.println(RED + "[CACHE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
             testing = true;
         } catch (SQLException e) {
-            System.err.println(RED + "[CACHE] ERROR: Connection to the database couldn't be established" + RESET);
+            System.err.println(RED + "[CACHE-ERROR] Connection to the database couldn't be established" + RESET);
             logCacheConnectionLost(startTime);
             testing = true;
         }
@@ -202,7 +266,7 @@ public class DNS_SERVER {
         try {
             cacheHandler.deleteExpired();
         } catch (SQLException e) {
-            IO.println(RED + "[SERVER] ERROR: Connection to cache Server has been lost, assume internal Server error" + RESET);
+            IO.println(RED + "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error" + RESET);
             // log and enable testing mode as cache entries cannot be ensured to be valid
             logCacheConnectionLost(startTime);
             testing = true;
@@ -329,7 +393,7 @@ public class DNS_SERVER {
         try {
             rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
         } catch (RuntimeException e) {
-            System.err.println(RED + "[RESOLVER] ERROR: Failed to resolve query" + RESET);
+            System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
             return payload;
         }
         DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
@@ -343,7 +407,7 @@ public class DNS_SERVER {
                 cacheHandler.insertAll(stubResponse.getAuthoritySections());
                 cacheHandler.insertAll(stubResponse.getAdditionalSections());
             } catch (SQLException e) {
-                System.err.println("[SERVER] ERROR: Entries couldn't be inserted into Cache. Assume cache connection is lost");
+                System.err.println("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost");
                 logCacheInsertFailed(startTime);
             }
         }
