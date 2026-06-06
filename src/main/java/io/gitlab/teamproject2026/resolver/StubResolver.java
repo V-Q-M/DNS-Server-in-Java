@@ -3,10 +3,11 @@ package io.gitlab.teamproject2026.resolver;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.*;
 
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketTimeoutException;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.net.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -73,7 +74,8 @@ public class StubResolver {
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
 
-            ForwardResult result= forwardOnce(query, server);
+            ForwardResult result = forwardOnceUDP(query, server);
+
             //for all questions
             switch (result.status()) {
                 case SUCCESS -> {
@@ -86,11 +88,39 @@ public class StubResolver {
                                 "invalid DNS response", null);
                         break; // retry
                     }
+
+                    if (resultIsTruncated(result.response())){
+                        IO.println(YELLOW + "[STUB] UDP response truncated. Retrying over TCP..." + RESET);
+                        ForwardResult tcpResult = forwardOnceTCP(query, server);
+
+                        if (tcpResult.status() != Status.SUCCESS){
+                            IO.println(RED + "[STUB] TCP fallback failed: "
+                                    + tcpResult.status()
+                                    + " - "
+                                    + tcpResult.errorMessage()
+                                    + RESET);
+
+                            logQuestionEvents(
+                                    tcpResult.status() == Status.TIMEOUT ? DNSEventType.TIMEOUT : DNSEventType.IO_ERROR,
+                                    queryPacket,
+                                    tcpResult.latencyMs(),
+                                    server,
+                                    attempt,
+                                    tcpResult.errorMessage(),
+                                    null
+                            );
+                            break;
+                        }
+                        result = tcpResult;
+                    }
+
                     //DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
                     DNSPacket responsePacket;
                     try {
                         responsePacket = DNSPacket.fromBytes(result.response());
                     } catch (Exception e) {
+                        IO.println(RED + "[STUB] Invalid DNS response: " + e.getMessage() + RESET);
+                        
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                             result.latencyMs(), server, attempt,
                             "invalid DNS response", null);
@@ -154,7 +184,7 @@ public class StubResolver {
      * @param server
      * @return
      */
-    private ForwardResult forwardOnce(byte[] query, Forwarder server){
+    private ForwardResult forwardOnceUDP(byte[] query, Forwarder server){
         long start= System.currentTimeMillis();
         try(DatagramSocket socket= new DatagramSocket()){socket.setSoTimeout(timeoutMs);
 
@@ -177,6 +207,43 @@ public class StubResolver {
             return new ForwardResult(Status.TIMEOUT, null, "timed out",System.currentTimeMillis()- start);
         } catch (Exception e){
             return new ForwardResult(Status.IO_ERROR, null, e.getMessage(),System.currentTimeMillis()- start);
+        }
+    }
+
+    private ForwardResult forwardOnceTCP(byte[] query, Forwarder server){
+        long start = System.currentTimeMillis();
+        try (Socket socket =  new Socket()) {
+            socket.connect(new InetSocketAddress(server.host(), server.port()), timeoutMs);
+            socket.setSoTimeout(timeoutMs);
+
+            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+
+            out.writeShort(query.length);
+            out.write(query);
+            out.flush();
+
+            int responseLength = in.readUnsignedShort();
+            if (responseLength < 12){
+                return  new ForwardResult(Status.IO_ERROR, null, "response too short", System.currentTimeMillis() - start);
+            }
+
+            byte[] response = in.readNBytes(responseLength);
+
+            if (responseLength != response.length){
+                return new ForwardResult( Status.IO_ERROR, null, "incomplete TCP response", System.currentTimeMillis() - start );
+            }
+
+            if (response[0] != query[0] || response[1] != query[1]) {
+                return new ForwardResult( Status.IO_ERROR, null, "transaction ID mismatch", System.currentTimeMillis() - start );
+            }
+
+            return  new ForwardResult(Status.SUCCESS, response, null, System.currentTimeMillis() - start);
+
+        } catch (SocketTimeoutException e){
+            return new ForwardResult( Status.TIMEOUT, null, "timed out", System.currentTimeMillis() - start );
+        } catch (Exception e){
+            return new ForwardResult( Status.IO_ERROR, null, e.getMessage(), System.currentTimeMillis() - start );
         }
     }
 
@@ -217,6 +284,10 @@ public class StubResolver {
         r[10]=0;
         r[11]=0;
         return r;
+    }
+
+    private boolean resultIsTruncated(byte[] response){
+        return response.length >= 4 && ((response[2] & 0x02) != 0);
     }
 
     /**

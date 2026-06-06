@@ -29,7 +29,7 @@ public interface RData {
      * @param rrType the rrType of the resource record from an incoming DNS packet
      * @return a new ResourceRecord instance populated with the parsed data
      */
-    static RData fromBytes(byte[] bytes, int byteIndex, RRType rrType) {
+    static RData fromBytes(byte[] bytes, int byteIndex, int rdlength, RRType rrType) {
         return switch (rrType) {
             case A -> RDataA.fromBytes(bytes, byteIndex);
             case AAAA -> RDataAAAA.fromBytes(bytes, byteIndex);
@@ -38,7 +38,7 @@ public interface RData {
             case NS -> RDataNS.fromBytes(bytes, byteIndex);
             case PTR -> RDataPTR.fromBytes(bytes, byteIndex);
             case SOA -> RDataSOA.fromBytes(bytes, byteIndex);
-            case TXT -> RDataTXT.fromBytes(bytes, byteIndex);
+            case TXT -> RDataTXT.fromBytes(bytes, byteIndex, rdlength);
         };
     }
 }
