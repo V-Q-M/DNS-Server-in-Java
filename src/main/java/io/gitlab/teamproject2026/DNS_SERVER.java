@@ -1,20 +1,19 @@
 package io.gitlab.teamproject2026;
 
-import com.fasterxml.jackson.core.json.UTF8DataInputJsonParser;
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.options.*;
 import io.gitlab.teamproject2026.config.zones.*;
+import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.model.*;
-import io.gitlab.teamproject2026.cache.*;
+import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.resolver.*;
 
-import javax.imageio.IIOException;
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -41,9 +40,10 @@ public class DNS_SERVER {
     private static String forwardMode;
     private static ResolverSection resolverOptions;
     // @TODO database should use these
-    private static List<DNSZone> loadedZones;
+    private static List<String> zoneCatalog;
     private static StubResolver stubResolver;
     private static CacheHandler cacheHandler;
+    private static ZoneHandler zoneHandler;
     private static int portNumber;
     private static String bindIP;
     private static InetAddress bindAddress;
@@ -179,8 +179,11 @@ public class DNS_SERVER {
         OptionSection options = serverConfig.options();
         resolverOptions = options.resolverSection();
 
-        // @TODO database should use these
-        loadedZones = loadZonesFromConf(serverConfig);
+        // establish Database Connection
+        initializeDatabase();
+
+        // load zones into the database and store the zone names for easy lookup
+        zoneCatalog = loadZonesFromConf(serverConfig);
 
         // Default options from the config
         portNumber = options.port();
@@ -215,9 +218,6 @@ public class DNS_SERVER {
             }
         }
 
-        // establish Cache Connection
-        initializeCache();
-
     }
 
     private static void applyCliArgs(String[] args) {
@@ -240,18 +240,21 @@ public class DNS_SERVER {
         }
     }
 
-    private static void initializeCache() {
+    private static void initializeDatabase() {
         startTime = System.currentTimeMillis();
 
         if (testing) return;
 
         try {
-            cacheHandler = new CacheHandler(new CacheConnectionProvider());
+            DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
+            cacheHandler = new CacheHandler(provider);
+            zoneHandler = new ZoneHandler(provider);
+            System.err.println(GREEN + "[DATABASE] Connection to the database successful" + RESET);
         } catch (ClassNotFoundException e) {
-            System.err.println(RED + "[CACHE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
+            System.err.println(RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
             testing = true;
         } catch (SQLException e) {
-            System.err.println(RED + "[CACHE-ERROR] Connection to the database couldn't be established" + RESET);
+            System.err.println(RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET);
             logCacheConnectionLost(startTime);
             testing = true;
         }
@@ -584,20 +587,26 @@ public class DNS_SERVER {
 
 
     // Config helper
-    private static List<DNSZone> loadZonesFromConf(Config config) {
+    private static List<String> loadZonesFromConf(Config config) {
         OptionSection options = config.options();
         String dir = options.dir();
         List<ZoneSection> declaredZones = config.zones();
 
-        List<DNSZone> zones = new ArrayList<>(); //@TODO Aufgabe05
+        List<String> zoneCatalog = new ArrayList<>();
         for (ZoneSection zone : declaredZones){
             // Collect all zones specified in the config
             DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
             if (loadedZone != null) {
-                zones.add(loadedZone);
+                try{
+                    zoneHandler.insertAll(loadedZone.getRecords().toArray(new ResourceRecord[0]));
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                    System.err.println(RED + "Failed to insert " + zone.name() + " to the zone database, continuing without" + RESET);
+                }
+                zoneCatalog.add(zone.name());
             }
         }
-        return zones;
+        return zoneCatalog;
     }
 
     // Log helpers

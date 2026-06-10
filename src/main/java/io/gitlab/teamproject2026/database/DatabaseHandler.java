@@ -1,45 +1,37 @@
-package io.gitlab.teamproject2026.cache;
+package io.gitlab.teamproject2026.database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.EnumMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.sql.Timestamp;
-
-import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.model.RRClass;
+import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
 
-public class CacheHandler {
+import java.sql.*;
+import java.util.*;
+
+public abstract class DatabaseHandler {
     private final Connection conn;
 
-    private static final String SQL_A = "INSERT INTO a_rdata    (name, rrtype, rrclass, ttl, rdlength, ipv4,     expires_at) VALUES (?, 'A',    'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_AAAA = "INSERT INTO aaaa_rdata  (name, rrtype, rrclass, ttl, rdlength, ipv6,     expires_at) VALUES (?, 'AAAA', 'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_CNAME = "INSERT INTO cname_rdata (name, rrtype, rrclass, ttl, rdlength, cname,    expires_at) VALUES (?, 'CNAME','IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_MX = "INSERT INTO mx_rdata    (name, rrtype, rrclass, ttl, rdlength, pref, exchange, expires_at) VALUES (?, 'MX',   'IN', ?, ?, ?, ?,       now() + (? * interval '1 second'))";
-    private static final String SQL_NS = "INSERT INTO ns_rdata    (name, rrtype, rrclass, ttl, rdlength, nsdname,  expires_at) VALUES (?, 'NS',   'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_PTR = "INSERT INTO ptr_rdata   (name, rrtype, rrclass, ttl, rdlength, ptrdname, expires_at) VALUES (?, 'PTR',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_SOA = "INSERT INTO soa_rdata   (name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum, expires_at) VALUES (?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
-    private static final String SQL_TXT = "INSERT INTO txt_rdata   (name, rrtype, rrclass, ttl, rdlength, txtdata,  expires_at) VALUES (?, 'TXT',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    protected String SQL_A;
+    protected String SQL_AAAA;
+    protected String SQL_CNAME;
+    protected String SQL_MX;
+    protected String SQL_NS;
+    protected String SQL_PTR;
+    protected String SQL_SOA;
+    protected String SQL_TXT;
 
-    private static final String DEL_A = "DELETE FROM a_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_AAAA = "DELETE FROM aaaa_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_CNAME = "DELETE FROM cname_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_MX = "DELETE FROM mx_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_NS = "DELETE FROM ns_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_PTR = "DELETE FROM ptr_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_SOA = "DELETE FROM soa_rdata WHERE LOWER(name) = ?";
-    private static final String DEL_TXT = "DELETE FROM txt_rdata WHERE LOWER(name) = ?";
+    protected String DEL_A;
+    protected String DEL_AAAA;
+    protected String DEL_CNAME;
+    protected String DEL_MX;
+    protected String DEL_NS;
+    protected String DEL_PTR;
+    protected String DEL_SOA;
+    protected String DEL_TXT;
 
     private static final String[] ALL_RDATA_TABLES = {
             "a_rdata", "aaaa_rdata", "cname_rdata", "mx_rdata", "ns_rdata", "ptr_rdata", "soa_rdata", "txt_rdata"
     };
-
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
@@ -50,7 +42,7 @@ public class CacheHandler {
         void fill(PreparedStatement stmt, ResourceRecord r) throws SQLException;
     }
 
-    public CacheHandler(CacheConnectionProvider provider) throws SQLException, ClassNotFoundException {
+    public DatabaseHandler(DatabaseConnectionProvider provider){
         this.conn = provider.getConnection();
     }
 

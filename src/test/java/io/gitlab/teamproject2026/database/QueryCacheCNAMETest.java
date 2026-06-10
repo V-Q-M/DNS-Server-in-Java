@@ -1,4 +1,4 @@
-package io.gitlab.teamproject2026.cache;
+package io.gitlab.teamproject2026.database;
 
 import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.model.*;
@@ -16,7 +16,7 @@ class QueryCacheCNAMETest {
 
     @BeforeEach
     void setup() throws Exception {
-        cache = new CacheHandler(new CacheConnectionProvider());
+        cache = new CacheHandler(new DatabaseConnectionProvider());
         cache.clearAll();
     }
 
