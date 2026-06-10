@@ -74,7 +74,7 @@ public class DNS_SERVER {
             while (true) {
                 // validate Cache, if Cache cannot be validated, assume internal server error
                 // and crash. Disable during testing
-                validateCache();
+                validateDatabase();
 
 
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -121,7 +121,7 @@ public class DNS_SERVER {
             while (true) {
                 // validate Cache, if Cache cannot be validated, assume internal server error
                 // and crash. Disable during testing
-                validateCache();
+                validateDatabase();
 
                 try (Socket socket = serverSocket.accept()) {
                     DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
@@ -183,7 +183,12 @@ public class DNS_SERVER {
         initializeDatabase();
 
         // load zones into the database and store the zone names for easy lookup
-        zoneCatalog = loadZonesFromConf(serverConfig);
+        if(zoneHandler != null){
+            zoneCatalog = loadZonesFromConf(serverConfig);
+        } else {
+            System.err.println(RED + "[DATABASE] No zone handler found, skipping zones" + RESET);
+            zoneCatalog = new ArrayList<>();
+        }
 
         // Default options from the config
         portNumber = options.port();
@@ -261,7 +266,7 @@ public class DNS_SERVER {
     }
 
     // cache helper
-    private static void validateCache(){
+    private static void validateDatabase(){
         startTime = System.currentTimeMillis();
         if (testing || cacheHandler == null) {
             return;
@@ -269,7 +274,7 @@ public class DNS_SERVER {
         try {
             cacheHandler.deleteExpired();
         } catch (SQLException e) {
-            IO.println(RED + "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error" + RESET);
+            IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
             // log and enable testing mode as cache entries cannot be ensured to be valid
             logCacheConnectionLost(startTime);
             testing = true;
@@ -288,6 +293,14 @@ public class DNS_SERVER {
 
         DNSPayload payload = new DNSPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(),
                 new LinkedList<>());
+
+        // Todo A2 currently only test
+        System.out.println(zoneCatalog.stream().filter((e) -> oopPacket.getQuestionSections()[0].getNameString().endsWith("." + e)).toList().getFirst());
+        try {
+            System.out.println(Arrays.toString(zoneHandler.lookup(oopPacket.getQuestionSections()[0].getNameString(), oopPacket.getQuestionSections()[0].getQtype(), "example.com")));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         //needed for cache logging:
         byte[] idBytes = oopPacket.getId();
@@ -593,19 +606,20 @@ public class DNS_SERVER {
         List<ZoneSection> declaredZones = config.zones();
 
         List<String> zoneCatalog = new ArrayList<>();
-        for (ZoneSection zone : declaredZones){
-            // Collect all zones specified in the config
-            DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
-            if (loadedZone != null) {
-                try{
-                    zoneHandler.insertAll(loadedZone.getRecords().toArray(new ResourceRecord[0]));
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                    System.err.println(RED + "Failed to insert " + zone.name() + " to the zone database, continuing without" + RESET);
+        try{
+            zoneHandler.clearAll();
+            for (ZoneSection zone : declaredZones){
+                // Collect all zones specified in the config
+                DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
+                if (loadedZone != null) {
+                    zoneHandler.insertAll(loadedZone.getRecords().toArray(new ResourceRecord[0]), zone.name());
+                    zoneCatalog.add(zone.name());
                 }
-                zoneCatalog.add(zone.name());
             }
+        }catch (SQLException e) {
+            System.err.println(RED + "Failed to insert zone files to the zone database, continuing without it" + RESET);
         }
+
         return zoneCatalog;
     }
 

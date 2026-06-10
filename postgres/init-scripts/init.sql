@@ -10,7 +10,7 @@ CREATE TYPE RRTypeEnum AS ENUM ('A','AAAA','SOA','TXT','MX', 'PTR', 'NS','CNAME'
 
 CREATE TYPE RRClassEnum AS ENUM ('IN');
 
-# CacheTables
+-- CacheTables
 CREATE TABLE ResourceRecord (
     name text,
     rrtype RRTypeEnum,
@@ -60,14 +60,14 @@ CREATE TABLE soa_rdata (
     minimum uint
 ) INHERITS (ResourceRecord);
 
-# ZoneTables
+-- ZoneTables
 CREATE TABLE ZoneResourceRecord (
     zone text,
     name text,
     rrtype RRTypeEnum,
     rrclass RRClassEnum,
     TTL uint,
-    rdlength usmallint,
+    rdlength usmallint
 );
 
 CREATE TABLE zone_ns_rdata (
