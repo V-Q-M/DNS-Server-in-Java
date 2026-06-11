@@ -1,4 +1,4 @@
-package io.gitlab.teamproject2026.cache;
+package io.gitlab.teamproject2026.database;
 
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
@@ -17,7 +17,7 @@ class CacheHandlerTest {
 
     @BeforeEach
     void setup() throws Exception {
-        handler = new CacheHandler(new CacheConnectionProvider());
+        handler = new CacheHandler(new DatabaseConnectionProvider());
         handler.clearAll();
     }
 
@@ -41,7 +41,7 @@ class CacheHandlerTest {
 
     @Test
     void cacheConnectionTest() throws Exception {
-        CacheConnectionProvider provider = new CacheConnectionProvider();
+        DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
         Connection conn = provider.getConnection();
         assertNotNull(conn);
         conn.close();

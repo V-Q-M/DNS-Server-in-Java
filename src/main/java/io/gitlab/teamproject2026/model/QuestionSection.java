@@ -15,6 +15,7 @@ public class QuestionSection {
     private int lastProcessedByte;
 
     public String[] getName() { return name; }
+    public String getNameString() { return String.join(".", name); }
     public void setName(String[] name) { this.name = name; }
 
     public RRType getQtype() { return qtype; }

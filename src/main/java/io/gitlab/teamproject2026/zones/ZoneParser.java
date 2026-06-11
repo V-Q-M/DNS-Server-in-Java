@@ -427,21 +427,23 @@ public class ZoneParser {
             return;
         }
 
-        long ttlValue;
-        if (!recordTtlLocal.isEmpty()) {
-            ttlValue = Long.parseLong(recordTtlLocal);
-        } else if (!defaultTtl.isEmpty()) {
-            ttlValue = Long.parseLong(defaultTtl);
-        } else {
-            ttlValue = 0;
-        }
-
         String[] name = parseDomainLabels(recordName, "Record name", tokenBuffer.getLast().lineNumber());
         if (parserError) return;
 
         int rdataStart = i;
 
         RData rdata = parseRdata(recordType, rdataStart);
+
+        long ttlValue;
+        if (!recordTtlLocal.isEmpty()) {
+            ttlValue = Long.parseLong(recordTtlLocal);
+        } else if (!defaultTtl.isEmpty()) {
+            ttlValue = Long.parseLong(defaultTtl);
+        } else {
+            error( "Record has no TTL and no $TTL/default SOA minimum is available", tokenBuffer.getLast().lineNumber() );
+            return;
+        }
+
 
         ResourceRecord record = new ResourceRecord(name, recordClass, ttlValue, rdata);
 

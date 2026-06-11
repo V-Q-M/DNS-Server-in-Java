@@ -1,20 +1,23 @@
-package io.gitlab.teamproject2026.cache;
+package io.gitlab.teamproject2026.database;
 
 import java.sql.*;
 
-public class CacheConnectionProvider{
+public class DatabaseConnectionProvider {
     private String url = "jdbc:postgresql://localhost:5432/dns";
     private String user = "postgres";
     private String password = "example";
+    private final Connection dbConnection;
 
-
-    public CacheConnectionProvider(String url, String user, String password){
+    public DatabaseConnectionProvider(String url, String user, String password) throws SQLException,ClassNotFoundException {
         this.password=password;
         this.url=url;
         this.user=user;
+        this.dbConnection = createConnection();
     }
 
-    public CacheConnectionProvider(){}
+    public DatabaseConnectionProvider() throws SQLException,ClassNotFoundException{
+        this.dbConnection = createConnection();
+    }
 
     /**
      * 
@@ -22,7 +25,7 @@ public class CacheConnectionProvider{
      * @throws SQLException if url cannot be parser
      * @throws ClassNotFoundException if Postgresql driver cannot be found
      */
-    public  Connection getConnection() throws SQLException,ClassNotFoundException{
+    private Connection createConnection() throws SQLException,ClassNotFoundException{
         Connection db = null;
         try {Class.forName("org.postgresql.Driver");}
         catch(ClassNotFoundException e) {
@@ -37,5 +40,13 @@ public class CacheConnectionProvider{
         }
         
         return db;
+    }
+
+    /**
+     *
+     * @return The connection created in the contructor
+     */
+    public Connection getConnection(){
+        return dbConnection;
     }
 }

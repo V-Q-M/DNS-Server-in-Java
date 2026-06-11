@@ -1,19 +1,12 @@
-package io.gitlab.teamproject2026.cache;
+package io.gitlab.teamproject2026.database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.EnumMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.sql.Timestamp;
-
-import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.model.RRClass;
+import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
+
+import java.sql.*;
+import java.util.*;
 
 public class CacheHandler {
     private final Connection conn;
@@ -39,7 +32,6 @@ public class CacheHandler {
     private static final String[] ALL_RDATA_TABLES = {
             "a_rdata", "aaaa_rdata", "cname_rdata", "mx_rdata", "ns_rdata", "ptr_rdata", "soa_rdata", "txt_rdata"
     };
-
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
@@ -50,7 +42,7 @@ public class CacheHandler {
         void fill(PreparedStatement stmt, ResourceRecord r) throws SQLException;
     }
 
-    public CacheHandler(CacheConnectionProvider provider) throws SQLException, ClassNotFoundException {
+    public CacheHandler(DatabaseConnectionProvider provider){
         this.conn = provider.getConnection();
     }
 

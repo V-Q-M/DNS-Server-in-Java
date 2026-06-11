@@ -111,12 +111,15 @@ src
 mvn compile
 ```
 
-2. Start the PostgreSQL server using either 
+2. Start the PostgreSQL server using either
 ```bash
 docker compose up -d
 ``` 
-or use Docker Desktop, or generate an equivalent `docker run` command from `compose.yaml` using  [this](https://www.decomposerize.com/)  website.
-
+or use Docker Desktop, or generate an equivalent `docker run` command from `compose.yaml` using  [this](https://www.decomposerize.com/)  website. <br><br>
+If there were changes to the database scheme since you last started the server, remove them so the init scripts can rerun:
+```bash
+docker compose down -v
+```
 3. Start the DNS server with 
 ```bash
 mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER"
