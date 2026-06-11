@@ -53,7 +53,7 @@ public class DNS_SERVER {
             LinkedList<ResourceRecord> answer,
             LinkedList<ResourceRecord> authority,
             LinkedList<ResourceRecord> additional,
-            LinkedList<QuestionSection> notCached) {
+            LinkedList<QuestionSection> notResolved) {
     }
 
     static void main(String[] args) {
@@ -298,14 +298,23 @@ public class DNS_SERVER {
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
         if (!testing && cacheHandler != null && zoneHandler != null) {
-            payload = zoneLookUp(oopPacket, id);
-            if(payload == null){
-                payload = cacheLookUp(oopPacket, id);
+            payload = zoneLookUp(oopPacket);
+            if(payload.notResolved.isEmpty() && payload.answer.isEmpty()){
+                DNSPacket response = new DNSPacket();
+                response.setId(oopPacket.getId());
+                response.setOpcode(oopPacket.getOpcode());
+                response.setAa(true);
+                response.setRd(oopPacket.isRd());
+                response.setRcode(RCode.NXDOMAIN);
+                return serializeResponsePacket(response);
+            }
+            if(!payload.notResolved.isEmpty()){
+                payload = cacheLookUp(payload, oopPacket, id);
             }
         } else {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
-                payload.notCached.add(request);
+                payload.notResolved.add(request);
                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L)); //since cache isn't checked latency is 0
                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
                         resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
@@ -315,13 +324,14 @@ public class DNS_SERVER {
 
         // StubResolver should only be queried if there are queries not answered by the
         // cache
-        if (!payload.notCached.isEmpty()) {
+        if (!payload.notResolved.isEmpty()) {
             // if (testing){
             payload = queryStubResolver(payload, data);
         }
 
-        // Build response packet
-        DNSPacket response = buildResponsePacket(payload, oopPacket);
+        return serializeResponsePacket(buildResponsePacket(payload, oopPacket));
+    }
+    private static byte[] serializeResponsePacket(DNSPacket response) {
 
         // convert response packet to Bytes
         byte[] byteResponse = response.toBytes();
@@ -335,32 +345,42 @@ public class DNS_SERVER {
             System.arraycopy(truncatedSource, 0, byteResponseTruncated, 0, UDP_MAX_PAYLOAD_SIZE);
             byteResponse = byteResponseTruncated;
         }
-
         return byteResponse;
     }
-
-    private static DNSPayload zoneLookUp(DNSPacket oopPacket, String id){
-        String zone = zoneCatalog
-                .stream()
-                .filter((e) -> oopPacket.getQuestionSections()[0].getNameString().endsWith("." + e))
-                .max((e1, e2) -> e1.length() - e2.length()).orElse(null);
-        if(zone == null){ // zone doesn't match continue with other RR sources
-            return null;
-        }
-        try {
-            return zoneHandler.lookup(oopPacket.getQuestionSections()[0].getNameString(), oopPacket.getQuestionSections()[0].getQtype(), "example.com");
-        } catch (SQLException e) {
-            IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
-            return null;
-        }
-    }
-    private static DNSPayload cacheLookUp(DNSPacket oopPacket, String id){
+    private static DNSPayload zoneLookUp(DNSPacket oopPacket){
         DNSPayload payload = new DNSPayload(
                 new LinkedList<>(),
                 new LinkedList<>(),
                 new LinkedList<>(),
                 new LinkedList<>()
         );
+        for (QuestionSection questionSection : oopPacket.getQuestionSections()) {
+            String zone = zoneCatalog
+                    .stream()
+                    .filter((e) -> oopPacket.getQuestionSections()[0].getNameString().endsWith("." + e))
+                    .max((e1, e2) -> e1.length() - e2.length()).orElse(null);
+            if(zone == null){ // zone doesn't match continue with other RR sources
+                payload.notResolved.add(questionSection);
+                continue;
+            }
+            try {
+                List<ResourceRecord> directMatches = zoneHandler.lookup(questionSection.getNameString(), questionSection.getQtype(), "example.com");
+                if(directMatches.isEmpty()){
+                    List<ResourceRecord> cnameMatches = zoneHandler.lookup(questionSection.getNameString(), RRType.CNAME, "example.com");
+                    if(cnameMatches.isEmpty()){
+                        continue;
+                    }
+                    // Todo: handle cnames, restart, somehow ._.
+                }
+                payload.answer.addAll(directMatches);
+            } catch (SQLException e) {
+                IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+                continue;
+            }
+        }
+        return payload;
+    }
+    private static DNSPayload cacheLookUp(DNSPayload payload, DNSPacket oopPacket, String id){
         // query cache and safe results in payload
         long cacheStart = System.currentTimeMillis();
         try {
@@ -368,7 +388,7 @@ public class DNS_SERVER {
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
-                if (payload.notCached.contains(request)) {
+                if (payload.notResolved.contains(request)) {
                     IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
                     LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
                     LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
@@ -396,7 +416,7 @@ public class DNS_SERVER {
             // connection to cache couldn't be reached so all queries have to be resolved
             // through the resolver
             for (QuestionSection request : oopPacket.getQuestionSections()) {
-                payload.notCached.add(request);
+                payload.notResolved.add(request);
                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
                         resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
@@ -411,8 +431,8 @@ public class DNS_SERVER {
         // other packages using this ID from the original sender
         DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
         uncachedOOPacket.setQuestionSections(
-                payload.notCached.toArray(new QuestionSection[0]));
-        uncachedOOPacket.setQdcount(payload.notCached.size());
+                payload.notResolved.toArray(new QuestionSection[0]));
+        uncachedOOPacket.setQdcount(payload.notResolved.size());
 
         // Get Stub response
         byte[] rawResponse;
@@ -454,7 +474,7 @@ public class DNS_SERVER {
      * of the Record.
      * Also Returns A and AAAA records for NS and MX records
      * Packets that couldn't be resolved with the cache itself are stored in the
-     * notCached part of the record
+     * notResolved part of the record
      *
      * @param query        the DNS query which is to be resolved
      * @param cacheHandler the CacheHandler with which the function accesses teh
@@ -526,7 +546,7 @@ public class DNS_SERVER {
     //                 append them all to "answer" and return true.
     //   partial hit - the alias(es) are cached but the final target is not:
     //                 append the cached CNAME(s) to "answer" and add the still-missing name
-    //                 to "notCached" so the stub only resolves the remaining tail; return true.
+    //                 to "notResolved" so the stub only resolves the remaining tail; return true.
     //   no help     - return false and change nothing, so the caller forwards the original
     //                 query. Happens when "name" has no cached CNAME, the chain loops, or it
     //                 is longer than MAX_CNAME_HOPS.
@@ -590,16 +610,7 @@ public class DNS_SERVER {
     private static DNSPacket buildResponsePacket(DNSPayload payload, DNSPacket query) {
         DNSPacket response = new DNSPacket();
         response.setId(query.getId());
-        response.setQr(true);
         response.setOpcode(query.getOpcode());
-        response.setAa(false);
-        response.setTc(false);
-        response.setRa(true);
-        response.setZ((byte) 0);
-        response.setQdcount(query.getQdcount());
-        response.setAncount(payload.answer.size());
-        response.setNscount(payload.authority.size());
-        response.setArcount(payload.additional.size());
         response.setQuestionSections(query.getQuestionSections());
         response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
         response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
@@ -622,7 +633,7 @@ public class DNS_SERVER {
                 // Collect all zones specified in the config
                 DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
                 if (loadedZone != null) {
-                    zoneHandler.insertAll(loadedZone.getRecords().toArray(new ResourceRecord[0]), zone.name());
+                    zoneHandler.insertZone(loadedZone.getRecords().toArray(new ResourceRecord[0]), zone.name());
                     zoneCatalog.add(zone.name());
                 }
             }

@@ -73,7 +73,7 @@ class QueryCacheCNAMETest {
         DNS_SERVER.DNSPayload payload = DNS_SERVER.queryCache(makeQuery("www.example.com", RRType.A), cache);
 
         assertEquals(1, payload.answer().size());
-        assertEquals(0, payload.notCached().size());
+        assertEquals(0, payload.notResolved().size());
     }
 
     @Test
@@ -88,7 +88,7 @@ class QueryCacheCNAMETest {
         assertEquals(RRType.CNAME, payload.answer().get(0).getType());
         assertEquals(RRType.CNAME, payload.answer().get(1).getType());
         assertEquals(RRType.A,     payload.answer().get(2).getType());
-        assertEquals(0, payload.notCached().size());
+        assertEquals(0, payload.notResolved().size());
     }
 
     @Test
@@ -101,7 +101,7 @@ class QueryCacheCNAMETest {
         assertEquals(2, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().get(0).getType());
         assertEquals(RRType.A,     payload.answer().get(1).getType());
-        assertEquals(0, payload.notCached().size());
+        assertEquals(0, payload.notResolved().size());
     }
 
     @Test
@@ -115,10 +115,10 @@ class QueryCacheCNAMETest {
         // tail (server.example.com A) is forwarded to the stub.
         assertEquals(1, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().getFirst().getType());
-        assertEquals(1, payload.notCached().size());
-        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().getFirst().getName());
-        assertEquals(RRType.A, payload.notCached().getFirst().getQtype());
-        assertEquals(RRClass.IN, payload.notCached().getFirst().getQclass());
+        assertEquals(1, payload.notResolved().size());
+        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notResolved().getFirst().getName());
+        assertEquals(RRType.A, payload.notResolved().getFirst().getQtype());
+        assertEquals(RRClass.IN, payload.notResolved().getFirst().getQclass());
     }
 
     @Test
@@ -134,9 +134,9 @@ class QueryCacheCNAMETest {
         assertEquals(2, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().get(0).getType());
         assertEquals(RRType.CNAME, payload.answer().get(1).getType());
-        assertEquals(1, payload.notCached().size());
-        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notCached().getFirst().getName());
-        assertEquals(RRType.A, payload.notCached().getFirst().getQtype());
+        assertEquals(1, payload.notResolved().size());
+        assertArrayEquals(new String[]{ "server", "example", "com" }, payload.notResolved().getFirst().getName());
+        assertEquals(RRType.A, payload.notResolved().getFirst().getQtype());
     }
 
     @Test
@@ -150,7 +150,7 @@ class QueryCacheCNAMETest {
         // loop detected 
         // nothing committed, whole query forwarded to the stub
         assertEquals(0, payload.answer().size());
-        assertEquals(1, payload.notCached().size());
+        assertEquals(1, payload.notResolved().size());
     }
 
     @Test
@@ -161,6 +161,6 @@ class QueryCacheCNAMETest {
 
         assertEquals(1, payload.answer().size());
         assertEquals(RRType.CNAME, payload.answer().getFirst().getType());
-        assertEquals(0, payload.notCached().size());
+        assertEquals(0, payload.notResolved().size());
     }
 }

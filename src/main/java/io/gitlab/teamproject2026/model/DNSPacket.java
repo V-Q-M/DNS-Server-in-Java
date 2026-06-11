@@ -15,20 +15,20 @@ public class DNSPacket {
 
     // Header fields
     private byte[] id;
-    private boolean qr; // false=question, true=answer
+    private boolean qr = true; // false=question, true=answer
     private OpCode opcode;
-    private boolean aa;
-    private boolean tc;
+    private boolean aa = false;
+    private boolean tc = false;
     private boolean rd;
-    private boolean ra;
+    private boolean ra = true;
     private byte z = 0;
     private RCode rcode;
 
     // Section counts
-    private int qdcount;
-    private int ancount;
-    private int nscount;
-    private int arcount;
+    private int qdcount = 0;
+    private int ancount = 0;
+    private int nscount = 0;
+    private int arcount = 0;
 
     // Sections
     private QuestionSection[] questionSections;
@@ -145,6 +145,7 @@ public class DNSPacket {
     }
 
     public void setQuestionSections(QuestionSection[] questionSections) {
+        this.qdcount = questionSections.length;
         this.questionSections = questionSections;
     }
 
@@ -157,6 +158,7 @@ public class DNSPacket {
     }
 
     public void setAnswerSections(ResourceRecord[] answerSections) {
+        this.ancount = answerSections.length;
         this.answerSections = answerSections;
     }
 
@@ -165,6 +167,7 @@ public class DNSPacket {
     }
 
     public ResourceRecord[] getAuthoritySections() {
+        this.nscount = questionSections.length;
         return authoritySections;
     }
 
@@ -177,6 +180,7 @@ public class DNSPacket {
     }
 
     public ResourceRecord[] getAdditionalSections() {
+        this.arcount = questionSections.length;
         return additionalSections;
     }
 

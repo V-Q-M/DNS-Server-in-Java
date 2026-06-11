@@ -47,31 +47,30 @@ public class ZoneHandler {
     }
 
 
-    private ResourceRecord[] lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper) throws SQLException {
+    private List<ResourceRecord> lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper) throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            System.out.println(sql);
-            System.out.println(name);
-            System.out.println("'" + zone + "'");
             stmt.setString(1, name);
-            stmt.setString(2, name);
-            stmt.setString(3, zone);
+            stmt.setString(2, zone);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     ResourceRecord rr = new ResourceRecord();
                     rr.setName(rs.getString("name").split("\\."));
                     //rr.setType(type);
                     rr.setRrclass(RRClass.IN);
-                    rr.setTtl(rs.getLong("ttl") + System.currentTimeMillis()/100);
+                    rr.setTtl(rs.getLong("ttl"));
                     //rr.setRdlength(rs.getInt("rdlength"));
                     rr.setRdata(mapper.map(rs));
                     records.add(rr);
                 }
             }
         }
-        return records.toArray(new ResourceRecord[0]);
+        return records;
     }
 
+    public RDataSOA lookupZoneSoa(String zone) throws SQLException {
+        return (RDataSOA) lookup(zone, RRType.SOA, zone).getFirst().getRdata();
+    }
     /**
      * Returns the full ResourceRecord from the Database, given a name and type
      * Looks for entries that end in name
@@ -81,7 +80,7 @@ public class ZoneHandler {
      * @return RR Array of all matching RRs
      * @throws SQLException
      */
-    public ResourceRecord[] lookup(String name, RRType type, String zone) throws SQLException {
+    public List<ResourceRecord> lookup(String name, RRType type, String zone) throws SQLException {
         name = name.toLowerCase();
         switch (type) {
             case A:
@@ -172,7 +171,7 @@ public class ZoneHandler {
                             return rdata;
                         });
             default:
-                return new ResourceRecord[0];
+                return new ArrayList<>();
         }
     }
 
@@ -369,7 +368,7 @@ public class ZoneHandler {
      * @param zone
      * @throws SQLException
      */
-    public void insertAll(ResourceRecord[] records, String zone) throws SQLException {
+    public void insertZone(ResourceRecord[] records, String zone) throws SQLException {
         Map<RRType, List<ResourceRecord>> byType = new EnumMap<>(RRType.class);
         for (ResourceRecord record : records) {
             byType.computeIfAbsent(record.getType(), k -> new ArrayList<>()).add(record);
