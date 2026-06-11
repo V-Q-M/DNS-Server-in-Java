@@ -167,11 +167,11 @@ public class DNSPacket {
     }
 
     public ResourceRecord[] getAuthoritySections() {
-        this.nscount = questionSections.length;
         return authoritySections;
     }
 
     public void setAuthoritySections(ResourceRecord[] authoritySections) {
+        this.nscount = authoritySections.length;
         this.authoritySections = authoritySections;
     }
 
@@ -180,11 +180,11 @@ public class DNSPacket {
     }
 
     public ResourceRecord[] getAdditionalSections() {
-        this.arcount = questionSections.length;
         return additionalSections;
     }
 
     public void setAdditionalSections(ResourceRecord[] additionalSections) {
+        this.arcount = additionalSections.length;
         this.additionalSections = additionalSections;
     }
 

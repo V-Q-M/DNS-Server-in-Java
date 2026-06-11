@@ -298,6 +298,7 @@ public class DNS_SERVER {
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
         if (!testing && cacheHandler != null && zoneHandler != null) {
+            /*
             payload = zoneLookUp(oopPacket);
             if(payload.notResolved.isEmpty() && payload.answer.isEmpty()){
                 DNSPacket response = new DNSPacket();
@@ -310,7 +311,8 @@ public class DNS_SERVER {
             }
             if(!payload.notResolved.isEmpty()){
                 payload = cacheLookUp(payload, oopPacket, id);
-            }
+            }*/
+            payload = cacheLookUp(payload, oopPacket, id);
         } else {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
