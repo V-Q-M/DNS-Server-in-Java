@@ -635,7 +635,7 @@ public class DNS_SERVER {
                 // Collect all zones specified in the config
                 DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
                 if (loadedZone != null) {
-                    zoneHandler.insertZone(loadedZone.getRecords().toArray(new ResourceRecord[0]), zone.name());
+                    zoneHandler.insertZone(loadedZone);
                     zoneCatalog.add(zone.name());
                 }
             }

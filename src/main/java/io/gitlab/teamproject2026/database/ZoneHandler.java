@@ -1,5 +1,6 @@
 package io.gitlab.teamproject2026.database;
 
+import io.gitlab.teamproject2026.DNSZone;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -364,11 +365,12 @@ public class ZoneHandler {
      * Inserts a given array of ResourceRecords into the database using per-type
      * batching.
      *
-     * @param records
-     * @param zone
+     * @param dnsZone the zone to insert
      * @throws SQLException
      */
-    public void insertZone(ResourceRecord[] records, String zone) throws SQLException {
+    public void insertZone(DNSZone dnsZone) throws SQLException {
+        ResourceRecord[] records = dnsZone.getRecords().toArray(new ResourceRecord[0]);
+        String zone  = dnsZone.origin();
         Map<RRType, List<ResourceRecord>> byType = new EnumMap<>(RRType.class);
         for (ResourceRecord record : records) {
             byType.computeIfAbsent(record.getType(), k -> new ArrayList<>()).add(record);
