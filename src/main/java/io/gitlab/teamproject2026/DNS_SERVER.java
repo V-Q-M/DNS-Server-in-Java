@@ -294,19 +294,14 @@ public class DNS_SERVER {
         DNSPayload payload = new DNSPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(),
                 new LinkedList<>());
 
-        // Todo A2 currently only test
-        System.out.println(zoneCatalog.stream().filter((e) -> oopPacket.getQuestionSections()[0].getNameString().endsWith("." + e)).toList().getFirst());
-        try {
-            System.out.println(Arrays.toString(zoneHandler.lookup(oopPacket.getQuestionSections()[0].getNameString(), oopPacket.getQuestionSections()[0].getQtype(), "example.com")));
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
         //needed for cache logging:
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
-        if (!testing && cacheHandler != null) {
-            payload = cacheLookUp(oopPacket, id);
+        if (!testing && cacheHandler != null && zoneHandler != null) {
+            payload = zoneLookUp(oopPacket, id);
+            if(payload == null){
+                payload = cacheLookUp(oopPacket, id);
+            }
         } else {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
@@ -344,6 +339,21 @@ public class DNS_SERVER {
         return byteResponse;
     }
 
+    private static DNSPayload zoneLookUp(DNSPacket oopPacket, String id){
+        String zone = zoneCatalog
+                .stream()
+                .filter((e) -> oopPacket.getQuestionSections()[0].getNameString().endsWith("." + e))
+                .max((e1, e2) -> e1.length() - e2.length()).orElse(null);
+        if(zone == null){ // zone doesn't match continue with other RR sources
+            return null;
+        }
+        try {
+            return zoneHandler.lookup(oopPacket.getQuestionSections()[0].getNameString(), oopPacket.getQuestionSections()[0].getQtype(), "example.com");
+        } catch (SQLException e) {
+            IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+            return null;
+        }
+    }
     private static DNSPayload cacheLookUp(DNSPacket oopPacket, String id){
         DNSPayload payload = new DNSPayload(
                 new LinkedList<>(),
