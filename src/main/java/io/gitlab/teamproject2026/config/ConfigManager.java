@@ -43,7 +43,7 @@ public class ConfigManager {
         try {
             input = Files.readString(confPath);
         } catch (IOException e) {
-            System.err.println(RED + "[CONFIG] ERROR: Failed to read config file: " + confPath + RESET);
+            System.err.println(RED + "[CONFIG-ERROR]: Failed to read config file: " + confPath + RESET);
             IO.println(YELLOW + "[CONFIG] WARNING: using default config" + RESET );
             return defaultConfig();
         }
@@ -88,12 +88,12 @@ public class ConfigManager {
         try {
             content = Files.readString(f);
         } catch (IOException e) {
-            System.err.println(RED + "[ZONE] ERROR: Failed to read zone file: " + f + RESET);
+            System.err.println(RED + "[ZONE-ERROR] Failed to read zone file: " + f + RESET);
             return null;
         }
         ZoneParser parser = new ZoneParser(content, origin);
         if (parser.hasParserError()) {
-            System.err.println(RED + "[ZONE] ERROR: Failed to parse zone: " + f.getFileName() + RESET);
+            System.err.println(RED + "[ZONE-ERROR] Failed to parse zone: " + f.getFileName() + RESET);
             return null;
         }
 
@@ -103,13 +103,13 @@ public class ConfigManager {
         if (!parser.getOrigin().isEmpty()) {
             zoneOrigin = parser.getOrigin();
         } else {
-            System.err.println(RED + "[ZONE] ERROR: No origin found in zone: " + f.getFileName() + RESET);
+            System.err.println(RED + "[ZONE-ERROR] No origin found in zone: " + f.getFileName() + RESET);
             return null;
         }
         if (parser.getTTL() != 0) {
             defaultTtl = parser.getTTL();
         } else {
-            System.err.println(RED + "[ZONE] ERROR: No ttl found in zone: " + f.getFileName() + RESET);
+            System.err.println(RED + "[ZONE-ERROR] No ttl found in zone: " + f.getFileName() + RESET);
             return null;
         }
         IO.println(GREEN + "[ZONE] Found " + zoneRecords.size() + " Records in \"" + f.getFileName() + "\"" + RESET);

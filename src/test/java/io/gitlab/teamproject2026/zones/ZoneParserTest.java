@@ -280,6 +280,7 @@ public class ZoneParserTest {
         void leadingTtlUsesPreviousName() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
                     www IN A 192.0.2.1
                         3600 IN A 192.0.2.2
                     """, false);
@@ -311,6 +312,7 @@ public class ZoneParserTest {
         void numericOwnerWithoutLeadingSpace() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
                     1 IN PTR host.example.com.
                     """, false);
 
@@ -425,6 +427,7 @@ public class ZoneParserTest {
         void mxPreferenceZeroIsValid() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
                     @ IN MX 0 mail.example.com.
                     """, false);
 
@@ -452,6 +455,7 @@ public class ZoneParserTest {
         void escapedDomainLabels() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
 
                     foo\\.bar      IN A     192.0.2.1
                     literal\\@     IN TXT   "hello"
@@ -481,6 +485,7 @@ public class ZoneParserTest {
         void decimalEscapedDomainLabels() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
 
                     foo\\046bar        IN A     192.0.2.1
                     hello\\032world    IN TXT   "space"
@@ -508,6 +513,7 @@ public class ZoneParserTest {
         void txtDecimalEscapes() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
 
                     @ IN TXT "hello\\032world"
                     @ IN TXT "price\\036tag"
@@ -782,6 +788,7 @@ public class ZoneParserTest {
         void recordFinishesOnNewlineAfterClosingParen() {
             ZoneParser parser = new ZoneParser("""
                     $ORIGIN example.com.
+                    $TTL 3600
                     @ IN TXT (
                         "hello"
                         "world"
@@ -858,6 +865,7 @@ public class ZoneParserTest {
             String err = captureStderr(() -> {
                 ZoneParser parser = new ZoneParser("""
                 $ORIGIN example.com.
+                $TTL 3600
                 @ IN TXT "hello"
                 )
                 """);
