@@ -4,13 +4,11 @@ import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.options.*;
 import io.gitlab.teamproject2026.config.zones.*;
-import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.database.*;
-import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.resolver.*;
 
@@ -297,10 +295,14 @@ public class DNS_SERVER {
         //needed for cache logging:
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
+        boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
-            /*
+            // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
             payload = zoneLookUp(oopPacket);
-            if(payload.notResolved.isEmpty() && payload.answer.isEmpty()){
+            // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
+            // True NXDOMAIN only when ALL sections are empty:
+            // authority may contain NS records from an authoritative zone answer
+            if (payload.notResolved.isEmpty() && payload.answer.isEmpty() && payload.authority.isEmpty()) {
                 DNSPacket response = new DNSPacket();
                 response.setId(oopPacket.getId());
                 response.setOpcode(oopPacket.getOpcode());
@@ -309,9 +311,10 @@ public class DNS_SERVER {
                 response.setRcode(RCode.NXDOMAIN);
                 return serializeResponsePacket(response);
             }
-            if(!payload.notResolved.isEmpty()){
-                payload = cacheLookUp(payload, oopPacket, id);
-            }*/
+            // Step 2: Cache lookup only for questions not resolved by zone
+            if(payload.notResolved.isEmpty()){
+                authoritative = true;
+            }
             payload = cacheLookUp(payload, oopPacket, id);
         } else {
             // if testing is active, do not check cache
@@ -331,7 +334,7 @@ public class DNS_SERVER {
             payload = queryStubResolver(payload, data);
         }
 
-        return serializeResponsePacket(buildResponsePacket(payload, oopPacket));
+        return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
     }
     private static byte[] serializeResponsePacket(DNSPacket response) {
 
@@ -349,7 +352,7 @@ public class DNS_SERVER {
         }
         return byteResponse;
     }
-    private static DNSPayload zoneLookUp(DNSPacket oopPacket){
+    private static DNSPayload zoneLookUp(DNSPacket oopPacket) {
         DNSPayload payload = new DNSPayload(
                 new LinkedList<>(),
                 new LinkedList<>(),
@@ -357,40 +360,112 @@ public class DNS_SERVER {
                 new LinkedList<>()
         );
         for (QuestionSection questionSection : oopPacket.getQuestionSections()) {
-            String zone = zoneCatalog
-                    .stream()
-                    .filter((e) -> oopPacket.getQuestionSections()[0].getNameString().endsWith("." + e))
-                    .max((e1, e2) -> e1.length() - e2.length()).orElse(null);
-            if(zone == null){ // zone doesn't match continue with other RR sources
-                payload.notResolved.add(questionSection);
-                continue;
-            }
-            try {
-                List<ResourceRecord> directMatches = zoneHandler.lookup(questionSection.getNameString(), questionSection.getQtype(), "example.com");
-                if(directMatches.isEmpty()){
-                    List<ResourceRecord> cnameMatches = zoneHandler.lookup(questionSection.getNameString(), RRType.CNAME, "example.com");
-                    if(cnameMatches.isEmpty()){
-                        continue;
-                    }
-                    // Todo: handle cnames, restart, somehow ._.
+            String currentName = questionSection.getNameString().toLowerCase();
+            Set<String> visited = new HashSet<>();
+
+            // Per RFC1034 4.3.2 step 3a: loop to follow CNAME chains.
+            // Each iteration is one restart of the algorithm with a potentially new QNAME.
+            // MAX_CNAME_HOPS guards against excessively long chains.
+            while (visited.size() < MAX_CNAME_HOPS && visited.add(currentName)) {
+
+                // Step 2: find the most specific authoritative zone for currentName
+                final String lookupName = currentName;
+                String zone = zoneCatalog
+                        .stream()
+                        .filter(e -> lookupName.equals(e) || lookupName.endsWith("." + e))
+                        .max(Comparator.comparingInt(String::length))
+                        .orElse(null);
+
+                if (zone == null) {
+                    // No authoritative zone for this name → cache/forward handle it
+                    QuestionSection fwdQuestion = new QuestionSection();
+                    fwdQuestion.setName(currentName.split("\\."));
+                    fwdQuestion.setQtype(questionSection.getQtype());
+                    fwdQuestion.setQclass(questionSection.getQclass());
+                    payload.notResolved.add(fwdQuestion);
+                    break;
                 }
-                payload.answer.addAll(directMatches);
-            } catch (SQLException e) {
-                IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
-                continue;
+
+                // Step 3: we are authoritative for this domain
+                try {
+                    List<ResourceRecord> directMatches = zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
+
+                    if (!directMatches.isEmpty()) {
+                        // Step 3a: records found -> route to correct section per RFC1034 4.3.2
+                        for (ResourceRecord record : directMatches) {
+                            switch (record.getType()) {
+                                case NS -> {
+                                    // NS records go to authority section, consistent with queryCache
+                                    payload.authority.add(record);
+                                    // Step 6: add glue A/AAAA for the nameserver to additional
+                                    String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
+                                    try {
+                                        payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
+                                        payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
+                                    } catch (SQLException ignored) { /* glue records are best-effort */ }
+                                }
+                                case MX -> {
+                                    // MX records go to answer section
+                                    payload.answer.add(record);
+                                    // Step 6: add A/AAAA of mail exchange to additional
+                                    String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
+                                    try {
+                                        payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
+                                        payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
+                                    } catch (SQLException ignored) { /* additional records are best-effort */ }
+                                }
+                                // A, AAAA, CNAME, TXT, SOA, PTR -> directly to answer
+                                default -> payload.answer.add(record);
+                            }
+                        }
+                        break; // records found -> done with this question
+                    }
+
+                    // No direct match -> check for CNAME (skip if QTYPE=CNAME, that is already answered above)
+                    if (questionSection.getQtype() != RRType.CNAME) {
+                        List<ResourceRecord> cnameMatches = zoneHandler.lookup(currentName, RRType.CNAME, zone);
+
+                        if (!cnameMatches.isEmpty()) {
+                            // Per RFC1034 4.3.2 step 3a: copy CNAME to answer,
+                            // then go back to step 1 with the new QNAME (= restart the while loop)
+                            payload.answer.addAll(cnameMatches);
+                            currentName = String.join(".",
+                                    ((RDataCNAME) cnameMatches.get(0).getRdata()).getCname()).toLowerCase();
+                            continue; //  restart = "go back to step 1" per RFC
+                        }
+                    }
+
+                    // No record and no CNAME -> NXDOMAIN.
+                    // Question intentionally not added to notResolved; the caller detects
+                    // NXDOMAIN via (notResolved.isEmpty && answer.isEmpty && authority.isEmpty).
+                    break;
+
+                } catch (SQLException e) {
+                    IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+                    payload.notResolved.add(questionSection); // fall back to cache/forward
+                    break;
+                }
             }
+            // If loop exits because visited.add(currentName) = false -> CNAME loop detected.
+            // CNAMEs found so far remain in answer; stub resolver will handle the rest.
         }
         return payload;
     }
     private static DNSPayload cacheLookUp(DNSPayload payload, DNSPacket oopPacket, String id){
         // query cache and safe results in payload
         long cacheStart = System.currentTimeMillis();
+
+        // Only query cache for questions not already answered by zone lokup
+        // This preserves zone answers and prevents forwardigns authoritative domains
+        DNSPacket unresolvedPacket = new DNSPacket();
+        unresolvedPacket.setQuestionSections(payload.notResolved.toArray(new QuestionSection[0]));
+
         try {
-            payload = queryCache(oopPacket, cacheHandler);
-            for (QuestionSection request : oopPacket.getQuestionSections()) {
+            DNSPayload cacheResult = queryCache(unresolvedPacket, cacheHandler);
+            for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
-                if (payload.notResolved.contains(request)) {
+                if (cacheResult.notResolved.contains(request)) {
                     IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
                     LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
                     LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
@@ -404,6 +479,11 @@ public class DNS_SERVER {
                 }
 
             }
+            // Merge cache results with existing zone answers
+            payload.answer.addAll(cacheResult.answer);
+            payload.authority.addAll(cacheResult.authority);
+            payload.additional.addAll(cacheResult.additional);
+            return new DNSPayload(payload.answer, payload.authority, payload.additional, cacheResult.notResolved);
 
         } catch (SQLException e) {
             // log
@@ -415,10 +495,9 @@ public class DNS_SERVER {
                     "Connection to cache Server has been lost, assume internal Server error",
                     null));//debug fields.
 
-            // connection to cache couldn't be reached so all queries have to be resolved
-            // through the resolver
-            for (QuestionSection request : oopPacket.getQuestionSections()) {
-                payload.notResolved.add(request);
+            // payload.notResolved already has the unresolved questions from zone lookup,
+            // no need to add them again – just log them as misses for the stub resolver
+            for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
                 LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
                         resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
@@ -609,10 +688,11 @@ public class DNS_SERVER {
      * @param query   The Query that is to be answered
      * @return a DNS-Packet in oop format
      */
-    private static DNSPacket buildResponsePacket(DNSPayload payload, DNSPacket query) {
+    private static DNSPacket buildResponsePacket(DNSPayload payload, DNSPacket query, boolean authoritative) {
         DNSPacket response = new DNSPacket();
         response.setId(query.getId());
         response.setOpcode(query.getOpcode());
+        response.setAa(authoritative); // AA=true only for answers served from our own zone
         response.setQuestionSections(query.getQuestionSections());
         response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
         response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
