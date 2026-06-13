@@ -309,6 +309,7 @@ public class DNS_SERVER {
                 response.setAa(true);
                 response.setRd(oopPacket.isRd());
                 response.setRcode(RCode.NXDOMAIN);
+                response.setQuestionSections(oopPacket.getQuestionSections());
                 return serializeResponsePacket(response);
             }
             // Step 2: Cache lookup only for questions not resolved by zone
