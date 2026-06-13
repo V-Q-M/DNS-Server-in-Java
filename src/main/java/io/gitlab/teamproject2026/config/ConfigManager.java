@@ -78,11 +78,9 @@ public class ConfigManager {
      */
     public static DNSZone loadZoneFile(String dir, String filePath, String origin) {
         zoneDir = dir;
-        Path f;
-        if (filePath.startsWith("/")){
-            f = Path.of(filePath);
-        } else {
-            f = Path.of(dir + "/" + filePath);
+        Path f = Path.of(filePath);
+        if (!f.isAbsolute()){
+            f = Path.of(dir).resolve(filePath);
         }
         IO.println("[ZONE] Parsing zonefile: \"" + f.getFileName() + "\"");
 
