@@ -5,6 +5,8 @@ import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import io.gitlab.teamproject2026.zones.ZoneParser;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -113,11 +115,20 @@ public class ConfigManager {
             return null;
         }
         IO.println(GREEN + "[ZONE] Found " + zoneRecords.size() + " Records in \"" + f.getFileName() + "\"" + RESET);
-        DNSZone zone = new DNSZone(zoneOrigin, defaultTtl, new ArrayList<>(zoneRecords));
-
+        long serial = 0;
+        long refresh = 0;
+        for (ResourceRecord record : zoneRecords){
+            if (record.getType() == RRType.SOA){
+                RDataSOA soaData = (RDataSOA) record.getRdata();
+                serial = soaData.getSerial();
+                refresh = soaData.getRefresh();
+                //IO.println("[ZONE] Found SOA with serial: " + serial + " and refresh: " + refresh);
+                break;
+            }
+        }
+        DNSZone zone = new DNSZone(zoneOrigin, defaultTtl, serial, refresh, new ArrayList<>(zoneRecords));
         return zone;
     }
-
 
     public static String getZoneDir(){
         return zoneDir;

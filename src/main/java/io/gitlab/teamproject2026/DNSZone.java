@@ -4,7 +4,7 @@ import io.gitlab.teamproject2026.model.ResourceRecord;
 
 import java.util.List;
 
-public record DNSZone(String origin, long defaultTtl, List<ResourceRecord> records) {
+public record DNSZone(String origin, long defaultTtl, long serial, long refresh ,List<ResourceRecord> records) {
 
     @Override
     public String toString() {
