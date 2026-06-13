@@ -1,8 +1,8 @@
 $TTL 4200
 
 @       IN SOA  ns0.example.com. admin.example.com. (
-                2026060201
-                3600
+                2026060209
+                20
                 1800
                 1209600
                 86400

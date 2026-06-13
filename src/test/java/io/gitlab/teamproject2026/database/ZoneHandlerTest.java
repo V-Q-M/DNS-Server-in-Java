@@ -31,15 +31,15 @@ class ZoneHandlerTest {
 
     @Test
     void setupTest() throws SQLException {
-        handler.insertZone(ConfigManager.loadZoneFile("zones", "db.example.com", "example.com"));
+        handler.insertZone(ConfigManager.loadZoneFile("src/test/java/io/gitlab/teamproject2026/zones", "db.handler.com", "example.com"));
 
         ResourceRecord aResult = handler.lookup("example.com", RRType.A, "example.com").getFirst();
-        assertEquals(86400, aResult.getTtl());
+        assertEquals(30000, aResult.getTtl());
         assertArrayEquals(new byte[]{(byte) 129, (byte) 0, (byte) 0, (byte) 1},  ((RDataA) aResult.getRdata()).getAddress());
         ResourceRecord soaResult = handler.lookup("example.com", RRType.SOA, "example.com").getFirst();
-        assertEquals(86400, soaResult.getTtl());
+        assertEquals(30000, soaResult.getTtl());
         assertEquals(1209600,  ((RDataSOA) soaResult.getRdata()).getExpire());
-        assertEquals(2026060201,  ((RDataSOA) soaResult.getRdata()).getSerial());
+        assertEquals(2026060209,  ((RDataSOA) soaResult.getRdata()).getSerial());
         assertEquals(3600,  ((RDataSOA) soaResult.getRdata()).getRefresh());
     }
 

@@ -10,6 +10,7 @@ import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.logging.*;
+import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.resolver.*;
 
 import java.io.*;
@@ -36,8 +37,8 @@ public class DNS_SERVER {
     private static boolean testing = false;
 
     private static String forwardMode;
+    private static Config serverConfig;
     private static ResolverSection resolverOptions;
-    // @TODO database should use these
     private static List<String> zoneCatalog;
     private static StubResolver stubResolver;
     private static CacheHandler cacheHandler;
@@ -58,6 +59,69 @@ public class DNS_SERVER {
         initializeServer(args);
         new Thread(DNS_SERVER::handleUDP).start();
         new Thread(DNS_SERVER::handleTCP).start();
+        new Thread(DNS_SERVER::handleZoneRefresh).start();
+    }
+
+    // Check if its time to refresh the zones and perform the refresh if needed
+    private static void handleZoneRefresh() {
+        OptionSection options = serverConfig.options();
+        String dir = options.dir();
+        Map<String, Long> lastRefreshZoneBy = new HashMap<>();
+
+        while (true) {
+            long now = System.currentTimeMillis();
+
+            for (String zone : zoneCatalog) {
+                try {
+                    RDataSOA zoneSoa = zoneHandler.lookupZoneSoa(zone);
+                    long refreshMillis = zoneSoa.getRefresh() * 1000L;
+                    long lastRefresh = lastRefreshZoneBy.getOrDefault(zone, startTime);
+
+                    //IO.println("Zone: " + zone + " " + (now - lastRefresh + ":" + refreshMillis));
+                    if (now - lastRefresh < refreshMillis) {
+                        continue;
+                    }
+                    IO.println(BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET);
+
+                    lastRefreshZoneBy.put(zone, now);
+
+                    String file = findZoneFile(zone);
+                    if (file == null) {
+                        continue;
+                    }
+
+                    DNSZone newLoadedZone = ConfigManager.loadZoneFile(dir, file, zone);
+
+                    if (newLoadedZone != null) {
+                        IO.println("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial());
+                        if (newLoadedZone.serial() != zoneSoa.getSerial()) {
+                            IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
+                            zoneHandler.replaceZone(newLoadedZone);
+                        } else {
+                            IO.println(GREEN + "[ZONE] Serials match -> Nothing to do" + RESET);
+                        }
+                    }
+
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                } catch (SQLException e) {
+                    System.err.println(RED + "[DATABASE-ERROR] Couldn't query SOA record of: \"" + zone + "\"" + RESET);
+                }
+            }
+        }
+    }
+
+    private static String findZoneFile(String origin){
+        for (ZoneSection zoneSection : serverConfig.zones()){
+            if (zoneSection.name().equalsIgnoreCase(origin)){
+                return zoneSection.file();
+            }
+        }
+        return null;
     }
 
     private static void handleUDP(){
@@ -73,7 +137,6 @@ public class DNS_SERVER {
                 // validate Cache, if Cache cannot be validated, assume internal server error
                 // and crash. Disable during testing
                 validateDatabase();
-
 
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
@@ -172,7 +235,7 @@ public class DNS_SERVER {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // named.conf
-        Config serverConfig = ConfigManager.loadConfig("named.conf");
+        serverConfig = ConfigManager.loadConfig("named.conf");
 
         OptionSection options = serverConfig.options();
         resolverOptions = options.resolverSection();
@@ -196,7 +259,7 @@ public class DNS_SERVER {
 
         // port check
         if (portNumber < 0 || portNumber > 65535) {
-            System.err.println(RED + "Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
+            System.err.println(RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
                     + DEFAULT_PORT + RESET);
             portNumber = DEFAULT_PORT;
         }
@@ -212,7 +275,7 @@ public class DNS_SERVER {
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
-            System.err.println(RED + "Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET);
+            System.err.println(RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET);
             bindIP = DEFAULT_IP;
             try {
                 bindAddress = InetAddress.getByName(DEFAULT_IP);

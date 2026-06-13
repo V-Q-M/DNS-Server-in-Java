@@ -8,7 +8,8 @@ public class ConfLexer {
     int lineCount = 1;
     
     public ConfLexer(String input){
-        this.input = input;     
+        this.input = input.replace("\r\n", "\n")
+                          .replace("\r", "\n");
         this.readNextChar();
     }
 

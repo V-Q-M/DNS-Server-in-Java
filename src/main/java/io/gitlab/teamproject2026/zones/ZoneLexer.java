@@ -22,7 +22,8 @@ public class ZoneLexer {
      * @param input raw DNS zone file content
      */
     public ZoneLexer(String input) {
-        this.input = input;
+        this.input = input.replace("\r\n", "\n")
+                          .replace("\r", "\n");
         this.readNextChar();
     }
 

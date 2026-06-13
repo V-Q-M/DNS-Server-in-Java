@@ -222,7 +222,7 @@ public class ZoneParser {
                 if (isRecordToken(t)) {
                     tokenBuffer.add(t);
                 } else {
-                    error("Unexpected token: " + t.literal(), t.lineNumber());
+                    error("Unexpected token: " + t.literal().replace("\r", "\\r"), t.lineNumber());
                 }
             }
         }
@@ -299,7 +299,7 @@ public class ZoneParser {
         String subInput;
 
         try {
-            subInput = Files.readString(Path.of(ConfigManager.getZoneDir() + "/" + includeToken.literal()));
+            subInput = Files.readString(Path.of(ConfigManager.getZoneDir()).resolve(includeToken.literal()));
         } catch (IOException e) {
             error("Failed to read file: " + includeToken.literal(), includeToken.lineNumber());
             return;
