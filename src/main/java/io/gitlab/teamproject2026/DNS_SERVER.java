@@ -418,6 +418,7 @@ public class DNS_SERVER {
                                 default -> payload.answer.add(record);
                             }
                         }
+                        IO.println(GREEN + "[ZONE] Success! Found: " + currentName + " in zone: " + zone + RESET);
                         break; // records found -> done with this question
                     }
 
