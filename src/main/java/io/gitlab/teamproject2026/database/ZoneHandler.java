@@ -69,9 +69,29 @@ public class ZoneHandler {
         return records;
     }
 
+    /**
+     * Gets the 1 SOA record of a given zone
+     * @param zone
+     * @return
+     * @throws SQLException
+     */
     public RDataSOA lookupZoneSoa(String zone) throws SQLException {
         return (RDataSOA) lookup(zone, RRType.SOA, zone).getFirst().getRdata();
     }
+
+    public void replaceZone(DNSZone zone) throws SQLException {
+        clearZone(zone.origin());
+        insertZone(zone);
+    }
+
+    public void clearZone(String zone) throws SQLException {
+        Statement stmt = conn.createStatement();
+        for(String table : ALL_RDATA_TABLES){
+            stmt.addBatch("DELETE FROM " + table + " WHERE zone = '" + zone + "'");
+        }
+        stmt.executeBatch();
+    }
+
     /**
      * Returns the full ResourceRecord from the Database, given a name and type
      * Looks for entries that end in name
@@ -340,7 +360,7 @@ public class ZoneHandler {
     }
 
     /**
-     * Replaces the stored RRset for each name in the group: deletes existing entries, then batch-inserts the new ones.
+     * batch-inserts RRs.
      *
      * @param group the records to insert
      * @param zone the zon to insert to

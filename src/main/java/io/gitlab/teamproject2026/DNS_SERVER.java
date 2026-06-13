@@ -39,7 +39,6 @@ public class DNS_SERVER {
     private static String forwardMode;
     private static Config serverConfig;
     private static ResolverSection resolverOptions;
-    // @TODO database should use these
     private static List<String> zoneCatalog;
     private static StubResolver stubResolver;
     private static CacheHandler cacheHandler;
@@ -97,9 +96,7 @@ public class DNS_SERVER {
                         IO.println("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial());
                         if (newLoadedZone.serial() != zoneSoa.getSerial()) {
                             IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
-
-                            //@TODO
-                            zoneHandler.insertZone(newLoadedZone);
+                            zoneHandler.replaceZone(newLoadedZone);
                         } else {
                             IO.println(GREEN + "[ZONE] Serials match -> Nothing to do" + RESET);
                         }
