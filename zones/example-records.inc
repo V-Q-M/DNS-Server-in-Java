@@ -3,6 +3,7 @@
 ; Address records for service hosts
 ns0     IN A    129.0.0.2
 mx1     IN A    129.0.0.4
+mx2     IN A    129.0.0.5
 
 ; Mail exchangers
 @       IN MX   10 mx1.example.com.

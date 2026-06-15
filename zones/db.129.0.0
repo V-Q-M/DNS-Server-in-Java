@@ -3,7 +3,7 @@
 ; use min ttl from SOA
 
 @       IN SOA  ns0.example.com. admin.example.com. (
-                2026060201
+                2026060209
                 3600
                 1800
                 1209600

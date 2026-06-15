@@ -349,7 +349,7 @@ public class DNS_SERVER {
         try {
             cacheHandler.deleteExpired();
         } catch (SQLException e) {
-            IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+            IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
             // log and enable testing mode as cache entries cannot be ensured to be valid
             logCacheConnectionLost(startTime);
             testing = true;
@@ -504,7 +504,7 @@ public class DNS_SERVER {
                                 default -> payload.answer.add(record);
                             }
                         }
-                        IO.println(GREEN + "[ZONE] Success! Found: " + currentName + " in zone: " + zone + RESET);
+                        IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
                         break; // records found -> done with this question
                     }
 
@@ -525,11 +525,13 @@ public class DNS_SERVER {
                     // No record and no CNAME -> NXDOMAIN.
                     // Question intentionally not added to notResolved; the caller detects
                     // NXDOMAIN via (notResolved.isEmpty && answer.isEmpty && authority.isEmpty).
+                    IO.println(YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET);
                     break;
 
                 } catch (SQLException e) {
-                    IO.println(RED + "[SERVER-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+                    IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
                     payload.notResolved.add(questionSection); // fall back to cache/forward
+                    logCacheConnectionLost(startTime);
                     break;
                 }
             }
