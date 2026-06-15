@@ -3,9 +3,8 @@ package io.gitlab.teamproject2026.zones;
 import java.util.Map;
 
 /**
- * Represents a single lexical token produced by the zone file lexer.
- * Stores the token type, original literal text, and source line number.
- * Used by the parser to build DNS resource records from zone file input.
+ * Immutable representation of a token produced by the zone file lexer,
+ * including its type, literal value, and source line number.
  */
 public record ZoneToken(ZoneTokenType type, String literal, int lineNumber) {
     public ZoneToken(ZoneTokenType type, String literal) {
@@ -46,11 +45,12 @@ public record ZoneToken(ZoneTokenType type, String literal, int lineNumber) {
     );
 
     /**
-     * Resolves a zone file identifier into its corresponding token type.
-     * Matching is case-insensitive to follow DNS zone file semantics.
+     * Resolves a zone file identifier to its corresponding token type.
+     * Matching is case-insensitive; unknown identifiers are treated as
+     * {@link ZoneTokenType#ATOM}.
      *
-     * @param identifier raw identifier text from the lexer
-     * @return matching TokenType or ATOM if the identifier is unknown
+     * @param identifier identifier text from the lexer
+     * @return the matching {@link ZoneTokenType}
      */
     public static ZoneTokenType lookUpIdentifier(String identifier) {
         return KEYWORDS.getOrDefault(identifier.toUpperCase(), ZoneTokenType.ATOM);

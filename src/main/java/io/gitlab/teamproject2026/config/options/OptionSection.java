@@ -4,6 +4,10 @@ import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 
 import java.util.List;
 
+/**
+ * Immutable representation of the server's global configuration options,
+ * including networking, forwarding behavior, and resolver settings.
+ */
 public record OptionSection(
         String dir,
         int port,

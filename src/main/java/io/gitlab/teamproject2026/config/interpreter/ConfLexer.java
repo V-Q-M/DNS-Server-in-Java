@@ -1,5 +1,11 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
+/**
+ * Lexer for the BIND style config.
+ * Converts the raw configuration input into a stream of {@link ConfToken}s,
+ * handling whitespace, comments, quoted strings, and keyword recognition
+ * while tracking line numbers for error reporting.
+ */
 public class ConfLexer {
     String input;
     int position = 0;

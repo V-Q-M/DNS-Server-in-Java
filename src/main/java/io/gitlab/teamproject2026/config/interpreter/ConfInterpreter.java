@@ -10,9 +10,21 @@ import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Interprets the configuration AST represented by {@link ConfNode}s and
+ * converts it into validated {@link Config} objects. Responsible for
+ * applying defaults, validating directives, and reporting semantic
+ * configuration errors.
+ */
 public class ConfInterpreter {
     private boolean interpreterError = false;
 
+    /**
+     * Converts the parsed configuration AST into a validated {@link Config}.
+     *
+     * @param rootNodes top-level {@link ConfNode}s produced by the parser
+     * @return the interpreted {@link Config}, or {@code null} if interpretation fails
+     */
     public Config fromAst(List<ConfNode> rootNodes){
         OptionSection option = null;
         List<ZoneSection> zones = new ArrayList<>();
@@ -41,6 +53,11 @@ public class ConfInterpreter {
         return interpreterError ? null : new Config(option, zones);
     }
 
+    /**
+     * Interprets the {@code options} section of the configuration AST.
+     *
+     * @return the resulting {@link OptionSection}
+     */
     public OptionSection parseOptionConfig(ConfNode root) {
         // Default values
         String directoryPath = "";
@@ -151,6 +168,11 @@ public class ConfInterpreter {
         return new OptionSection(directoryPath, port, ipAddress, recursion, forwardMode, forwarders, resolverSection);
     }
 
+    /**
+     * Interprets a {@code zone} declaration from the configuration AST.
+     *
+     * @return the resulting {@link ZoneSection}, or {@code null} if validation fails
+     */
     public ZoneSection parseZoneConfig(ConfNode root) {
         if (root.args().isEmpty()) {
             error("zone requires a name", root.lineNumber());

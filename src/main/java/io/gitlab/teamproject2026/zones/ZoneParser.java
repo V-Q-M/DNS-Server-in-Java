@@ -25,10 +25,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 /**
- * Parser for BIND-style DNS zone files.
- * Converts lexer tokens into structured DNS resource records.
- * Supports common DNS record types, DNSSEC record types, multiline records,
- * owner-name inheritance, $ORIGIN, $TTL, TTL suffixes, and line-aware diagnostics.
+ * Parses BIND-style DNS zone files into validated {@link ResourceRecord}s.
+ * Supports common DNS resource records, zone directives, owner-name
+ * inheritance, multiline records, and selected DNSSEC record types.
  */
 public class ZoneParser {
     /** Tokens belonging to the currently parsed logical resource record.*/
@@ -58,10 +57,17 @@ public class ZoneParser {
     private static final Pattern TTL_PATTERN =
             Pattern.compile("\\d+[smhdwSMHDW]?");
 
+    /**
+     * Creates a parser for a standalone zone file.
+     */
     public ZoneParser(String input) {
         this.lexer = new ZoneLexer(input);
         parseZone();
     }
+
+    /**
+     * Creates a parser with optional SOA/NS validation (otherwise always check).
+     */
     public ZoneParser(String input, boolean checkForSOA) {
         this.lexer = new ZoneLexer(input);
         this.seenSoaRecord = !checkForSOA; // Act as though a SOA already exists
@@ -69,11 +75,18 @@ public class ZoneParser {
         parseZone();
     }
 
+    /**
+     * Creates a parser using a predefined zone origin.
+     */
     public ZoneParser(String input, String origin) {
         this.lexer = new ZoneLexer(input);
         this.origin = origin;
         parseZone();
     }
+
+    /**
+     * Creates a parser using predefined origin and TTL values.
+     */
     public ZoneParser(String input, String origin, String defaultTtl, boolean checkForSOA) {
         this.lexer = new ZoneLexer(input);
         this.origin = origin;
@@ -83,14 +96,29 @@ public class ZoneParser {
         parseZone();
     }
 
+    /**
+     * Returns an immutable view of the parsed zone records.
+     *
+     * @return parsed {@link ResourceRecord}s
+     */
     public List<ResourceRecord> getZoneRecords() {
         return List.copyOf(zoneRecords);
     }
 
+    /**
+     * Returns the effective zone origin.
+     *
+     * @return the zone origin, or an empty string if none was defined
+     */
     public String getOrigin() {
         return this.origin;
     }
 
+    /**
+     * Returns the effective default TTL.
+     *
+     * @return the default TTL in seconds, or {@code 0} if none was defined
+     */
     public long getTTL() { return defaultTtl.isEmpty() ? 0 : Long.parseLong(defaultTtl); }
 
     private static final EnumSet<ZoneTokenType> RR_TYPES =
@@ -1224,6 +1252,11 @@ public class ZoneParser {
     private void warning(String message, int lineNumber) {
         System.err.println(YELLOW + BOLD + "[ZONE-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
     }
+    /**
+     * Indicates whether a fatal parsing error occurred.
+     *
+     * @return {@code true} if the zone could not be parsed successfully
+     */
     public boolean hasParserError(){
         return parserError;
     }

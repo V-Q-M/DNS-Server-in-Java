@@ -31,7 +31,7 @@ public class StubResolver {
     private final int maxRetries;
     private final long retryDelay;
     private final StubResolverStrategy strategy;
-    private int RRindex=0;
+    private int RRIndex =0;
 
     private static final String RESET  = "\u001B[0m";
     private static final String RED    = "\u001B[31m";
@@ -50,11 +50,12 @@ public class StubResolver {
     }
 
     /**
-     * Attempts to forward the query to an upstream server, 
-     * retrying according to the configured strategy.
-     * Returns SERVFAIL if all attempts fail.
-     * @param query
-     * @return response
+     * Resolves a DNS query by forwarding it to one or more upstream servers
+     * according to the configured retry and server selection strategy.
+     * Falls back to returning a SERVFAIL response if all attempts fail.
+     *
+     * @param query raw DNS query packet
+     * @return raw DNS response packet from an upstream server, or a SERVFAIL response
      */
     public byte[] resolve(byte[] query){
 
@@ -128,7 +129,7 @@ public class StubResolver {
                         break; // retry 
                     }
                     RCode rCode = responsePacket.getRcode();
-                    //log SUCCESS for every question section seperately
+                    //log SUCCESS for every question section separately
                     logQuestionEvents(DNSEventType.SUCCESS, responsePacket, result.latencyMs(), server, attempt, result.errorMessage(), rCode);
                     IO.println(GREEN + "[STUB] Success! Reply from: " + server + " took " + result.latencyMs() + "ms" + RESET);
                     return result.response();
@@ -136,7 +137,7 @@ public class StubResolver {
                 case TIMEOUT -> {
                     //  TIMEOUT Event
                     String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
-                    //log TIMEOUT for every question section seperately
+                    //log TIMEOUT for every question section separately
                     logQuestionEvents(DNSEventType.TIMEOUT, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     IO.println(YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET);
                     if (attempt + 1 < maxAttempts) {
@@ -152,7 +153,7 @@ public class StubResolver {
                 case IO_ERROR -> {
                     //IO_ERROR Event
                     String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
-                    //log IO_ERROR for every question section seperately
+                    //log IO_ERROR for every question section separately
                     logQuestionEvents(DNSEventType.IO_ERROR, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     IO.println(RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET);
                     if (attempt + 1 < maxAttempts) {
@@ -179,11 +180,13 @@ public class StubResolver {
     }
 
     /**
-     *  Sends the query to a single server via a new UDP socket and returns the result,
-     *  verifying the response source IP and transaction ID.
-     * @param query 
-     * @param server
-     * @return
+     * Sends the query to a single upstream server over UDP and waits for a response.
+     * The received packet is validated against the expected source address and
+     * transaction ID before being returned.
+     *
+     * @param query raw DNS query packet
+     * @param server upstream DNS server to contact
+     * @return the forwarding result including status, response, and latency
      */
     private ForwardResult forwardOnceUDP(byte[] query, Forwarder server){
         long start= System.currentTimeMillis();
@@ -211,6 +214,14 @@ public class StubResolver {
         }
     }
 
+    /**
+     * Sends the query to a single upstream server over TCP.
+     * Used as a fallback when a UDP response is truncated.
+     *
+     * @param query raw DNS query packet
+     * @param server upstream DNS server to contact
+     * @return the forwarding result including status, response, and latency
+     */
     private ForwardResult forwardOnceTCP(byte[] query, Forwarder server){
         long start = System.currentTimeMillis();
         try (Socket socket =  new Socket()) {
@@ -249,15 +260,17 @@ public class StubResolver {
     }
 
     /**
-     * Returns the index of the next server to try,
-     * rotating for ROUND_ROBIN or always returning 0 for FAILOVER.
-     * @param total
-     * @return
+     * Determines the starting forwarder index for the current resolution attempt.
+     * In ROUND_ROBIN mode the index advances between requests, whereas FAILOVER
+     * mode always starts with the first configured server.
+     *
+     * @param total number of configured forwarders
+     * @return index of the forwarder to try first
      */
     private synchronized int nextStartIndex(int total){
         if(strategy== StubResolverStrategy.ROUND_ROBIN){
-            int index=RRindex;
-            RRindex=(RRindex+1)%total;
+            int index= RRIndex;
+            RRIndex =(RRIndex +1)%total;
             return index;
         }
         return 0;
@@ -266,8 +279,6 @@ public class StubResolver {
     /**
      * Constructs a SERVFAIL DNS response from the original query, used when all upstream attempts are exhausted.
      * Also clears all answer/authority/additional record counts
-     * @param query
-     * @return
      */
     static byte[] buildServFail(byte[] query){
         if (query.length < 12)
@@ -287,13 +298,23 @@ public class StubResolver {
         return r;
     }
 
+    /**
+     * Checks whether a DNS response indicates truncation and therefore
+     * requires retrying the query over TCP.
+     *
+     * @param response raw DNS response packet
+     * @return {@code true} if the TC flag is set, otherwise {@code false}
+     */
     private boolean resultIsTruncated(byte[] response){
         return response.length >= 4 && ((response[2] & 0x02) != 0);
     }
 
     /**
-     * Pauses execution for the given duration plus a small random jitter to avoid synchronized retries.
-     * @param ms
+     * Sleeps for the specified duration before another retry attempt.
+     * A small random jitter is added to avoid synchronized retry storms
+     * when multiple resolvers retry simultaneously.
+     *
+     * @param ms base delay in milliseconds
      */
     private static void sleep(long ms){
         if (ms <= 0) return;
@@ -306,7 +327,7 @@ public class StubResolver {
 
     /**
      * helper method for logging,
-     * logs event (TIMEOUT, SUCCESS, IO_ERROR) for every  questionSection seperately
+     * logs event (TIMEOUT, SUCCESS, IO_ERROR) for every  questionSection separately
      * (possibly different queried domains and qTypes in every questionSection, so for dashboard statistics probably relevant)
      * @params : all input needed by logDebug
      */

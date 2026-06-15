@@ -3,6 +3,11 @@ package io.gitlab.teamproject2026.config.interpreter;
 import java.util.List;
 import java.util.StringJoiner;
 
+/**
+ * Immutable node in the configuration abstract syntax tree (AST),
+ * representing a statement with its arguments, nested child statements,
+ * and source line number.
+ */
 public record ConfNode(String name, List<String> args, List<ConfNode> children, int lineNumber ) {
     public ConfNode {
         args =  List.copyOf(args);

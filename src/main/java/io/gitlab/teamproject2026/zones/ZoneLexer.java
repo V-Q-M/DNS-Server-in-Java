@@ -2,11 +2,8 @@ package io.gitlab.teamproject2026.zones;
 
 /**
  * Lexical analyzer for BIND-style DNS zone files.
- * Converts raw zone file text into a stream of typed tokens
- * used by the parser to construct DNS resource records.
- *
- * Supports DNS directives, domain names, IP addresses,
- * multiline records, comments, and quoted TXT strings.
+ * Converts raw zone file input into a stream of {@link ZoneToken}s
+ * consumed by the zone parser.
  */
 public class ZoneLexer {
     String input;
@@ -31,7 +28,7 @@ public class ZoneLexer {
      * Advances the lexer to the next character in the input stream.
      * Reaches '\0' when the end of input is encountered.
      */
-    public void readNextChar(){
+    private void readNextChar(){
         if (this.readPosition >= input.length()){
             this.ch = '\0';
         } else {

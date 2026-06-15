@@ -1,8 +1,7 @@
 package io.gitlab.teamproject2026.config.zones;
 /**
- * PRIMARY == MASTER
- * SECONDARY == SLAVE
- * I kept it for legacy reasons
+ * Supported DNS zone types. {@code MASTER} and {@code SLAVE} are retained
+ * as legacy aliases for {@code PRIMARY} and {@code SECONDARY}.
  */
 public enum ZoneType {
     PRIMARY, SECONDARY, MASTER, SLAVE;

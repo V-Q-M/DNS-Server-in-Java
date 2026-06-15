@@ -3,6 +3,11 @@ package io.gitlab.teamproject2026.config.interpreter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Recursive-descent parser for the DNS server configuration language.
+ * Consumes tokens produced by {@link ConfLexer} and builds a tree of
+ * {@link ConfNode}s representing the hierarchical configuration structure.
+ */
 public class ConfParser {
     private final ConfLexer lexer;
     private ConfToken current;
@@ -87,6 +92,7 @@ public class ConfParser {
     private static final String YELLOW = "\u001B[33m";
     private static final String CYAN   = "\u001B[36m";
     private static final String BOLD   = "\u001B[1m";
+
     /**
      * Reports a fatal config parsing error and marks the parser as failed.
      */

@@ -1,5 +1,10 @@
 package io.gitlab.teamproject2026.zones;
 
+/**
+ * Token types emitted by the zone file lexer while parsing DNS zone files.
+ * Covers generic lexical elements, zone directives, resource records,
+ * and DNSSEC-specific record types.
+ */
 public enum ZoneTokenType {
     ILLEGAL,
     EOF,

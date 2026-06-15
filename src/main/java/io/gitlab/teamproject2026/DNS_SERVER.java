@@ -19,6 +19,11 @@ import java.util.*;
 import java.sql.SQLException;
 
 
+/**
+ * Main entry point of the DNS server.
+ * Coordinates configuration loading, zone management, caching,
+ * query resolution, and UDP/TCP request handling.
+ */
 public class DNS_SERVER {
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
@@ -48,6 +53,10 @@ public class DNS_SERVER {
     private static InetAddress bindAddress;
     private static long startTime;
 
+    /**
+     * Intermediate result used while resolving a DNS query, separating
+     * resolved records from questions that still require further processing.
+     */
     public record DNSPayload(
             LinkedList<ResourceRecord> answer,
             LinkedList<ResourceRecord> authority,
@@ -55,6 +64,9 @@ public class DNS_SERVER {
             LinkedList<QuestionSection> notResolved) {
     }
 
+    /**
+     * Initializes the server and starts the UDP, TCP, and zone refresh workers.
+     */
     static void main(String[] args) {
         initializeServer(args);
         new Thread(DNS_SERVER::handleUDP).start();
@@ -62,13 +74,13 @@ public class DNS_SERVER {
         new Thread(DNS_SERVER::handleZoneRefresh).start();
     }
 
-    // Check if its time to refresh the zones and perform the refresh if needed
+    // Check if it's time to refresh the zones and perform the refresh if needed
     private static void handleZoneRefresh() {
         OptionSection options = serverConfig.options();
         String dir = options.dir();
         Map<String, Long> lastRefreshZoneBy = new HashMap<>();
 
-        while (true) {
+        while (!Thread.currentThread().isInterrupted()) {
             long now = System.currentTimeMillis();
 
             for (String zone : zoneCatalog) {
@@ -175,7 +187,7 @@ public class DNS_SERVER {
 
     private static void handleTCP(){
         // Open TCP socket
-        try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress);) {
+        try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress)) {
             IO.println(GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET);
 
             // Server loop
@@ -230,7 +242,9 @@ public class DNS_SERVER {
 
 
 
-    // Startup helpers
+    /**
+     * Initializes the server state from configuration and command-line arguments.
+     */
     private static void initializeServer(String[] args){
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
@@ -342,7 +356,9 @@ public class DNS_SERVER {
         }
     }
 
-    // Query handling logic
+    /**
+     * Handles an incoming DNS query and produces the corresponding response.
+     */
     private static byte[] handleQuery(byte[] data){
         // Map byteData to oop classes
         DNSPacket oopPacket = DNSPacket.fromBytes(data);
@@ -501,7 +517,7 @@ public class DNS_SERVER {
                             // then go back to step 1 with the new QNAME (= restart the while loop)
                             payload.answer.addAll(cnameMatches);
                             currentName = String.join(".",
-                                    ((RDataCNAME) cnameMatches.get(0).getRdata()).getCname()).toLowerCase();
+                                    ((RDataCNAME) cnameMatches.getFirst().getRdata()).getCname()).toLowerCase();
                             continue; //  restart = "go back to step 1" per RFC
                         }
                     }
@@ -629,7 +645,7 @@ public class DNS_SERVER {
      * notResolved part of the record
      *
      * @param query        the DNS query which is to be resolved
-     * @param cacheHandler the CacheHandler with which the function accesses teh
+     * @param cacheHandler the CacheHandler with which the function accesses the
      *                     cache
      * @return A DNSPayload record containing the resolved Records and the Records
      *         that have yet to be resolved

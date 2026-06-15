@@ -4,10 +4,8 @@ import io.gitlab.teamproject2026.DNSZone;
 import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
 import io.gitlab.teamproject2026.config.options.OptionSection;
-import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
-import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import io.gitlab.teamproject2026.zones.ZoneParser;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 
@@ -18,10 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Loads and stores DNS zones parsed from BIND-style zone files.
+ * Utility class for loading, parsing, and validating {@link Config}
+ * instances and {@link DNSZone}s, providing fallbacks to sensible defaults
+ * when errors occur.
  */
 public class ConfigManager {
-    /** Loaded zones indexed by their normalized origin name. */
     private static String zoneDir = "";
 
     private static final String RESET  = "\u001B[0m";
@@ -38,6 +37,14 @@ public class ConfigManager {
         );
     }
 
+    /**
+     * Loads, parses, and interprets the server configuration file.
+     * If the configuration cannot be read or contains errors, a default
+     * {@link Config} is returned instead.
+     *
+     * @param configName path to the configuration file
+     * @return the loaded {@link Config}, or the default configuration if loading fails
+     */
     public static Config loadConfig(String configName) {
         Path confPath = Path.of(configName);
 
@@ -69,12 +76,14 @@ public class ConfigManager {
     }
 
     /**
-     * Loads a zone file from the given path.
-     * The file is parsed into a DNSZone and returned.
-     * Files with parser errors, missing origins, or missing TTLs are skipped.
+     * Loads and parses a DNS zone file into a {@link DNSZone}.
+     * Returns {@code null} if the file cannot be read, contains parser errors,
+     * or is missing mandatory information such as the origin or default TTL.
      *
-     * @param filePath path containing a filePath as String
-     * @returns DNSZone
+     * @param dir base directory used to resolve relative zone file paths
+     * @param filePath path to the zone file
+     * @param origin expected zone origin
+     * @return the parsed zone, or {@code null} if loading fails
      */
     public static DNSZone loadZoneFile(String dir, String filePath, String origin) {
         zoneDir = dir;
@@ -82,7 +91,7 @@ public class ConfigManager {
         if (!f.isAbsolute()){
             f = Path.of(dir).resolve(filePath);
         }
-        IO.println("[ZONE] Parsing zonefile: \"" + f.getFileName() + "\"");
+        IO.println("[ZONE] Parsing zone file: \"" + f.getFileName() + "\"");
 
         String content;
         try {
@@ -124,8 +133,7 @@ public class ConfigManager {
                 break;
             }
         }
-        DNSZone zone = new DNSZone(zoneOrigin, defaultTtl, serial, refresh, new ArrayList<>(zoneRecords));
-        return zone;
+        return new DNSZone(zoneOrigin, defaultTtl, serial, refresh, new ArrayList<>(zoneRecords));
     }
 
     public static String getZoneDir(){

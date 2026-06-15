@@ -9,6 +9,11 @@ import io.gitlab.teamproject2026.model.rdata.*;
 import java.sql.*;
 import java.util.*;
 
+/**
+ * Provides persistence operations for authoritative DNS zone data.
+ * Handles insertion, deletion, replacement, and lookup of resource
+ * records stored in the database.
+ */
 public class ZoneHandler {
     private final Connection conn;
 
@@ -33,21 +38,45 @@ public class ZoneHandler {
     private static final String[] ALL_RDATA_TABLES = {
             "zone_a_rdata", "zone_aaaa_rdata", "zone_cname_rdata", "zone_mx_rdata", "zone_ns_rdata", "zone_ptr_rdata", "zone_soa_rdata", "zone_txt_rdata"
     };
+
+    /**
+     * Maps a database row to a concrete RData implementation.
+     */
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
     }
 
+    /**
+     * Fills a prepared statement with record-specific parameters.
+     */
     @FunctionalInterface
     private interface StatementFiller {
         void fill(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException;
     }
 
+    /**
+     * Creates a handler using the shared database connection.
+     *
+     * @param provider database connection provider
+     */
     public ZoneHandler(DatabaseConnectionProvider provider){
         this.conn = provider.getConnection();
     }
 
 
+    /**
+     * Executes a type-specific lookup query and reconstructs
+     * the resulting resource records using the supplied mapper.
+     *
+     * @param name queried owner name
+     * @param sql SQL statement used for the lookup
+     * @param type expected RR type
+     * @param zone authoritative zone
+     * @param mapper converts ResultSet rows into RData objects
+     * @return matching resource records
+     * @throws SQLException if the database query fails
+     */
     private List<ResourceRecord> lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper) throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -70,20 +99,34 @@ public class ZoneHandler {
     }
 
     /**
-     * Gets the 1 SOA record of a given zone
-     * @param zone
-     * @return
-     * @throws SQLException
+     * Returns the SOA record associated with the specified zone.
+     *
+     * @param zone authoritative zone name
+     * @return the zone's SOA RDATA
+     * @throws SQLException if the database query fails
+     * @throws NoSuchElementException if the zone does not contain an SOA record
      */
     public RDataSOA lookupZoneSoa(String zone) throws SQLException {
         return (RDataSOA) lookup(zone, RRType.SOA, zone).getFirst().getRdata();
     }
 
+    /**
+     * Atomically replaces all records belonging to a zone.
+     *
+     * @param zone zone to replace
+     * @throws SQLException if the database update fails
+     */
     public void replaceZone(DNSZone zone) throws SQLException {
         clearZone(zone.origin());
         insertZone(zone);
     }
 
+    /**
+     * Removes all records belonging to the specified zone.
+     *
+     * @param zone zone to clear
+     * @throws SQLException if the database update fails
+     */
     public void clearZone(String zone) throws SQLException {
         Statement stmt = conn.createStatement();
         for(String table : ALL_RDATA_TABLES){
@@ -256,6 +299,15 @@ public class ZoneHandler {
         stmt.setArray(5, conn.createArrayOf("text", ((RDataTXT) r.getRdata()).getTxtdata()));
     }
 
+    /**
+     * Executes a type-specific INSERT for a single resource record.
+     *
+     * @param insertSql INSERT statement to execute
+     * @param r record to insert
+     * @param zone target zone
+     * @param filler fills the prepared statement parameters
+     * @throws SQLException if insertion fails
+     */
     private void singleInsert(String insertSql, ResourceRecord r, String zone, StatementFiller filler) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
             filler.fill(stmt, r, zone);
