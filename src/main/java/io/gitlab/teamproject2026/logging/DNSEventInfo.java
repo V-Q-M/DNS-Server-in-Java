@@ -6,9 +6,10 @@ public record DNSEventInfo(DNSEventType eventType,
                            String id,
                            String domain,
                            RRType qType,
-                           long latencyMs) {
+                           long latencyMs,
+                           ResponseSource source) {
 
-    public static DNSEventInfo info(DNSEventType type, String id, String domain, RRType qType, long latencyMs) {
-        return new DNSEventInfo(type, id, domain, qType, latencyMs);
+    public static DNSEventInfo info(DNSEventType type, String id, String domain, RRType qType, long latencyMs, ResponseSource source) {
+        return new DNSEventInfo(type, id, domain, qType, latencyMs, source);
     }
 }

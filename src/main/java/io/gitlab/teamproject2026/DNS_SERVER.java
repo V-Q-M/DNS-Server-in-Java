@@ -361,7 +361,7 @@ public class DNS_SERVER {
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
-            payload = zoneLookUp(oopPacket);
+            payload = zoneLookUp(oopPacket, id);
             // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
             // True NXDOMAIN only when ALL sections are empty:
             // authority may contain NS records from an authoritative zone answer
@@ -387,8 +387,8 @@ public class DNS_SERVER {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
-                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L)); //since cache isn't checked latency is 0
-                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L,
+                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
+                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
                         resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
 
             }
@@ -419,7 +419,7 @@ public class DNS_SERVER {
         }
         return byteResponse;
     }
-    private static DNSPayload zoneLookUp(DNSPacket oopPacket) {
+    private static DNSPayload zoneLookUp(DNSPacket oopPacket, String id) {
         DNSPayload payload = new DNSPayload(
                 new LinkedList<>(),
                 new LinkedList<>(),
@@ -459,6 +459,9 @@ public class DNS_SERVER {
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
+                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
+                                resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
@@ -535,13 +538,13 @@ public class DNS_SERVER {
                 RRType qType = request.getQtype();
                 if (cacheResult.notResolved.contains(request)) {
                     IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
+                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE,resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                 } else {
                     IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET );
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart));
-                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L,
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
+                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
                             resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
 
                 }
@@ -555,10 +558,10 @@ public class DNS_SERVER {
 
         } catch (SQLException e) {
             // log
-            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L)); //no query, so everything except DNSEventType null
+            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L,ResponseSource.CACHE)); //no query, so everything except DNSEventType null
 
             LoggingFeature.logDebug(DNSEventDebug.debug(
-                    DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart,
+                    DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
                     null, null, null, -1,
                     "Connection to cache Server has been lost, assume internal Server error",
                     null));//debug fields.
@@ -566,8 +569,8 @@ public class DNS_SERVER {
             // payload.notResolved already has the unresolved questions from zone lookup,
             // no need to add them again – just log them as misses for the stub resolver
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
-                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart));
-                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,
+                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,ResponseSource.CACHE));
+                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
                         resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
             }
         }
@@ -796,11 +799,11 @@ public class DNS_SERVER {
 
     // Log helpers
     private static void logCacheConnectionLost(long startTime) {
-        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L));
+        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L, ResponseSource.CACHE));
         LoggingFeature.logDebug(DNSEventDebug.debug(
                 DNSEventType.CACHE_ERROR,
                 null, null, null,
-                System.currentTimeMillis() - startTime,
+                System.currentTimeMillis() - startTime,ResponseSource.CACHE,
                 null, null, null, -1,
                 "Connection to cache Server has been lost, assume internal Server error",
                 null
@@ -811,13 +814,13 @@ public class DNS_SERVER {
         LoggingFeature.logInfo(DNSEventInfo.info(
                 DNSEventType.CACHE_ERROR,
                 null, null, null,
-                System.currentTimeMillis() - startTime
+                System.currentTimeMillis() - startTime,ResponseSource.CACHE
         ));
 
         LoggingFeature.logDebug(DNSEventDebug.debug(
                 DNSEventType.CACHE_ERROR,
                 null, null, null,
-                System.currentTimeMillis() - startTime,
+                System.currentTimeMillis() - startTime,ResponseSource.CACHE,
                 null, null, null, -1,
                 "Entries couldn't be inserted into Cache. Assume cache connection is lost",
                 null

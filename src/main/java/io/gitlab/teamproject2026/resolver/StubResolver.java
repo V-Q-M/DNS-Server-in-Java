@@ -16,6 +16,7 @@ import io.gitlab.teamproject2026.logging.LoggingFeature;
 import io.gitlab.teamproject2026.logging.DNSEventInfo;
 import io.gitlab.teamproject2026.logging.DNSEventDebug;
 import io.gitlab.teamproject2026.logging.DNSEventType;
+import io.gitlab.teamproject2026.logging.ResponseSource;
 
 
 public class StubResolver {
@@ -320,12 +321,12 @@ public class StubResolver {
             RRType qType = question.getQtype();
             //log info
             if (type != DNSEventType.TIMEOUT && type != DNSEventType.IO_ERROR) {
-                LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency));
+                LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency, ResponseSource.FORWARDER));
             }
             //log debug
             LoggingFeature.logDebug(DNSEventDebug.debug(
-                type, id, domain, qType, latency,
-                this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
+                    type, id, domain, qType, latency, ResponseSource.FORWARDER,
+                    this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
             ));
         }
     }
