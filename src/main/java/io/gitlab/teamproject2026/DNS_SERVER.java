@@ -361,7 +361,7 @@ public class DNS_SERVER {
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
-            payload = zoneLookUp(oopPacket);
+            payload = zoneLookUp(oopPacket, id);
             // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
             // True NXDOMAIN only when ALL sections are empty:
             // authority may contain NS records from an authoritative zone answer
@@ -419,7 +419,7 @@ public class DNS_SERVER {
         }
         return byteResponse;
     }
-    private static DNSPayload zoneLookUp(DNSPacket oopPacket) {
+    private static DNSPayload zoneLookUp(DNSPacket oopPacket, String id) {
         DNSPayload payload = new DNSPayload(
                 new LinkedList<>(),
                 new LinkedList<>(),
@@ -459,6 +459,9 @@ public class DNS_SERVER {
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
+                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
+                                resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
