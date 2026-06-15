@@ -1,6 +1,3 @@
-CREATE DATABASE dns;
-\connect dns
-GRANT ALL ON DATABASE dns TO postgres;
 
 CREATE DOMAIN uint AS bigint CHECK(VALUE >= 0 AND VALUE < 2^32);
 

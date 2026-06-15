@@ -3,9 +3,10 @@ package io.gitlab.teamproject2026.database;
 import java.sql.*;
 
 public class DatabaseConnectionProvider {
-    private String url = "jdbc:postgresql://localhost:5432/dns";
-    private String user = "postgres";
-    private String password = "example";
+
+    private String url = System.getenv().getOrDefault( "DB_URL", "jdbc:postgresql://localhost:5432/dns");
+    private String user = System.getenv().getOrDefault( "DB_USER", "postgres");
+    private String password = System.getenv().getOrDefault( "DB_PASSWORD", "example");
     private final Connection dbConnection;
 
     public DatabaseConnectionProvider(String url, String user, String password) throws SQLException,ClassNotFoundException {

@@ -40,6 +40,7 @@ public class DNS_SERVER {
     // mustn't be changed anywhere in the Server loop, as it dictates whether we are
     // testing in the CI
     private static boolean testing = false;
+    private static boolean lessLog = false;
 
     private static String forwardMode;
     private static Config serverConfig;
@@ -69,6 +70,7 @@ public class DNS_SERVER {
      */
     static void main(String[] args) {
         initializeServer(args);
+        new Thread(DNS_SERVER::handleCacheCleanUp).start();
         new Thread(DNS_SERVER::handleUDP).start();
         new Thread(DNS_SERVER::handleTCP).start();
         new Thread(DNS_SERVER::handleZoneRefresh).start();
@@ -93,7 +95,9 @@ public class DNS_SERVER {
                     if (now - lastRefresh < refreshMillis) {
                         continue;
                     }
-                    IO.println(BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET);
+                    if (!lessLog) {
+                        IO.println(BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET);
+                    }
 
                     lastRefreshZoneBy.put(zone, now);
 
@@ -105,12 +109,16 @@ public class DNS_SERVER {
                     DNSZone newLoadedZone = ConfigManager.loadZoneFile(dir, file, zone);
 
                     if (newLoadedZone != null) {
-                        IO.println("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial());
+                        if (!lessLog) {
+                            IO.println("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial());
+                        }
                         if (newLoadedZone.serial() != zoneSoa.getSerial()) {
                             IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
                             zoneHandler.replaceZone(newLoadedZone);
                         } else {
-                            IO.println(GREEN + "[ZONE] Serials match -> Nothing to do" + RESET);
+                            if (!lessLog) {
+                                IO.println(GREEN + "[ZONE] Serials match -> Nothing to do" + RESET);
+                            }
                         }
                     }
 
@@ -146,10 +154,6 @@ public class DNS_SERVER {
 
             // Server loop
             while (true) {
-                // validate Cache, if Cache cannot be validated, assume internal server error
-                // and crash. Disable during testing
-                validateDatabase();
-
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -160,9 +164,11 @@ public class DNS_SERVER {
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
 
-                IO.println(BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET);
-                // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                IO.println("[SERVER] IN: " + toHex(data));
+                if (!lessLog) {
+                    IO.println(BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET);
+                    // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
+                    IO.println("[SERVER] IN: " + toHex(data));
+                }
 
                 // Handle the query and receive a byte array as response
                 byte[] byteResponse = handleQuery(data);
@@ -177,8 +183,10 @@ public class DNS_SERVER {
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
 
-                IO.println(BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET);
-                IO.println("[SERVER] OUT: " + toHex(byteResponse));
+                if (!lessLog) {
+                    IO.println(BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET);
+                    IO.println("[SERVER] OUT: " + toHex(byteResponse));
+                }
             }
         } catch (IOException e){
             throw new RuntimeException(e);
@@ -192,10 +200,6 @@ public class DNS_SERVER {
 
             // Server loop
             while (true) {
-                // validate Cache, if Cache cannot be validated, assume internal server error
-                // and crash. Disable during testing
-                validateDatabase();
-
                 try (Socket socket = serverSocket.accept()) {
                     DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
                     DataOutputStream output = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
@@ -211,9 +215,11 @@ public class DNS_SERVER {
                         System.err.println(RED + "[SERVER-ERROR] Incomplete DNS query" + RESET);
                         continue;
                     }
-                    IO.println(BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET);
+                    if (!lessLog) {
+                        IO.println(BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET);
 
-                    IO.println("[SERVER] IN: " + toHex(data));
+                        IO.println("[SERVER] IN: " + toHex(data));
+                    }
 
                     byte[] response = handleQuery(data);
 
@@ -226,8 +232,10 @@ public class DNS_SERVER {
                     output.write(response);
                     output.flush();
 
-                    IO.println(BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET);
-                    IO.println("[SERVER] OUT: " + toHex(response));
+                    if (!lessLog) {
+                        IO.println(BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET);
+                        IO.println("[SERVER] OUT: " + toHex(response));
+                    }
 
 
                 } catch (IOException e) {
@@ -316,6 +324,8 @@ public class DNS_SERVER {
                 i++;
             } else if (args[i].equals("--testing")) {
                 testing = true;
+            } else if (args[i].equals("--less-log")) {
+                lessLog = true;
             }
         }
     }
@@ -341,18 +351,24 @@ public class DNS_SERVER {
     }
 
     // cache helper
-    private static void validateDatabase(){
-        startTime = System.currentTimeMillis();
-        if (testing || cacheHandler == null) {
-            return;
-        }
-        try {
-            cacheHandler.deleteExpired();
-        } catch (SQLException e) {
-            IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
-            // log and enable testing mode as cache entries cannot be ensured to be valid
-            logCacheConnectionLost(startTime);
-            testing = true;
+    private static void handleCacheCleanUp() {
+        while (!Thread.currentThread().isInterrupted()) {
+            if (!testing && cacheHandler != null) {
+                long cleanupStart = System.currentTimeMillis();
+                try {
+                    cacheHandler.deleteExpired();
+                } catch (SQLException e) {
+                    IO.println(RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET);
+                    logCacheConnectionLost(cleanupStart);
+                    testing = true;
+                }
+            }
+            try {
+                Thread.sleep(10_000); // every 10 seconds
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
         }
     }
 
@@ -504,7 +520,9 @@ public class DNS_SERVER {
                                 default -> payload.answer.add(record);
                             }
                         }
-                        IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
+                        if (!lessLog) {
+                            IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
+                        }
                         break; // records found -> done with this question
                     }
 
@@ -555,12 +573,16 @@ public class DNS_SERVER {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
                 if (cacheResult.notResolved.contains(request)) {
-                    IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET );
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE,resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                    if (!lessLog) {
+                        IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
+                    }
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
+                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                 } else {
-                    IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET );
+                    if (!lessLog) {
+                        IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET);
+                    }
                     LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
                     LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
                             resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
@@ -800,7 +822,7 @@ public class DNS_SERVER {
         List<String> zoneCatalog = new ArrayList<>();
         try{
             zoneHandler.clearAll();
-            for (ZoneSection zone : declaredZones){
+            for (ZoneSection zone : declaredZones) {
                 // Collect all zones specified in the config
                 DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
                 if (loadedZone != null) {
@@ -808,10 +830,10 @@ public class DNS_SERVER {
                     zoneCatalog.add(zone.name());
                 }
             }
-        }catch (SQLException e) {
+        } catch (Exception e) {
             System.err.println(RED + "Failed to insert zone files to the zone database, continuing without it" + RESET);
+            //e.printStackTrace();
         }
-
         return zoneCatalog;
     }
 

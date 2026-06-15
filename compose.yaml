@@ -5,8 +5,10 @@ services:
     container_name: postgres
     restart: always
     shm_size: 128mb
-    environment: 
+    environment:
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: example
+      POSTGRES_DB: dns
 
     # portmapping for the container
     # 1337:5432 maps Port 1337 of the host to Port 5432 of the container.

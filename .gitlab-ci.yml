@@ -17,11 +17,29 @@ tests:
     - shared
   stage: test
   image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
+
+  services:
+    - name: postgres:latest
+      alias: db
+
+  variables:
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: example
+    POSTGRES_DB: dns
+
+    DB_HOST: db
+    DB_URL: jdbc:postgresql://db:5432/dns
+    DB_USER: postgres
+    DB_PASSWORD: example
+
   before_script:
     - apt-get update -qy
-    - apt-get upgrade -y
-    - apt-get install -y dnsutils
+    - apt-get install -y dnsutils postgresql-client
     - chmod +x ./test_server.sh
+    - until pg_isready -h db -p 5432 -U postgres; do sleep 1; done
+    - cat postgres/init-scripts/init.sql
+    - PGPASSWORD=example psql -h db -U postgres -d dns -f postgres/init-scripts/init.sql
+
   script:
     - echo "Running blackbox tests..."
     # Run blackbox tests
@@ -30,10 +48,15 @@ tests:
     # -
     - echo "Running unit tests..."
     - mvn test
+
+  after_script:
+    - cat server.log || true
+
   artifacts:
     when: always
     paths:
-      - ./target/surefire-reports/*
+      - server.log
+      - target/surefire-reports/*
     reports:
       junit:
         - ./target/surefire-reports/*.xml
