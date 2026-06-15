@@ -27,79 +27,89 @@
 ## Project Structure
 
 ```text
-src
-└── main
-    └── java
-        └── io
-            └── gitlab
-                └── teamproject2026
-                    ├── cache
-                    │   ├── CacheConnectionProvider.java
-                    │   └── CacheHandler.java
-                    ├── config
-                    │   ├── Config.java
-                    │   ├── ConfigManager.java
-                    │   ├── ConfLexer.java
-                    │   ├── ConfLoader.java
-                    │   ├── ConfNode.java
-                    │   ├── ConfParser.java
-                    │   ├── ConfToken.java
-                    │   ├── ConfTokenType.java
-                    │   ├── OptionConfig.java
-                    │   ├── ZoneConfig.java
-                    │   └── ZoneType.java
-                    ├── data
-                    │   └── MockResponses.java
-                    ├── logging
-                    │   ├── DNSEventDebug.java
-                    │   ├── DNSEventInfo.java
-                    │   ├── DNSEventType.java
-                    │   └── LoggingFeature.java
-                    ├── model
-                    │   ├── DNSPacket.java
-                    │   ├── OpCode.java
-                    │   ├── QuestionSection.java
-                    │   ├── RCode.java
-                    │   ├── ResourceRecord.java
-                    │   ├── RRClass.java
-                    │   ├── RRType.java
-                    │   └── rdata
-                    │       ├── RData.java
-                    │       ├── RDataA.java
-                    │       ├── RDataAAAA.java
-                    │       ├── RDataCNAME.java
-                    │       ├── RDataMX.java
-                    │       ├── RDataNS.java
-                    │       ├── RDataPTR.java
-                    │       ├── RDataSOA.java
-                    │       └── RDataTXT.java
-                    ├── zones
-                    │   ├── ZoneLexer.java
-                    │   ├── ZoneParser.java
-                    │   ├── ZoneToken.java
-                    │   └── ZoneTokenType.java
-                    ├── DNS_SERVER.java
-                    ├── DNSParser.java
-                    ├── DNSZone.java
-                    └── StubResolver.java
+src                                                         
+└── main                                                    
+    └── java                                                
+        └── io                                              
+            └── gitlab                                      
+                └── teamproject2026                         
+                    ├── config                              
+                    │   ├── Config.java                     
+                    │   ├── ConfigManager.java              
+                    │   ├── interpreter                     
+                    │   │   ├── ConfInterpreter.java        
+                    │   │   ├── ConfLexer.java              
+                    │   │   ├── ConfNode.java               
+                    │   │   ├── ConfParser.java             
+                    │   │   ├── ConfToken.java              
+                    │   │   └── ConfTokenType.java          
+                    │   ├── options                         
+                    │   │   ├── OptionSection.java          
+                    │   │   └── ResolverSection.java        
+                    │   └── zones                           
+                    │       ├── ZoneSection.java            
+                    │       └── ZoneType.java               
+                    ├── data                                
+                    │   └── MockResponses.java              
+                    ├── database                            
+                    │   ├── CacheHandler.java               
+                    │   ├── DatabaseConnectionProvider.java 
+                    │   └── ZoneHandler.java                
+                    ├── DNS_SERVER.java                     
+                    ├── DNSParser.java                      
+                    ├── DNSZone.java                        
+                    ├── logging                             
+                    │   ├── DNSEventDebug.java              
+                    │   ├── DNSEventInfo.java               
+                    │   ├── DNSEventType.java               
+                    │   └── LoggingFeature.java             
+                    ├── model                               
+                    │   ├── DNSPacket.java                  
+                    │   ├── OpCode.java                     
+                    │   ├── QuestionSection.java            
+                    │   ├── RCode.java                      
+                    │   ├── rdata                           
+                    │   │   ├── RData.java                  
+                    │   │   ├── RDataA.java                 
+                    │   │   ├── RDataAAAA.java              
+                    │   │   ├── RDataCNAME.java             
+                    │   │   ├── RDataMX.java                
+                    │   │   ├── RDataNS.java                
+                    │   │   ├── RDataPTR.java               
+                    │   │   ├── RDataSOA.java               
+                    │   │   └── RDataTXT.java               
+                    │   ├── ResourceRecord.java             
+                    │   ├── RRClass.java                    
+                    │   └── RRType.java                     
+                    ├── resolver                            
+                    │   ├── Forwarder.java                  
+                    │   ├── StubResolver.java               
+                    │   └── StubResolverStrategy.java       
+                    └── zones                               
+                        ├── ZoneLexer.java                  
+                        ├── ZoneParser.java                 
+                        ├── ZoneToken.java                  
+                        └── ZoneTokenType.java              
 ```
 
 ### Package Overview
 
-| Package        | Purpose                                    |
-|----------------|--------------------------------------------|
-| `cache`        | Database-backed DNS cache implementation   |
-| `config`       | `named.conf` lexing, parsing and loading   | 
-| `data`         | Static mock DNS response data              |
-| `logging`      | DNS event logging infrastructure           |
-| `model`        | DNS packet, record, and protocol models    |
-| `model.rdata`  | Resource record data implementations       |
-| `zones`        | DNS zone-file lexer and parser (BIND9)     |
-| `DNS_SERVER`   | Main server entry point                    |
-| `DNSParser`    | DNS packet parsing and serialization       |
-| `DNSZone`      | Parsed DNS zone, contains zone records     |
-| `StubResolver` | Upstream DNS query forwarding and failover |
-
+| Package / Class      | Purpose                                                                                                                                                                  |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `config`             | Configuration loading and `named.conf` lexing/parsing infrastructure.                                                                                                    |
+| `config.interpreter` | Lexer, parser, and AST components used to interpret `named.conf`.                                                                                                        |
+| `config.options`     | Configuration models for server, resolver, and runtime options.                                                                                                          |
+| `config.zones`       | Configuration models describing authoritative zones.                                                                                                                     |
+| `data`               | Static mock DNS response data used for testing and development.                                                                                                          |
+| `database`           | Database access layer for caching and authoritative zone persistence. Includes cache management (`CacheHandler`), zone storage (`ZoneHandler`), and connection handling. |
+| `logging`            | DNS event logging infrastructure and event representations used for monitoring and debugging.                                                                            |
+| `model`              | Core DNS protocol models, including packets, questions, resource records, opcodes, and response codes.                                                                   |
+| `model.rdata`        | Implementations of DNS resource-record payloads (RDATA) for supported record types.                                                                                      |
+| `resolver`           | Stub resolver implementation, upstream forwarder definitions, and forwarding strategies used for external DNS resolution.                                                |
+| `zones`              | BIND-style DNS zone-file lexer, parser, and token definitions for authoritative zone loading.                                                                            |
+| `DNS_SERVER`         | Main server entry point coordinating configuration, networking, caching, authoritative zones, and query processing.                                                      |
+| `DNSParser`          | DNS packet parsing and serialization utilities.                                                                                                                          |
+| `DNSZone`            | Representation of a parsed authoritative DNS zone, including metadata and resource records.                                                                              |
  
 ## Requirements
 - Java 25
@@ -137,7 +147,7 @@ run -Dexec.args="-p 2222"
 ### Windows
 Alternatively, add a function shortcut 
 ```PowerShell
-function run { mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER"}
+function run { mvn exec:java "-Dexec.mainClass=io.gitlab.teamproject2026.DNS_SERVER"}
 ```
 
 You can then start the server using the shortcut and optionally pass command-line parameters:
@@ -572,7 +582,7 @@ Supported values:
 
 ## Database config files
 You can change the configuration of the PostgreSQL server both in the `compose.yaml` and the `postgres/postgres.conf` files.  
-- `compose.yaml` determines how the Docker container is created and initialised. For example, it configures the container such that, the `postgres.conf`  file is mounted in the container to `/etc/postgresql/postgresql.conf` directory and used as the main config file for the PostgreSQL server. 
+- `compose.yaml` determines how the Docker container is created and initialized. For example, it configures the container such that, the `postgres.conf`  file is mounted in the container to `/etc/postgresql/postgresql.conf` directory and used as the main config file for the PostgreSQL server. 
 - `postgres.conf` is the config file for the PostgreSQL server itself
 
 Finally, you can configure the initial state of the database by mounting scripts to the `/docker-entrypoint-initdb.d/` directory within the container, as any `.sql` or `.sh` scripts will automatically be executed on container startup. 
