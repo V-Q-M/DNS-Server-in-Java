@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
 /**
  * Interface for all DNS RDATA types.
@@ -39,6 +40,13 @@ public interface RData {
             case PTR -> RDataPTR.fromBytes(bytes, byteIndex);
             case SOA -> RDataSOA.fromBytes(bytes, byteIndex);
             case TXT -> RDataTXT.fromBytes(bytes, byteIndex, rdlength);
+            case DS -> new RDataDS(bytes, byteIndex);
+            case RRSIG -> new RDataRRSIG(bytes, byteIndex);
+            case NSEC -> new RDataNSEC(bytes, byteIndex);
+            case NSEC3 -> new RDataNSEC3(bytes, byteIndex);
+            case NSEC3PARAM -> new RDataNSEC3PARAM(bytes, byteIndex);
+            case DNSKEY -> new RDataDNSKEY(bytes, byteIndex);
+            case UNKNOWN -> new UnknownRDataType(bytes, byteIndex);
         };
     }
 }

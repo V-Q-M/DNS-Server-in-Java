@@ -1,0 +1,62 @@
+package io.gitlab.teamproject2026.model.rdata.dnssec;
+
+import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.DNSPacket;
+import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.rdata.RData;
+
+import java.util.Arrays;
+import java.util.HexFormat;
+
+/**
+ * Represents a DNS NSEC record.
+ * Provides authenticated denial of existence in DNSSEC.
+ * Lists the next domain name and existing RR types for an owner name.
+ */
+public record RDataNSEC(String[] nextDomainName, byte[] typeBitMaps) implements RData {
+    public RDataNSEC(byte[] bytes, int byteIndex){
+        if (bytes.length == 0) {
+            throw new IllegalArgumentException("NSEC RDATA cannot be empty");
+        }
+
+        String[] nextDomainName = (DNSParser.parseName(bytes,byteIndex));
+        byteIndex += DNSParser.countNameLength(bytes,byteIndex);
+        byte[] typeBitMaps = Arrays.copyOfRange(bytes, byteIndex, bytes.length);
+
+        this(nextDomainName, typeBitMaps);
+    }
+
+    @Override
+    public RRType getType() {
+        return RRType.NSEC;
+    }
+
+    public String[] getNextDomainName(){ return this.nextDomainName; }
+    public byte[] getTypeBitMaps() { return typeBitMaps; }
+
+    @Override
+    public String toString() {
+        return  "{\n" +
+                "        nextDomainName: " + String.join(".", nextDomainName) +
+                ",\n        typeBitMaps: " + HexFormat.of().formatHex(typeBitMaps) +
+                "\n   }";
+    }
+
+    @Override
+    public byte[] toBytes() {
+        byte[] nextDomainNameBytes = DNSPacket.encodeName(nextDomainName);
+
+        byte[] result = new byte[nextDomainNameBytes.length + typeBitMaps.length];
+
+        int pos = 0;
+        System.arraycopy(nextDomainNameBytes, 0, result, pos, nextDomainNameBytes.length);
+
+        pos += nextDomainNameBytes.length;
+
+        System.arraycopy(typeBitMaps, 0, result, pos, typeBitMaps.length);
+
+        return result;
+    }
+
+
+}

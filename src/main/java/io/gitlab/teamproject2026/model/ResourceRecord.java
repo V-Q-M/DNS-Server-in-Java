@@ -3,7 +3,6 @@ package io.gitlab.teamproject2026.model;
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.rdata.RData;
 
-import java.util.Arrays;
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 /**
  * Represents the Answer Section of a DNS packet.
