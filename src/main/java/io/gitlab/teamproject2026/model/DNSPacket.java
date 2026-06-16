@@ -307,7 +307,6 @@ public class DNSPacket {
             System.arraycopy(ar, 0, result, pos, ar.length);
             pos += ar.length;
         }
-
         return result;
     }
 

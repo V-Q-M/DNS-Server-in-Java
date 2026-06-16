@@ -216,11 +216,23 @@ The parameter `-a` is used to specify a custom IP address.
 mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-a 0.0.0.0"
 ```
 
-The parameter `--testing` is used to enable test mode, which disables accessing of external resources which cause errors in the CI pipeline.
+
+OBSOLETE: The parameter `--testing` is used to enable test mode, which disables accessing of external resources which cause errors in the CI pipeline.
 ```bash
 mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="--testing"
 ``` 
 Internally, this sets a parameter in the `DNS_SERVER` class and can be accessed by calling the `getTestingStatus` function.
+
+The parameter `--less-log` is used to disable a few server messages. This increases the performance a bit. Useful for CI. 
+```bash
+mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="--less-log"
+``` 
+
+The parameter `--minimal-responses` is used to disable glue data for `NS` and `MX` records. This should only be used for CI testing or if performance is important 
+```bash
+mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="--minimal-responses"
+``` 
+
 
 ## DNS server config file (`named.conf`)
 The DNS server supports a BIND-style configuration file called `named.conf`.

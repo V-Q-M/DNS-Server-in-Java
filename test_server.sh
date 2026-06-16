@@ -51,7 +51,7 @@ startDatabase() {
 
 startServer() {
     mvn compile
-    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1}" > server.log 2>&1 &
+    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --less-log --minimal-responses" > server.log 2>&1 &
     echo "Attempt to start server on port ${1}..."
 }
 
@@ -112,7 +112,7 @@ testStubResolver(){
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "134.2.10.224" ${NOCACHE}
     doLookup "uni-tuebingen.de" "AAAA" "2001:7c0:300c:30f0::8602:501" ${NOCACHE}
     doLookup "uni-tuebingen.de" "NS" "dns1.belwue.de." ${NOCACHE}
-    # doLookup "uni-tuebingen.de" "NS" "ANSWER: 4" ${NOCACHE} # weird test, sometimes is answer, sometimes is authority
+    doLookup "uni-tuebingen.de" "NS" "ANSWER: 4" ${NOCACHE} # weird test, sometimes is answer, sometimes is authority
     # Querying directly for CNAME
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "CNAME" "atlas.cs.uni-tuebingen.de" ${NOCACHE}
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "CNAME" "ANSWER: 1" ${NOCACHE}
@@ -167,9 +167,9 @@ ORANGE='\033[0;33m'
 NC='\033[0m' # No Color
 
 ERRCOUNT=0
-CACHETIME=300
+CACHETIME=100
 NSCACHE=1000
-NOCACHE=300
+NOCACHE=1000
 PORT="1337"
 RESOLVER="127.0.0.1"
 

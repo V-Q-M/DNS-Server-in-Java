@@ -37,21 +37,37 @@ public class DNS_SERVER {
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
 
-    // mustn't be changed anywhere in the Server loop, as it dictates whether we are
-    // testing in the CI
+    // probably obsolete?
     private static boolean testing = false;
+
+
+    // If true, disable glue data to improve performance
+    private static boolean minimalResponses = false;
+    // If true, disable a few success messages in the server to improve performance
     private static boolean lessLog = false;
 
-    private static String forwardMode;
+
     private static Config serverConfig;
     private static ResolverSection resolverOptions;
     private static List<String> zoneCatalog;
     private static StubResolver stubResolver;
     private static CacheHandler cacheHandler;
     private static ZoneHandler zoneHandler;
+
     private static int portNumber;
     private static String bindIP;
     private static InetAddress bindAddress;
+
+    /*
+    named.conf recap:
+        recursion no                  -> never resolve, only answer local zones
+        recursion yes + null          -> never forward, resolve everything yourself (plus answer local zones)
+        recursion yes + FORWARD_FIRST -> Try forwarding first, then resolve everything yourself (plus answer local zones)
+        recursion yes + FORWARD_ONLY  -> never resolve yourself, forward everything (plus answer local zones)
+     */
+    private static boolean recursionAllowed;
+    private static ForwardMode forwardMode;
+
     private static long startTime;
 
     /**
@@ -286,7 +302,10 @@ public class DNS_SERVER {
             portNumber = DEFAULT_PORT;
         }
 
-        forwardMode = options.forwardMode().toLowerCase();// Determines if we should only forward or also recurse ourselves
+        recursionAllowed = options.recursionAllowed();
+        //IO.println("Recursion: " + recursionAllowed);
+        forwardMode = options.forwardMode();// Determines if we should only forward
+        //IO.println("Forward mode: " + forwardMode);
 
         List<Forwarder> forwarders = options.forwarders().stream()
                 .map(ip -> new Forwarder(ip, 53, ip))
@@ -326,6 +345,8 @@ public class DNS_SERVER {
                 testing = true;
             } else if (args[i].equals("--less-log")) {
                 lessLog = true;
+            } else if (args[i].equals("--minimal-responses")) {
+                minimalResponses = true;
             }
         }
     }
@@ -394,15 +415,35 @@ public class DNS_SERVER {
         if (!testing && cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
             payload = zoneLookUp(oopPacket, id);
+
+            // If recursion is disabled and something is outside our zones, REFUSE
+            if (!recursionAllowed && !payload.notResolved.isEmpty()) {
+                System.err.println(RED + "[SERVER] Received a foreign query but recursion is currently not allowed!");
+                DNSPacket response = buildResponsePacket(payload, oopPacket, false);
+                response.setRd(oopPacket.isRd());
+                response.setRa(false);
+                response.setRcode(RCode.REFUSED);
+
+                // keep only authoritative data we already found, if any
+                response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
+                response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
+                response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[0]));
+
+                return serializeResponsePacket(response);
+            }
+
+
             // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
             // True NXDOMAIN only when ALL sections are empty:
             // authority may contain NS records from an authoritative zone answer
             if (payload.notResolved.isEmpty() && payload.answer.isEmpty() && payload.authority.isEmpty()) {
+
                 DNSPacket response = new DNSPacket();
                 response.setId(oopPacket.getId());
                 response.setOpcode(oopPacket.getOpcode());
                 response.setAa(true);
                 response.setRd(oopPacket.isRd());
+                response.setRa(recursionAllowed);
                 response.setRcode(RCode.NXDOMAIN);
                 response.setQuestionSections(oopPacket.getQuestionSections());
                 response.setAnswerSections(new ResourceRecord[0]);
@@ -419,16 +460,18 @@ public class DNS_SERVER {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
-                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
-                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                        resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
+                if (!lessLog) {
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
+                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
+                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
+                }
 
             }
         }
 
         // StubResolver should only be queried if there are queries not answered by the
-        // cache
-        if (!payload.notResolved.isEmpty()) {
+        // cache and recursion is allowed
+        if (recursionAllowed && !payload.notResolved.isEmpty()) {
             // if (testing){
             payload = queryStubResolver(payload, data);
         }
@@ -441,19 +484,18 @@ public class DNS_SERVER {
     Specialized version of handleQuery which also checks for truncated response
      */
     private static byte[] handleUDPQuery(byte[] data) {
-        DNSPacket query = DNSPacket.fromBytes(data);
-
-        DNSPacket response = DNSPacket.fromBytes(handleQuery(data));
-        byte[] byteResponse = response.toBytes();
+        byte[] byteResponse = handleQuery(data);
 
         if (byteResponse.length <= 512) {
             return byteResponse;
         }
 
-        response.setTc(true);
+        DNSPacket query = DNSPacket.fromBytes(data);
+        DNSPacket response = DNSPacket.fromBytes(byteResponse);
 
         // For now: return only header + original question.
         // Client should retry over TCP.
+        response.setTc(true);
         response.setAnswerSections(new ResourceRecord[0]);
         response.setAuthoritySections(new ResourceRecord[0]);
         response.setAdditionalSections(new ResourceRecord[0]);
@@ -524,38 +566,42 @@ public class DNS_SERVER {
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
-                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
-                                resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
+                        if (!lessLog) {
+                            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
+                            LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
+                                    resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
+                        }
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
                                     // NS records go to authority section, consistent with queryCache
                                     payload.authority.add(record);
                                     // Step 6: add glue A/AAAA for the nameserver to additional
-                                    String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
-                                    try {
-                                        payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
-                                        payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
-                                    } catch (SQLException ignored) { /* glue records are best-effort */ }
+                                    if (!minimalResponses) {
+                                        String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
+                                        try {
+                                            payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
+                                            payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
+                                        } catch (SQLException ignored) { /* glue records are best-effort */ }
+                                    }
                                 }
                                 case MX -> {
                                     // MX records go to answer section
                                     payload.answer.add(record);
                                     // Step 6: add A/AAAA of mail exchange to additional
-                                    String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
-                                    try {
-                                        payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
-                                        payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
-                                    } catch (SQLException ignored) { /* additional records are best-effort */ }
+                                    if (!minimalResponses) {
+                                        String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
+                                        try {
+                                            payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
+                                            payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
+                                        } catch (SQLException ignored) { /* additional records are best-effort */ }
+                                    }
                                 }
                                 // A, AAAA, CNAME, TXT, SOA, PTR -> directly to answer
                                 default -> payload.answer.add(record);
                             }
                         }
-                        if (!lessLog) {
-                            IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
-                        }
+                        IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
                         break; // records found -> done with this question
                     }
 
@@ -606,20 +652,19 @@ public class DNS_SERVER {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
                 if (cacheResult.notResolved.contains(request)) {
+                    IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
                     if (!lessLog) {
-                        IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
-                    }
                         LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
                         LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
+                    }
 
                 } else {
+                    IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET);
                     if (!lessLog) {
-                        IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET);
+                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
+                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
+                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
                     }
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
-                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
-
                 }
 
             }
@@ -727,17 +772,25 @@ public class DNS_SERVER {
                     for (ResourceRecord record : cachedRecords) {
                         switch (record.getType()) {
                             case NS: {
-                                authority.add(record);
-                                String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
-                                Collections.addAll(additional, cacheHandler.lookup(nsHost, RRType.A));
-                                Collections.addAll(additional, cacheHandler.lookup(nsHost, RRType.AAAA));
+                                if (request.getQtype() == RRType.NS) {
+                                    answer.add(record);
+                                } else {
+                                    authority.add(record);
+                                }
+                                if (!minimalResponses) {
+                                    String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
+                                    Collections.addAll(additional, cacheHandler.lookup(nsHost, RRType.A));
+                                    Collections.addAll(additional, cacheHandler.lookup(nsHost, RRType.AAAA));
+                                }
                                 break;
                             }
                             case MX: {
                                 answer.add(record);
-                                String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
-                                Collections.addAll(additional, cacheHandler.lookup(mxHost, RRType.A));
-                                Collections.addAll(additional, cacheHandler.lookup(mxHost, RRType.AAAA));
+                                if (!minimalResponses) {
+                                    String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
+                                    Collections.addAll(additional, cacheHandler.lookup(mxHost, RRType.A));
+                                    Collections.addAll(additional, cacheHandler.lookup(mxHost, RRType.AAAA));
+                                }
                                 break;
                             }
                             case A, AAAA, TXT, SOA, PTR, CNAME:
@@ -836,7 +889,11 @@ public class DNS_SERVER {
         DNSPacket response = new DNSPacket();
         response.setId(query.getId());
         response.setOpcode(query.getOpcode());
+
         response.setAa(authoritative); // AA=true only for answers served from our own zone
+        response.setRd(query.isRd());
+        response.setRa(recursionAllowed);
+        response.setRcode(RCode.NOERROR);
         response.setQuestionSections(query.getQuestionSections());
         response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
         response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));

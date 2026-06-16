@@ -6,6 +6,7 @@ import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.config.zones.ZoneType;
+import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -83,7 +84,7 @@ public class ConfInterpreterTest {
             assertEquals("zones", options.dir());
             assertEquals(2222, options.port());
             assertEquals("127.0.0.1", options.ipAddress());
-            assertFalse(options.recursionDesired());
+            assertFalse(options.recursionAllowed());
 
             ZoneSection zone = config.zones().getFirst();
             assertEquals("example.com", zone.name());
@@ -135,8 +136,8 @@ public class ConfInterpreterTest {
             assertEquals("", options.dir());
             assertEquals(4242, options.port());
             assertEquals("0.0.0.0", options.ipAddress());
-            assertFalse(options.recursionDesired());
-            assertEquals("forward-only", options.forwardMode());
+            assertFalse(options.recursionAllowed());
+            assertEquals(null, options.forwardMode());
             assertEquals(List.of("1.1.1.1", "8.8.8.8"), options.forwarders());
 
             ResolverSection resolver = options.resolverSection();
@@ -154,7 +155,7 @@ public class ConfInterpreterTest {
                     };
                     """);
 
-            assertTrue(config.options().recursionDesired());
+            assertTrue(config.options().recursionAllowed());
         }
 
         @Test
@@ -165,7 +166,7 @@ public class ConfInterpreterTest {
                     };
                     """);
 
-            assertEquals("only", config.options().forwardMode());
+            assertEquals(ForwardMode.FORWARD_ONLY, config.options().forwardMode());
         }
     }
 

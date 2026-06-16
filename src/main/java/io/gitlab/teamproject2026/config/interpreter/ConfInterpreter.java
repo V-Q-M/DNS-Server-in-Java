@@ -5,6 +5,7 @@ import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.config.zones.ZoneType;
+import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 
 import java.util.ArrayList;
@@ -64,8 +65,8 @@ public class ConfInterpreter {
         int port = 4242;
         String ipAddress = "0.0.0.0";
         String ipv6Address = "0.0.0.0";
-        boolean recursion = false;
-        String forwardMode = "forward-only";
+        boolean recursionAllowed = false;
+        ForwardMode forwardMode = null;
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
 
         int resolverTimeOut = 2000;
@@ -103,7 +104,7 @@ public class ConfInterpreter {
                     error("options.recursion requires yes or no", node.lineNumber());
                     continue;
                 }
-                recursion = node.args().getFirst().equalsIgnoreCase("yes");
+                recursionAllowed = node.args().getFirst().equalsIgnoreCase("yes");
             } else if (node.name().equalsIgnoreCase("forwarders")){
                 if (node.children().isEmpty()) {
                     error("options.forwarders requires at least one server", node.lineNumber());
@@ -118,7 +119,7 @@ public class ConfInterpreter {
                     error("forward requires one mode", node.lineNumber());
                     continue;
                 }
-                forwardMode = node.args().getFirst();
+                forwardMode = ForwardMode.fromValue(node.args().getFirst());
             } else if (node.name().equalsIgnoreCase("resolver")){
                 if (node.children().isEmpty()) {
                     error("options.resolver requires at least one entry", node.lineNumber());
@@ -165,7 +166,7 @@ public class ConfInterpreter {
         // Build the resolverSection first. It's syntactically part of options but logically its own thing
         ResolverSection resolverSection = new ResolverSection( resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy );
 
-        return new OptionSection(directoryPath, port, ipAddress, recursion, forwardMode, forwarders, resolverSection);
+        return new OptionSection(directoryPath, port, ipAddress, recursionAllowed, forwardMode, forwarders, resolverSection);
     }
 
     /**
