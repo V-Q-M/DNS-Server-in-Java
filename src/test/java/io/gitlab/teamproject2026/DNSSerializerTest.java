@@ -6,6 +6,7 @@ import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -67,6 +68,10 @@ public class DNSSerializerTest {
         RDataTXT rDataTxt = new RDataTXT();
         rDataTxt.setTxtdata("uni-tuebingen.de");
         assertArrayEquals(HexFormat.of().parseHex("10756e692d74756562696e67656e2e6465"), rDataTxt.toBytes());
+
+        RDataTXT rDataTxtMultiLabel = new RDataTXT();
+        rDataTxtMultiLabel.setTxtdata("hello", "world", "!");
+        assertArrayEquals(HexFormat.of().parseHex("0568656c6c6F05776F726C640121"), rDataTxtMultiLabel.toBytes());
     }
     @Test
     void RRTest(){
@@ -81,10 +86,10 @@ public class DNSSerializerTest {
 
         ResourceRecord resourceRecord = new ResourceRecord();
         resourceRecord.setName(new String[] {"uni-tuebingen", "de"});
-        resourceRecord.setType(RRType.SOA);
+        //resourceRecord.setType(RRType.SOA);
         resourceRecord.setRrclass(RRClass.IN);
         resourceRecord.setTtl(2);
-        resourceRecord.setRdlength(rData.toBytes().length);
+        //resourceRecord.setRdlength(rData.toBytes().length);
         resourceRecord.setRdata(rData);
 
         assertArrayEquals(HexFormat.of().parseHex(

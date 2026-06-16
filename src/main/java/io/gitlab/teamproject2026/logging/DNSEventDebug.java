@@ -9,6 +9,7 @@ public record DNSEventDebug(
     String domain, 
     RRType qType, 
     long latencyMs,
+    ResponseSource source,
     //debug fields
     String strategy, 
     String nameserver, 
@@ -21,8 +22,8 @@ public record DNSEventDebug(
 
 
     // For detailed DEBUG logging
-    public static DNSEventDebug debug(DNSEventType type, String id, String domain, RRType qType, long latencyMs,
+    public static DNSEventDebug debug(DNSEventType type, String id, String domain, RRType qType, long latencyMs,ResponseSource source,
                                  String strategy, String nsName, String nsHost, int attempt, String error, RCode rCode) {
-        return new DNSEventDebug(type, id, domain, qType, latencyMs, strategy, nsName, nsHost, attempt, error, rCode);
+        return new DNSEventDebug(type, id, domain, qType, latencyMs, source, strategy, nsName, nsHost, attempt, error, rCode);
     }
 }

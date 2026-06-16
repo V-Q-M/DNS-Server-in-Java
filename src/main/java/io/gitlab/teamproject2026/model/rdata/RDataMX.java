@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
 
@@ -12,10 +13,20 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  * Specifies the mail server responsible for a domain.
  */
 public class RDataMX implements RData {
-    public static final int TYPE = 15;
-
     private int preference;
     private String[] exchange;
+
+    public RDataMX(){}
+    public RDataMX(int preference, String[] exchange){
+        this.preference = preference;
+        this.exchange = exchange;
+    }
+
+    @Override
+    public RRType getType() {
+        return RRType.MX;
+    }
+
 
     public int getPreference() { return preference; }
     public void setPreference(int preference) { this.preference = preference; }
@@ -30,7 +41,7 @@ public class RDataMX implements RData {
 
     @Override
     public byte[] toBytes() {
-        byte[] name = encodeName(String.join(".", exchange) + ".");
+        byte[] name = encodeName(exchange);
         byte[] result = new byte[2 + name.length];
         result[0] = (byte) (preference >> 8);
         result[1] = (byte) (preference);
@@ -39,9 +50,8 @@ public class RDataMX implements RData {
     }
 
     public static RDataMX fromBytes(byte[] bytes, int byteIndex) {
-        RDataMX rDataMX = new RDataMX();
-        rDataMX.setPreference(DNSParser.as16BitInt(bytes[byteIndex], bytes[1+byteIndex]));
-        rDataMX.setExchange(DNSParser.parseName(bytes, 2+byteIndex));
-        return rDataMX;
+        int preference = DNSParser.as16BitInt(bytes[byteIndex], bytes[1+byteIndex]);
+        String[] exchange = DNSParser.parseName(bytes, 2+byteIndex);
+        return new RDataMX(preference, exchange);
     }
 }

@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
+import io.gitlab.teamproject2026.model.RRType;
+
 import java.util.Arrays;
 import java.util.HexFormat;
 
@@ -8,9 +10,17 @@ import java.util.HexFormat;
  * Maps a domain name to an IPv6 address (128-bit).
  */
 public class RDataAAAA implements RData {
-    public static final int TYPE = 28;
-
     private byte[] address;
+
+    public RDataAAAA(){}
+    public RDataAAAA(byte[] address){
+        this.address = address;
+    }
+
+    @Override
+    public RRType getType() {
+        return RRType.AAAA;
+    }
 
     public byte[] getAddress() { return address; }
     public void setAddress(byte[] address) { this.address = address; }
@@ -38,8 +48,6 @@ public class RDataAAAA implements RData {
     }
 
     public static RDataAAAA fromBytes(byte[] bytes, int byteIndex) {
-        RDataAAAA rDataAAAA = new RDataAAAA();
-        rDataAAAA.setAddress(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 16));
-        return rDataAAAA;
+        return new RDataAAAA(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 16));
     }
 }

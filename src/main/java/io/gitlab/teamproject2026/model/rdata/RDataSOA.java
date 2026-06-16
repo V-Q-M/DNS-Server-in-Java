@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
 
@@ -12,8 +13,6 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  * Includes primary nameserver, responsible email, and zone serial number.
  */
 public class RDataSOA implements RData {
-    public static final int TYPE = 6;
-
     private String[] mname;
     private String[] rname;
     private long serial;
@@ -21,6 +20,23 @@ public class RDataSOA implements RData {
     private long retry;
     private long expire;
     private long minimum;
+
+    public RDataSOA(){}
+    public RDataSOA(String[] mname, String[] rname, long serial, long refresh, long retry, long expire, long minimum){
+        this.mname =mname;
+        this.rname = rname;
+        this.serial = serial;
+        this.refresh = refresh;
+        this.retry = retry;
+        this.expire = expire;
+        this.minimum = minimum;
+    }
+
+    @Override
+    public RRType getType() {
+        return RRType.SOA;
+    }
+
 
     public String[] getMname() { return mname; }
     public void setMname(String[] mname) { this.mname = mname; }
@@ -50,8 +66,8 @@ public class RDataSOA implements RData {
 
     @Override
     public byte[] toBytes() {
-        byte[] mname   = encodeName(String.join(".", this.getMname()) + ".");
-        byte[] rname   = encodeName(String.join(".", this.getRname()) + ".");
+        byte[] mname   = encodeName(this.getMname());
+        byte[] rname   = encodeName(this.getRname());
         byte[] result  = new byte[mname.length + rname.length + 20]; // 5 x 4-byte ints
         int pos = 0;
 
@@ -73,17 +89,18 @@ public class RDataSOA implements RData {
     }
 
     public static RDataSOA fromBytes(byte[] bytes, int byteIndex) {
-        RDataSOA rDataSOA = new RDataSOA();
-        rDataSOA.setMname(DNSParser.parseName(bytes, byteIndex));
+        String[] mname = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
-        rDataSOA.setRname(DNSParser.parseName(bytes, byteIndex));
-        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
-        rDataSOA.setSerial(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setRefresh(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setRetry(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setExpire(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
-        rDataSOA.setMinimum(DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]));
 
-        return  rDataSOA;
+        String[] rname = DNSParser.parseName(bytes, byteIndex);
+        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+
+        long serial = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long refresh = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long retry = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long expire = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+        long minimum = DNSParser.as32BitInt( bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
+
+        return new RDataSOA( mname, rname, serial, refresh, retry, expire, minimum );
     }
 }

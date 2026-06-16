@@ -15,20 +15,20 @@ public class DNSPacket {
 
     // Header fields
     private byte[] id;
-    private boolean qr; // false=question, true=answer
+    private boolean qr = true; // false=question, true=answer
     private OpCode opcode;
-    private boolean aa;
-    private boolean tc;
+    private boolean aa = false;
+    private boolean tc = false;
     private boolean rd;
-    private boolean ra;
+    private boolean ra = true;
     private byte z = 0;
     private RCode rcode;
 
     // Section counts
-    private int qdcount;
-    private int ancount;
-    private int nscount;
-    private int arcount;
+    private int qdcount = 0;
+    private int ancount = 0;
+    private int nscount = 0;
+    private int arcount = 0;
 
     // Sections
     private QuestionSection[] questionSections;
@@ -145,6 +145,7 @@ public class DNSPacket {
     }
 
     public void setQuestionSections(QuestionSection[] questionSections) {
+        this.qdcount = questionSections.length;
         this.questionSections = questionSections;
     }
 
@@ -157,6 +158,7 @@ public class DNSPacket {
     }
 
     public void setAnswerSections(ResourceRecord[] answerSections) {
+        this.ancount = answerSections.length;
         this.answerSections = answerSections;
     }
 
@@ -169,6 +171,7 @@ public class DNSPacket {
     }
 
     public void setAuthoritySections(ResourceRecord[] authoritySections) {
+        this.nscount = authoritySections.length;
         this.authoritySections = authoritySections;
     }
 
@@ -181,6 +184,7 @@ public class DNSPacket {
     }
 
     public void setAdditionalSections(ResourceRecord[] additionalSections) {
+        this.arcount = additionalSections.length;
         this.additionalSections = additionalSections;
     }
 
@@ -303,7 +307,6 @@ public class DNSPacket {
             System.arraycopy(ar, 0, result, pos, ar.length);
             pos += ar.length;
         }
-
         return result;
     }
 
@@ -364,18 +367,25 @@ public class DNSPacket {
     }
 
     // Helper function to encode a name
-    public static byte[] encodeName(String name) {
-        byte[] result = new byte[name.length() + 2];
+    public static byte[] encodeName(String[] name) throws IllegalArgumentException{
+        int nameLength = 0;
+        for (String value : name) {
+            int labelLength = value.length();
+            if(labelLength > 255){
+                throw new IllegalArgumentException("Malformatted labels. Must be <256 characters, including length, in size.");
+            }
+            nameLength += labelLength + 1;
+        }
+        byte[] result = new byte[nameLength + 1];
         int pos = 0;
 
-        for (String label : name.split("\\.")) {
+        for (String label : name) {
             byte[] labelBytes = label.getBytes(StandardCharsets.US_ASCII);
             result[pos++] = (byte) labelBytes.length;
             System.arraycopy(labelBytes, 0, result, pos, labelBytes.length);
             pos += labelBytes.length;
         }
         result[pos++] = 0;
-
         return Arrays.copyOf(result, pos);
     }
 }

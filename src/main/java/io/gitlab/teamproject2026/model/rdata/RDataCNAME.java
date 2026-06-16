@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.model.RRType;
 
 import java.util.Arrays;
 
@@ -10,9 +11,17 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  * Aliases one domain name to another.
  */
 public class RDataCNAME implements RData {
-    public static final int TYPE = 5;
-
     private String[] cname;
+
+    public RDataCNAME(){}
+    public RDataCNAME(String[] cname){
+        this.cname = cname;
+    }
+
+    @Override
+    public RRType getType() {
+        return RRType.CNAME;
+    }
 
     public String[] getCname() { return cname; }
     public void setCname(String[] cname) { this.cname = cname; }
@@ -24,13 +33,10 @@ public class RDataCNAME implements RData {
 
     @Override
     public byte[] toBytes() {
-        String domain = String.join(".", cname);
-        return encodeName(domain);
+        return encodeName(cname);
     }
 
     public static RDataCNAME fromBytes(byte[] bytes, int byteIndex) {
-        RDataCNAME rDataCNAME = new RDataCNAME();
-        rDataCNAME.setCname(DNSParser.parseName(bytes, byteIndex));
-        return rDataCNAME;
+        return new RDataCNAME(DNSParser.parseName(bytes, byteIndex));
     }
 }

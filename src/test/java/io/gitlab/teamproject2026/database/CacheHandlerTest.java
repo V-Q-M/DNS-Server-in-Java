@@ -1,4 +1,4 @@
-package io.gitlab.teamproject2026.cache;
+package io.gitlab.teamproject2026.database;
 
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
@@ -17,7 +17,7 @@ class CacheHandlerTest {
 
     @BeforeEach
     void setup() throws Exception {
-        handler = new CacheHandler(new CacheConnectionProvider());
+        handler = new CacheHandler(new DatabaseConnectionProvider());
         handler.clearAll();
     }
 
@@ -29,10 +29,10 @@ class CacheHandlerTest {
     private static ResourceRecord makeA(String name, long ttl, byte[] address) {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(name.split("\\."));
-        rr.setType(RRType.A);
+        //rr.setType(RRType.A);
         rr.setRrclass(RRClass.IN);
         rr.setTtl(ttl);
-        rr.setRdlength(address.length);
+        //rr.setRdlength(address.length);
         RDataA rdata = new RDataA();
         rdata.setAddress(address);
         rr.setRdata(rdata);
@@ -41,7 +41,7 @@ class CacheHandlerTest {
 
     @Test
     void cacheConnectionTest() throws Exception {
-        CacheConnectionProvider provider = new CacheConnectionProvider();
+        DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
         Connection conn = provider.getConnection();
         assertNotNull(conn);
         conn.close();
@@ -88,6 +88,29 @@ class CacheHandlerTest {
         handler.insert(makeA("ttl.example.com", 0, new byte[] { 1, 2, 3, 4 }));
 
         assertEquals(0, handler.lookup("ttl.example.com", RRType.A).length);
+    }
+
+    @Test
+    void ttlReturnedAsRemainingTest() throws Exception {
+        handler.insert(makeA("ttlremain.example.com", 300, new byte[] { 1, 2, 3, 4 }));
+        Thread.sleep(1500);
+
+        ResourceRecord[] results = handler.lookup("ttlremain.example.com", RRType.A);
+        assertEquals(1, results.length);
+        long ttl = results[0].getTtl();
+        // TTL must be decremented by the elapsed time, not the original 300
+        assertTrue(ttl <= 299, "expected decremented TTL <= 299 but was " + ttl);
+        assertTrue(ttl >= 1, "TTL should never drop below 1, was " + ttl);
+    }
+
+    @Test
+    void ttlFlooredAtOneTest() throws Exception {
+        handler.insert(makeA("ttlfloor.example.com", 1, new byte[] { 1, 2, 3, 4 }));
+
+        ResourceRecord[] results = handler.lookup("ttlfloor.example.com", RRType.A);
+        assertEquals(1, results.length);
+        // a record in its final second must report TTL 1, never 0
+        assertEquals(1, results[0].getTtl());
     }
 
     @Test

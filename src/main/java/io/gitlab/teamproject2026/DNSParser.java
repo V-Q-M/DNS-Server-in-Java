@@ -4,9 +4,7 @@ import io.gitlab.teamproject2026.model.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
-import java.util.Map;
 
 public class DNSParser{
     /**
@@ -127,7 +125,7 @@ public class DNSParser{
             if((bytes[byteIndex] & 0xC0) == 0xC0){ // Message compression, first 2 bytes = 1
                 int notCompressedLength = byteIndex - startIndex;
                 int pointStartIndex = getPointerTarget(bytes, byteIndex);
-                return countNameLengthDecomp(bytes, pointStartIndex) + notCompressedLength; //namelength = (labels at normal place)+(labels at pointer), but skip pointer bytes if pointer points on pointer
+                return countNameLengthDecomp(bytes, pointStartIndex) + notCompressedLength; //nameLength = (labels at normal place)+(labels at pointer), but skip pointer bytes if pointer points on pointer
             }
             int labelLength = bytes[byteIndex++] & 0xFF;
             byteIndex += labelLength;

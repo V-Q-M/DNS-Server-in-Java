@@ -1,0 +1,4 @@
+; sub.zone
+
+api     IN A     10.0.0.1
+mail    IN A     10.0.0.2

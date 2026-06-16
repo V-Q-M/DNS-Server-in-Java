@@ -1,0 +1,15 @@
+; db.129.0.0
+$ORIGIN 0.0.129.in-addr.arpa.
+; use min ttl from SOA
+
+@       IN SOA  ns0.example.com. admin.example.com. (
+                2026060201
+                3600
+                1800
+                1209600
+                86400
+)
+
+@       IN NS   ns0.example.com.
+
+1       IN PTR  example.com.

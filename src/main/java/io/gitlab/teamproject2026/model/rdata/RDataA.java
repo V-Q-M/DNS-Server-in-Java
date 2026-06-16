@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
+import io.gitlab.teamproject2026.model.RRType;
+
 import java.util.Arrays;
 
 /**
@@ -7,9 +9,17 @@ import java.util.Arrays;
  * Maps a domain name to an IPv4 address (32-bit).
  */
 public class RDataA implements RData {
-    public static final int TYPE = 1;
-
     private byte[] address;
+
+    public RDataA(){}
+    public RDataA(byte[] address){
+        this.address = address;
+    }
+
+    @Override
+    public RRType getType() {
+        return RRType.A;
+    }
 
     public byte[] getAddress() { return address; }
     public void setAddress(byte[] address) { this.address = address; }
@@ -34,8 +44,6 @@ public class RDataA implements RData {
     }
 
     public static RDataA fromBytes(byte[] bytes, int byteIndex) {
-        RDataA rDataA = new RDataA();
-        rDataA.setAddress(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 4));
-        return rDataA;
+        return new RDataA(Arrays.copyOfRange(bytes, byteIndex, byteIndex + 4));
     }
 }
