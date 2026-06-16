@@ -51,7 +51,7 @@ startDatabase() {
 
 startServer() {
     mvn compile
-    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --less-log" > server.log 2>&1 &
+    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1}" > server.log 2>&1 &
     echo "Attempt to start server on port ${1}..."
 }
 
@@ -167,9 +167,9 @@ ORANGE='\033[0;33m'
 NC='\033[0m' # No Color
 
 ERRCOUNT=0
-CACHETIME=200
-NSCACHE=300
-NOCACHE=180
+CACHETIME=300
+NSCACHE=1000
+NOCACHE=300
 PORT="1337"
 RESOLVER="127.0.0.1"
 

@@ -171,7 +171,7 @@ public class DNS_SERVER {
                 }
 
                 // Handle the query and receive a byte array as response
-                byte[] byteResponse = handleQuery(data);
+                byte[] byteResponse = handleUDPQuery(data);
 
                 // Build UDP packet
                 DatagramPacket responsePacket = new DatagramPacket(
@@ -435,10 +435,41 @@ public class DNS_SERVER {
 
         return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
     }
+
+
+    /*
+    Specialized version of handleQuery which also checks for truncated response
+     */
+    private static byte[] handleUDPQuery(byte[] data) {
+        DNSPacket query = DNSPacket.fromBytes(data);
+
+        DNSPacket response = DNSPacket.fromBytes(handleQuery(data));
+        byte[] byteResponse = response.toBytes();
+
+        if (byteResponse.length <= 512) {
+            return byteResponse;
+        }
+
+        response.setTc(true);
+
+        // For now: return only header + original question.
+        // Client should retry over TCP.
+        response.setAnswerSections(new ResourceRecord[0]);
+        response.setAuthoritySections(new ResourceRecord[0]);
+        response.setAdditionalSections(new ResourceRecord[0]);
+        response.setQuestionSections(query.getQuestionSections());
+
+        return response.toBytes();
+    }
+
+
+
     private static byte[] serializeResponsePacket(DNSPacket response) {
 
         // convert response packet to Bytes
         byte[] byteResponse = response.toBytes();
+
+        /* obsolete?
 
         // if DNS-Packet exceeds maximum UDP Payload size, truncate it and set the tc
         // flag
@@ -449,6 +480,8 @@ public class DNS_SERVER {
             System.arraycopy(truncatedSource, 0, byteResponseTruncated, 0, UDP_MAX_PAYLOAD_SIZE);
             byteResponse = byteResponseTruncated;
         }
+
+         */
         return byteResponse;
     }
     private static DNSPayload zoneLookUp(DNSPacket oopPacket, String id) {
