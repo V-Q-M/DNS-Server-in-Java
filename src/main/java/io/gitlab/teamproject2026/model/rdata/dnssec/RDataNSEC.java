@@ -46,17 +46,18 @@ public record RDataNSEC(String[] nextDomainName, byte[] typeBitMaps) implements 
     public byte[] toBytes() {
         byte[] nextDomainNameBytes = DNSPacket.encodeName(nextDomainName);
 
-        byte[] result = new byte[nextDomainNameBytes.length + typeBitMaps.length];
+        byte[] result = new byte[nextDomainNameBytes.length + 2 + typeBitMaps.length];
 
         int pos = 0;
         System.arraycopy(nextDomainNameBytes, 0, result, pos, nextDomainNameBytes.length);
-
         pos += nextDomainNameBytes.length;
+
+        result[pos++] = 0; // window block 0
+        result[pos++] = (byte) typeBitMaps.length;
 
         System.arraycopy(typeBitMaps, 0, result, pos, typeBitMaps.length);
 
         return result;
     }
-
 
 }

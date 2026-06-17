@@ -5,6 +5,7 @@ import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
+import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
 import java.sql.*;
 import java.util.*;
@@ -26,6 +27,14 @@ public class ZoneHandler {
     private static final String SQL_SOA = "INSERT INTO zone_soa_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum) VALUES (?, ?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String SQL_TXT = "INSERT INTO zone_txt_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, txtdata) VALUES (?, ?, 'TXT',  'IN', ?, ?, ?)";
 
+    // DNSSEC
+    private static final String SQL_DS = "INSERT INTO zone_ds_rdata (zone, name, rrtype, rrclass, ttl, rdlength, key_tag, algorithm, digest_type, digest) VALUES (?, ?, 'DS', 'IN', ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_DNSKEY = "INSERT INTO zone_dnskey_rdata (zone, name, rrtype, rrclass, ttl, rdlength, flags, protocol, algorithm, publickey) VALUES (?, ?, 'DNSKEY', 'IN', ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_RRSIG = "INSERT INTO zone_rrsig_rdata (zone, name, rrtype, rrclass, ttl, rdlength, type_covered, algorithm, labels, original_ttl, expiration, inception, key_tag, signer_name, signature) VALUES (?, ?, 'RRSIG', 'IN', ?, ?, ?::RRTypeEnum, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_NSEC = "INSERT INTO zone_nsec_rdata (zone, name, rrtype, rrclass, ttl, rdlength, next_domain_name, type_bit_maps) VALUES (?, ?, 'NSEC', 'IN', ?, ?, ?, ?)";
+    private static final String SQL_NSEC3 = "INSERT INTO zone_nsec3_rdata (zone, name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt, next_hashed_owner_name, type_bit_maps) VALUES (?, ?, 'NSEC3', 'IN', ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_NSEC3PARAM = "INSERT INTO zone_nsec3param_rdata (zone, name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt) VALUES (?, ?, 'NSEC3PARAM', 'IN', ?, ?, ?, ?, ?, ?)";
+
     private static final String DEL_A = "DELETE FROM zone_a_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_AAAA = "DELETE FROM zone_aaaa_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_CNAME = "DELETE FROM zone_cname_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
@@ -35,48 +44,33 @@ public class ZoneHandler {
     private static final String DEL_SOA = "DELETE FROM zone_soa_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_TXT = "DELETE FROM zone_txt_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
 
+    // DNSSEC
+    private static final String DEL_DNSKEY = "DELETE FROM zone_dnskey_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_DS = "DELETE FROM zone_ds_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_RRSIG = "DELETE FROM zone_rrsig_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_NSEC = "DELETE FROM zone_nsec_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_NSEC3 = "DELETE FROM zone_nsec3_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_NSEC3PARAM = "DELETE FROM zone_nsec3param_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+
     private static final String[] ALL_RDATA_TABLES = {
-            "zone_a_rdata", "zone_aaaa_rdata", "zone_cname_rdata", "zone_mx_rdata", "zone_ns_rdata", "zone_ptr_rdata", "zone_soa_rdata", "zone_txt_rdata"
+            "zone_a_rdata", "zone_aaaa_rdata", "zone_cname_rdata", "zone_mx_rdata", "zone_ns_rdata", "zone_ptr_rdata", "zone_soa_rdata", "zone_txt_rdata",
+            "zone_dnskey_rdata", "zone_ds_rdata", "zone_rrsig_rdata", "zone_nsec_rdata", "zone_nsec3_rdata", "zone_nsec3param_rdata"
     };
 
-    /**
-     * Maps a database row to a concrete RData implementation.
-     */
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
     }
 
-    /**
-     * Fills a prepared statement with record-specific parameters.
-     */
     @FunctionalInterface
     private interface StatementFiller {
         void fill(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException;
     }
 
-    /**
-     * Creates a handler using the shared database connection.
-     *
-     * @param provider database connection provider
-     */
     public ZoneHandler(DatabaseConnectionProvider provider){
         this.conn = provider.getConnection();
     }
 
-
-    /**
-     * Executes a type-specific lookup query and reconstructs
-     * the resulting resource records using the supplied mapper.
-     *
-     * @param name queried owner name
-     * @param sql SQL statement used for the lookup
-     * @param type expected RR type
-     * @param zone authoritative zone
-     * @param mapper converts ResultSet rows into RData objects
-     * @return matching resource records
-     * @throws SQLException if the database query fails
-     */
     private List<ResourceRecord> lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper) throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -86,10 +80,8 @@ public class ZoneHandler {
                 while (rs.next()) {
                     ResourceRecord rr = new ResourceRecord();
                     rr.setName(rs.getString("name").split("\\."));
-                    //rr.setType(type);
                     rr.setRrclass(RRClass.IN);
                     rr.setTtl(rs.getLong("ttl"));
-                    //rr.setRdlength(rs.getInt("rdlength"));
                     rr.setRdata(mapper.map(rs));
                     records.add(rr);
                 }
@@ -98,35 +90,15 @@ public class ZoneHandler {
         return records;
     }
 
-    /**
-     * Returns the SOA record associated with the specified zone.
-     *
-     * @param zone authoritative zone name
-     * @return the zone's SOA RDATA
-     * @throws SQLException if the database query fails
-     * @throws NoSuchElementException if the zone does not contain an SOA record
-     */
     public RDataSOA lookupZoneSoa(String zone) throws SQLException {
         return (RDataSOA) lookup(zone, RRType.SOA, zone).getFirst().getRdata();
     }
 
-    /**
-     * Atomically replaces all records belonging to a zone.
-     *
-     * @param zone zone to replace
-     * @throws SQLException if the database update fails
-     */
     public void replaceZone(DNSZone zone) throws SQLException {
         clearZone(zone.origin());
         insertZone(zone);
     }
 
-    /**
-     * Removes all records belonging to the specified zone.
-     *
-     * @param zone zone to clear
-     * @throws SQLException if the database update fails
-     */
     public void clearZone(String zone) throws SQLException {
         Statement stmt = conn.createStatement();
         for(String table : ALL_RDATA_TABLES){
@@ -135,15 +107,6 @@ public class ZoneHandler {
         stmt.executeBatch();
     }
 
-    /**
-     * Returns the full ResourceRecord from the Database, given a name and type
-     * Looks for entries that end in name
-     * @param name of the RREntry (check = LIKE %.{name})
-     * @param type of the RREntry
-     * @param zone the RREntry is under
-     * @return RR Array of all matching RRs
-     * @throws SQLException
-     */
     public List<ResourceRecord> lookup(String name, RRType type, String zone) throws SQLException {
         name = name.toLowerCase();
         switch (type) {
@@ -234,14 +197,81 @@ public class ZoneHandler {
                             rdata.setTxtdata((String[]) rs.getArray("txtdata").getArray());
                             return rdata;
                         });
+            case DS:
+                return lookupType(name,
+                        "SELECT * FROM zone_ds_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
+                        RRType.DS,
+                        zone,
+                        rs -> new RDataDS(
+                                rs.getInt("key_tag"),
+                                rs.getInt("algorithm"),
+                                rs.getInt("digest_type"),
+                                rs.getBytes("digest")
+                        ));
+            case DNSKEY:
+                return lookupType(name,
+                        "SELECT * FROM zone_dnskey_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
+                        RRType.DNSKEY,
+                        zone,
+                        rs -> new RDataDNSKEY(
+                                rs.getInt("flags"),
+                                rs.getInt("protocol"),
+                                rs.getInt("algorithm"),
+                                rs.getBytes("publickey")
+                        ));
+            case RRSIG:
+                return lookupType(name,
+                        "SELECT * FROM zone_rrsig_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
+                        RRType.RRSIG,
+                        zone,
+                        rs -> new RDataRRSIG(
+                                RRType.valueOf(rs.getString("type_covered")),
+                                rs.getInt("algorithm"),
+                                rs.getInt("labels"),
+                                rs.getLong("original_ttl"),
+                                rs.getLong("expiration"),
+                                rs.getLong("inception"),
+                                rs.getInt("key_tag"),
+                                rs.getString("signer_name").split("\\."),
+                                rs.getBytes("signature")
+                        ));
+            case NSEC:
+                return lookupType(name,
+                        "SELECT * FROM zone_nsec_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
+                        RRType.NSEC,
+                        zone,
+                        rs -> new RDataNSEC(
+                                rs.getString("next_domain_name").split("\\."),
+                                rs.getBytes("type_bit_maps")
+                        ));
+            case NSEC3:
+                return lookupType(name,
+                        "SELECT * FROM zone_nsec3_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
+                        RRType.NSEC3,
+                        zone,
+                        rs -> new RDataNSEC3(
+                                rs.getInt("hash_algorithm"),
+                                rs.getInt("flags"),
+                                rs.getInt("iterations"),
+                                rs.getBytes("salt"),
+                                rs.getBytes("next_hashed_owner_name"),
+                                rs.getBytes("type_bit_maps")
+                        ));
+            case NSEC3PARAM:
+                return lookupType(name,
+                        "SELECT * FROM zone_nsec3param_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
+                        RRType.NSEC3PARAM,
+                        zone,
+                        rs -> new RDataNSEC3PARAM(
+                                rs.getInt("hash_algorithm"),
+                                rs.getInt("flags"),
+                                rs.getInt("iterations"),
+                                rs.getBytes("salt")
+                        ));
             default:
                 return new ArrayList<>();
         }
     }
-
-    /*
-     * Helper functions to fill in Record statements
-     */
 
     private void fillCommon(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
         stmt.setString(1, zone);
@@ -299,15 +329,65 @@ public class ZoneHandler {
         stmt.setArray(5, conn.createArrayOf("text", ((RDataTXT) r.getRdata()).getTxtdata()));
     }
 
-    /**
-     * Executes a type-specific INSERT for a single resource record.
-     *
-     * @param insertSql INSERT statement to execute
-     * @param r record to insert
-     * @param zone target zone
-     * @param filler fills the prepared statement parameters
-     * @throws SQLException if insertion fails
-     */
+    private void fillDS(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataDS rdata = (RDataDS) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setInt(5, rdata.getKeyTag());
+        stmt.setInt(6, rdata.getAlgorithm());
+        stmt.setInt(7, rdata.getDigestType());
+        stmt.setBytes(8, rdata.getDigest());
+    }
+
+    private void fillDNSKEY(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataDNSKEY rdata = (RDataDNSKEY) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setInt(5, rdata.getFlags());
+        stmt.setInt(6, rdata.getProtocol());
+        stmt.setInt(7, rdata.getAlgorithm());
+        stmt.setBytes(8, rdata.getPublickey());
+    }
+
+    private void fillRRSIG(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataRRSIG rdata = (RDataRRSIG) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setString(5, rdata.getTypeCovered().name());
+        stmt.setInt(6, rdata.getAlgorithm());
+        stmt.setInt(7, rdata.getLabels());
+        stmt.setLong(8, rdata.getOriginalTtl());
+        stmt.setLong(9, rdata.getSignatureExpiration());
+        stmt.setLong(10, rdata.getSignatureInception());
+        stmt.setInt(11, rdata.getKeyTag());
+        stmt.setString(12, String.join(".", rdata.getSignerName()));
+        stmt.setBytes(13, rdata.getSignature());
+    }
+
+    private void fillNSEC(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataNSEC rdata = (RDataNSEC) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setString(5, String.join(".", rdata.getNextDomainName()));
+        stmt.setBytes(6, rdata.getTypeBitMaps());
+    }
+
+    private void fillNSEC3(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataNSEC3 rdata = (RDataNSEC3) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setInt(5, rdata.getHashAlgorithm());
+        stmt.setInt(6, rdata.getFlags());
+        stmt.setInt(7, rdata.getIterations());
+        stmt.setBytes(8, rdata.getSalt());
+        stmt.setBytes(9, rdata.getNextHashedOwnerName());
+        stmt.setBytes(10, rdata.getTypeBitMaps());
+    }
+
+    private void fillNSEC3PARAM(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataNSEC3PARAM rdata = (RDataNSEC3PARAM) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setInt(5, rdata.getHashAlgorithm());
+        stmt.setInt(6, rdata.getFlags());
+        stmt.setInt(7, rdata.getIterations());
+        stmt.setBytes(8, rdata.getSalt());
+    }
+
     private void singleInsert(String insertSql, ResourceRecord r, String zone, StatementFiller filler) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
             filler.fill(stmt, r, zone);
@@ -315,13 +395,6 @@ public class ZoneHandler {
         }
     }
 
-    /**
-     * Inserts a given ResourceRecord into the Database
-     *
-     * @param record
-     * @param zone
-     * @throws SQLException
-     */
     void insert(ResourceRecord record, String zone) throws SQLException {
         delete(String.join(".", record.getName()).toLowerCase(), record.getType(), zone);
         switch (record.getType()) {
@@ -349,17 +422,27 @@ public class ZoneHandler {
             case TXT:
                 singleInsert(SQL_TXT, record, zone, this::fillTXT);
                 break;
+            case DS:
+                singleInsert(SQL_DS, record, zone, this::fillDS);
+                break;
+            case DNSKEY:
+                singleInsert(SQL_DNSKEY, record, zone, this::fillDNSKEY);
+                break;
+            case RRSIG:
+                singleInsert(SQL_RRSIG, record, zone, this::fillRRSIG);
+                break;
+            case NSEC:
+                singleInsert(SQL_NSEC, record, zone, this::fillNSEC);
+                break;
+            case NSEC3:
+                singleInsert(SQL_NSEC3, record, zone, this::fillNSEC3);
+                break;
+            case NSEC3PARAM:
+                singleInsert(SQL_NSEC3PARAM, record, zone, this::fillNSEC3PARAM);
+                break;
         }
     }
 
-    /**
-     * Deletes a ResourceRecord of given name, type from a zone
-     *
-     * @param name
-     * @param type
-     * @param zone
-     * @throws SQLException
-     */
     public void delete(String name, RRType type, String zone) throws SQLException {
         name = name.toLowerCase();
         String sql;
@@ -388,6 +471,24 @@ public class ZoneHandler {
             case TXT:
                 sql = DEL_TXT;
                 break;
+            case DNSKEY:
+                sql = DEL_DNSKEY;
+                break;
+            case DS:
+                sql = DEL_DS;
+                break;
+            case RRSIG:
+                sql = DEL_RRSIG;
+                break;
+            case NSEC:
+                sql = DEL_NSEC;
+                break;
+            case NSEC3:
+                sql = DEL_NSEC3;
+                break;
+            case NSEC3PARAM:
+                sql = DEL_NSEC3PARAM;
+                break;
             default:
                 return;
         }
@@ -398,11 +499,6 @@ public class ZoneHandler {
         }
     }
 
-    /**
-     * Clears the database tables of all entries
-     *
-     * @throws SQLException
-     */
     public void clearAll() throws SQLException {
         Statement stmt = conn.createStatement();
         for(String table : ALL_RDATA_TABLES){
@@ -411,15 +507,6 @@ public class ZoneHandler {
         stmt.executeBatch();
     }
 
-    /**
-     * batch-inserts RRs.
-     *
-     * @param group the records to insert
-     * @param zone the zon to insert to
-     * @param insertSql the type-specific INSERT SQL
-     * @param filler fills the INSERT statement parameters for a given record
-     * @throws SQLException
-     */
     private void batchInsert(List<ResourceRecord> group, String zone, String insertSql, StatementFiller filler)
             throws SQLException {
         if (group.isEmpty())
@@ -433,13 +520,6 @@ public class ZoneHandler {
         }
     }
 
-    /**
-     * Inserts a given array of ResourceRecords into the database using per-type
-     * batching.
-     *
-     * @param dnsZone the zone to insert
-     * @throws SQLException
-     */
     public void insertZone(DNSZone dnsZone) throws SQLException {
         ResourceRecord[] records = dnsZone.getRecords().toArray(new ResourceRecord[0]);
         String zone  = dnsZone.origin();
@@ -457,6 +537,13 @@ public class ZoneHandler {
             batchInsert(byType.getOrDefault(RRType.PTR, List.of()), zone, SQL_PTR, this::fillPTR);
             batchInsert(byType.getOrDefault(RRType.SOA, List.of()), zone, SQL_SOA, this::fillSOA);
             batchInsert(byType.getOrDefault(RRType.TXT, List.of()), zone, SQL_TXT, this::fillTXT);
+
+            batchInsert(byType.getOrDefault(RRType.DS, List.of()), zone, SQL_DS, this::fillDS);
+            batchInsert(byType.getOrDefault(RRType.DNSKEY, List.of()), zone, SQL_DNSKEY, this::fillDNSKEY);
+            batchInsert(byType.getOrDefault(RRType.RRSIG, List.of()), zone, SQL_RRSIG, this::fillRRSIG);
+            batchInsert(byType.getOrDefault(RRType.NSEC, List.of()), zone, SQL_NSEC, this::fillNSEC);
+            batchInsert(byType.getOrDefault(RRType.NSEC3, List.of()), zone, SQL_NSEC3, this::fillNSEC3);
+            batchInsert(byType.getOrDefault(RRType.NSEC3PARAM, List.of()), zone, SQL_NSEC3PARAM, this::fillNSEC3PARAM);
 
             conn.commit();
         } catch (SQLException e) {

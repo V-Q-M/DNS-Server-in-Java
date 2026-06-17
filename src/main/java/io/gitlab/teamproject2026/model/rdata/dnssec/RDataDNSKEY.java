@@ -11,22 +11,18 @@ import java.util.Base64;
  * Stores a public key used for DNSSEC validation.
  * Contains key flags, protocol, algorithm, and public key material.
  */
-public record RDataDNSKEY(long flags, long protocol, long algorithm, byte[] publickey) implements RData {
+public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publickey) implements RData {
     public RDataDNSKEY(byte[] bytes, int byteIndex) {
-        if (bytes.length < 4) {
+        if (bytes.length - byteIndex < 4) {
             throw new IllegalArgumentException("DNSKEY RDATA must be at least 4 bytes");
         }
-        long flags = DNSParser.as16BitInt(bytes[byteIndex++],bytes[byteIndex++]);
+        int flags = DNSParser.as16BitInt(bytes[byteIndex],bytes[byteIndex + 1]);
 
-        long protocol = (bytes[byteIndex++] & 0xff);
-        long algorithm = (bytes[byteIndex++] & 0xff);
+        int protocol = (bytes[byteIndex + 2] & 0xff);
+        int algorithm = (bytes[byteIndex + 3] & 0xff);
 
-        byte[] publicKey = new byte[bytes.length - byteIndex];
-        System.arraycopy(bytes, byteIndex, publicKey, 0, publicKey.length);
-
-        if (bytes.length < 4) {
-            throw new IllegalArgumentException("DNSKEY RDATA must be at least 4 bytes");
-        }
+        byte[] publicKey = new byte[bytes.length - byteIndex - 4];
+        System.arraycopy(bytes, byteIndex + 4, publicKey, 0, publicKey.length);
 
         this(flags, protocol, algorithm, publicKey);
     }
@@ -36,9 +32,9 @@ public record RDataDNSKEY(long flags, long protocol, long algorithm, byte[] publ
         return RRType.DNSKEY;
     }
 
-    public long getFlags(){ return this.flags; }
-    public long getProtocol() { return this.protocol; }
-    public long getAlgorithm() { return this.algorithm; }
+    public int getFlags(){ return this.flags; }
+    public int getProtocol() { return this.protocol; }
+    public int getAlgorithm() { return this.algorithm; }
     public byte[] getPublickey() { return  this.publickey; }
 
     @Override
