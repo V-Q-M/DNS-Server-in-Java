@@ -27,7 +27,7 @@ public abstract class AbstractResolver {
      * @return QueryResult including status, response bytes, and latency
      */
 
-    public QueryResult queryUDP(byte[] query, Resolver server, int timeoutMs) {
+    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) {
         long start = System.currentTimeMillis();
         try (DatagramSocket socket = new DatagramSocket()) {socket.setSoTimeout(timeoutMs);
 
@@ -66,7 +66,7 @@ public abstract class AbstractResolver {
      * @param timeoutMs socket timeout in milliseconds
      * @return QueryResult including status, response bytes, and latency
      */
-    public QueryResult queryTCP(byte[] query, Resolver server, int timeoutMs) {
+    public QueryResult queryTCP(byte[] query, NameServer server, int timeoutMs) {
         long start = System.currentTimeMillis();
         try (Socket socket = new Socket()) {socket.connect(new InetSocketAddress(server.host(), server.port()), timeoutMs);
             socket.setSoTimeout(timeoutMs);

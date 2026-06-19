@@ -21,7 +21,7 @@ import io.gitlab.teamproject2026.logging.ResponseSource;
 
 public class StubResolver extends AbstractResolver{
 
-    private final List<Resolver> forwarders;
+    private final List<NameServer> forwarders;
     private final int timeoutMs;
     private final int maxRetries;
     private final long retryDelay;
@@ -34,7 +34,7 @@ public class StubResolver extends AbstractResolver{
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
 
-    public StubResolver(List<Resolver> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){
+    public StubResolver(List<NameServer> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){
         if(forwarders==null || forwarders.isEmpty())
             throw new IllegalArgumentException("at least one name server is required");
         this.forwarders=List.copyOf(forwarders);
@@ -66,7 +66,7 @@ public class StubResolver extends AbstractResolver{
             return buildServFail(query);
         }
         for(int attempt=0; attempt<maxAttempts;attempt++){
-            Resolver server = forwarders.get(startIndex);
+            NameServer server = forwarders.get(startIndex);
             //log QUERY_SENT for every question section separately (usually different qType or domain queried)
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
@@ -201,7 +201,7 @@ public class StubResolver extends AbstractResolver{
      * (possibly different queried domains and qTypes in every questionSection, so for dashboard statistics probably relevant)
      * @params : all input needed by logDebug
      */
-    private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, Resolver server, int attempt, String error, RCode rCode) {
+    private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, NameServer server, int attempt, String error, RCode rCode) {
         byte[] idBytes = packet.getId();
         String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
         if (packet.getQdcount() == 0 || packet.getQuestionSections() == null ) {
