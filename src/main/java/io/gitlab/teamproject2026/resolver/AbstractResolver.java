@@ -9,12 +9,10 @@ public abstract class AbstractResolver {
 
     public enum Status { SUCCESS, TIMEOUT, IO_ERROR }
 
-    public record QueryResult(          // renamed from ForwardResult
-                                        Status status,
-                                        byte[] response,
-                                        String errorMessage,
-                                        long latencyMs
-    ) {}
+    public record QueryResult( Status status,
+                               byte[] response,
+                               String errorMessage,
+                               long latencyMs) {}
 
     public static final int MAX_UDP_SIZE = 4096;
 
@@ -147,9 +145,5 @@ public abstract class AbstractResolver {
         }
         catch(InterruptedException e) {Thread.currentThread().interrupt();}
     }
-
-
-
-
 
 }

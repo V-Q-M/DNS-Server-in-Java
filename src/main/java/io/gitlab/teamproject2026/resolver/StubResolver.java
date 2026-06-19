@@ -10,7 +10,7 @@ import java.io.DataOutputStream;
 import java.net.*;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+
 
 import io.gitlab.teamproject2026.logging.LoggingFeature;
 import io.gitlab.teamproject2026.logging.DNSEventInfo;
@@ -111,7 +111,6 @@ public class StubResolver extends AbstractResolver{
                         result = tcpResult;
                     }
 
-                    //DNSPacket responsePacket = DNSPacket.fromBytes(result.response());
                     DNSPacket responsePacket;
                     try {
                         responsePacket = DNSPacket.fromBytes(result.response());
