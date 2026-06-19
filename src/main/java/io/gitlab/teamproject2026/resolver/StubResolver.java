@@ -19,12 +19,7 @@ import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.ResponseSource;
 
 
-public class StubResolver {
-    public enum Status{SUCCESS, TIMEOUT, IO_ERROR}
-    public record ForwardResult(Status status, byte[] response, String errorMessage, long latencyMs){
-        //public boolean isSuccess() {return status== Status.SUCCESS;}
-    }
-    public static final int MAX_UDP_SIZE=4096;
+public class StubResolver extends AbstractResolver{
 
     private final List<Resolver> forwarders;
     private final int timeoutMs;
@@ -76,7 +71,7 @@ public class StubResolver {
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
 
-            ForwardResult result = forwardOnceUDP(query, server);
+            QueryResult result = queryUDP(query, server, timeoutMs);//forward once over UDP
 
             //for all questions
             switch (result.status()) {
@@ -91,9 +86,9 @@ public class StubResolver {
                         break; // retry
                     }
 
-                    if (resultIsTruncated(result.response())){
+                    if (isTruncated(result.response())){
                         IO.println(YELLOW + "[STUB] UDP response truncated. Retrying over TCP..." + RESET);
-                        ForwardResult tcpResult = forwardOnceTCP(query, server);
+                        QueryResult tcpResult = queryTCP(query, server, timeoutMs); //forward once over TCP
 
                         if (tcpResult.status() != Status.SUCCESS){
                             IO.println(RED + "[STUB] TCP fallback failed: "
@@ -180,86 +175,6 @@ public class StubResolver {
     }
 
     /**
-     * Sends the query to a single upstream server over UDP and waits for a response.
-     * The received packet is validated against the expected source address and
-     * transaction ID before being returned.
-     *
-     * @param query raw DNS query packet
-     * @param server upstream DNS server to contact
-     * @return the forwarding result including status, response, and latency
-     */
-    private ForwardResult forwardOnceUDP(byte[] query, Resolver server){
-        long start= System.currentTimeMillis();
-        try(DatagramSocket socket= new DatagramSocket()){socket.setSoTimeout(timeoutMs);
-
-            InetAddress address= InetAddress.getByName(server.host());
-            socket.send(new DatagramPacket(query, query.length,address, server.port()));
-
-            byte[] buffer = new byte[MAX_UDP_SIZE];
-            DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
-            socket.receive(inPacket);
-
-            byte[] response= Arrays.copyOf(inPacket.getData(), inPacket.getLength());
-            if (!inPacket.getAddress().equals(address))
-                return new ForwardResult(Status.IO_ERROR, null, "response from unexpected source", System.currentTimeMillis()- start);
-            if (response.length < 12)
-                return new ForwardResult(Status.IO_ERROR, null, "response too short", System.currentTimeMillis() - start);
-            if (response[0] != query[0] || response[1] != query[1])
-                return new ForwardResult(Status.IO_ERROR, null, "transaction ID mismatch", System.currentTimeMillis() - start);
-            return new ForwardResult(Status.SUCCESS, response, null,System.currentTimeMillis()- start);
-        } catch (SocketTimeoutException e){
-            return new ForwardResult(Status.TIMEOUT, null, "timed out",System.currentTimeMillis()- start);
-        } catch (Exception e){
-            return new ForwardResult(Status.IO_ERROR, null, e.getMessage(),System.currentTimeMillis()- start);
-        }
-    }
-
-    /**
-     * Sends the query to a single upstream server over TCP.
-     * Used as a fallback when a UDP response is truncated.
-     *
-     * @param query raw DNS query packet
-     * @param server upstream DNS server to contact
-     * @return the forwarding result including status, response, and latency
-     */
-    private ForwardResult forwardOnceTCP(byte[] query, Resolver server){
-        long start = System.currentTimeMillis();
-        try (Socket socket =  new Socket()) {
-            socket.connect(new InetSocketAddress(server.host(), server.port()), timeoutMs);
-            socket.setSoTimeout(timeoutMs);
-
-            DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-            DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-
-            out.writeShort(query.length);
-            out.write(query);
-            out.flush();
-
-            int responseLength = in.readUnsignedShort();
-            if (responseLength < 12){
-                return  new ForwardResult(Status.IO_ERROR, null, "response too short", System.currentTimeMillis() - start);
-            }
-
-            byte[] response = in.readNBytes(responseLength);
-
-            if (responseLength != response.length){
-                return new ForwardResult( Status.IO_ERROR, null, "incomplete TCP response", System.currentTimeMillis() - start );
-            }
-
-            if (response[0] != query[0] || response[1] != query[1]) {
-                return new ForwardResult( Status.IO_ERROR, null, "transaction ID mismatch", System.currentTimeMillis() - start );
-            }
-
-            return  new ForwardResult(Status.SUCCESS, response, null, System.currentTimeMillis() - start);
-
-        } catch (SocketTimeoutException e){
-            return new ForwardResult( Status.TIMEOUT, null, "timed out", System.currentTimeMillis() - start );
-        } catch (Exception e){
-            return new ForwardResult( Status.IO_ERROR, null, e.getMessage(), System.currentTimeMillis() - start );
-        }
-    }
-
-    /**
      * Determines the starting forwarder index for the current resolution attempt.
      * In ROUND_ROBIN mode the index advances between requests, whereas FAILOVER
      * mode always starts with the first configured server.
@@ -276,38 +191,8 @@ public class StubResolver {
         return 0;
     }
 
-    /**
-     * Constructs a SERVFAIL DNS response from the original query, used when all upstream attempts are exhausted.
-     * Also clears all answer/authority/additional record counts
-     */
-    static byte[] buildServFail(byte[] query){
-        if (query.length < 12)
-            throw new IllegalArgumentException("query too short to build a valid DNS response");
-        byte[] r= Arrays.copyOf(query, query.length);
-        r[2]=(byte) ((r[2] & 0x01) | 0x80); 
-        // r[2]: QR=1 (response), Opcode=0, AA=0 (not authoritative), TC=0 (no upstream response to copy from), RD=preserved from query
-        r[3]=(byte) 0x02; // set RA (0x82) once recursion is available
-        // r[3]: RA=0 (no recursion implemented yet), Z=0 (reserved 0), AD=0 (no DNSSEC validation), CD=0 (DNSSEC client flag so irrelevant for response), RCODE=2 (SERVFAIL)
-        // since this is a failure response there are no records to return, so the rest is 0 
-        r[6]=0;
-        r[7]=0;
-        r[8]=0;
-        r[9]=0;
-        r[10]=0;
-        r[11]=0;
-        return r;
-    }
 
-    /**
-     * Checks whether a DNS response indicates truncation and therefore
-     * requires retrying the query over TCP.
-     *
-     * @param response raw DNS response packet
-     * @return {@code true} if the TC flag is set, otherwise {@code false}
-     */
-    private boolean resultIsTruncated(byte[] response){
-        return response.length >= 4 && ((response[2] & 0x02) != 0);
-    }
+
 
     /**
      * Sleeps for the specified duration before another retry attempt.

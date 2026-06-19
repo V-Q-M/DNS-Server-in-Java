@@ -99,14 +99,12 @@ public abstract class AbstractResolver {
     }
 
     /**
-     * Checks the TC (truncation) bit in a DNS response header.
+     * Checks the TC (truncation) bit in DNS response header.
      *
      * @param response raw DNS response bytes
      * @return true if the TC flag is set
      */
-    protected boolean isTruncated(byte[] response) {
-        return response.length >= 4 && (response[2] & 0x02) != 0;
-    }
+    protected boolean isTruncated(byte[] response) { return response.length >= 4 && (response[2] & 0x02) != 0;}
 
     /**
      * Constructs a SERVFAIL DNS response from the original query, used when all upstream attempts are exhausted.
