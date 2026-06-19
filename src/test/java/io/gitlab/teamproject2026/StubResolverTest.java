@@ -1,6 +1,6 @@
 package io.gitlab.teamproject2026;
 
-import io.gitlab.teamproject2026.resolver.Forwarder;
+import io.gitlab.teamproject2026.resolver.Resolver;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import io.gitlab.teamproject2026.resolver.StubResolver;
 import org.junit.jupiter.api.AfterEach;
@@ -57,7 +57,7 @@ class StubResolverTest {
     }
     @Test
     void testSuccessfulResolution(){
-        Forwarder server = new Forwarder("127.0.0.1", mockServer.getLocalPort(),
+        Resolver server = new Resolver("127.0.0.1", mockServer.getLocalPort(),
                 "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),1000,2,50, StubResolverStrategy.FAILOVER);
         byte[] query= new byte[]{0x12, 0x34, // id
@@ -73,7 +73,7 @@ class StubResolverTest {
     @Test
     void testTimeoutAndServFail(){
         serverDelayMs=200;
-        Forwarder server= new Forwarder("127.0.0.1", mockServer.getLocalPort(), "MockLocal");
+        Resolver server= new Resolver("127.0.0.1", mockServer.getLocalPort(), "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),100,1,10, StubResolverStrategy.FAILOVER);
         byte[] query= new byte[12];
         byte[] response= resolver.resolve(query);
@@ -84,8 +84,8 @@ class StubResolverTest {
     @Test
     void testFailoverSwitchesServer(){
         serverDelayMs=200;
-        Forwarder badServer = new Forwarder("127.0.0.1", mockServer.getLocalPort(), "BadPrimary");
-        Forwarder deadServer= new Forwarder("127.0.0.1", 54321, "Dead");
+        Resolver badServer = new Resolver("127.0.0.1", mockServer.getLocalPort(), "BadPrimary");
+        Resolver deadServer= new Resolver("127.0.0.1", 54321, "Dead");
         StubResolver resolver = new StubResolver(List.of(badServer, deadServer),50,1,10, StubResolverStrategy.FAILOVER);
         byte[] query= new byte[12];
         byte[] response= resolver.resolve(query);
@@ -94,8 +94,8 @@ class StubResolverTest {
     }
     @Test
     void testRoundRobinStrategy(){
-        Forwarder server1 = new Forwarder("127.0.0.1", mockServer.getLocalPort(), "server1");
-        Forwarder server2 = new Forwarder("127.0.0.1", mockServer.getLocalPort(), "server2");
+        Resolver server1 = new Resolver("127.0.0.1", mockServer.getLocalPort(), "server1");
+        Resolver server2 = new Resolver("127.0.0.1", mockServer.getLocalPort(), "server2");
         StubResolver resolver = new StubResolver(List.of(server1, server2),1000,0,10, StubResolverStrategy.ROUND_ROBIN);
         byte[] query = new byte[12];
         resolver.resolve(query);
@@ -116,7 +116,7 @@ class StubResolverTest {
         });
         t.start();
         try {
-            Forwarder server = new Forwarder("127.0.0.1", shortServer.getLocalPort(), "ShortResponse");
+            Resolver server = new Resolver("127.0.0.1", shortServer.getLocalPort(), "ShortResponse");
             StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolverStrategy.FAILOVER);
             byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             byte[] response = resolver.resolve(query);
@@ -143,7 +143,7 @@ class StubResolverTest {
         });
         t.start();
         try {
-            Forwarder server = new Forwarder("127.0.0.1", badIdServer.getLocalPort(), "BadId");
+            Resolver server = new Resolver("127.0.0.1", badIdServer.getLocalPort(), "BadId");
             StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolverStrategy.FAILOVER);
             byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             byte[] response = resolver.resolve(query);
