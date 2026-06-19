@@ -3,6 +3,7 @@ package io.gitlab.teamproject2026.resolver;
 import java.io.*;
 import java.net.*;
 import java.util.Arrays;
+import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class AbstractResolver {
 
@@ -104,7 +105,7 @@ public abstract class AbstractResolver {
      * @param response raw DNS response bytes
      * @return true if the TC flag is set
      */
-    protected boolean isTruncated(byte[] response) { return response.length >= 4 && (response[2] & 0x02) != 0;}
+    public boolean isTruncated(byte[] response) { return response.length >= 4 && (response[2] & 0x02) != 0;}
 
     /**
      * Constructs a SERVFAIL DNS response from the original query, used when all upstream attempts are exhausted.
@@ -113,7 +114,7 @@ public abstract class AbstractResolver {
      * @param query DNS query bytes
      * @return SERVFAIL response bytes
      */
-    static byte[] buildServFail(byte[] query){
+    public static byte[] buildServFail(byte[] query){
         if (query.length < 12)
             throw new IllegalArgumentException("query too short to build a valid DNS response");
         byte[] r= Arrays.copyOf(query, query.length);
@@ -131,6 +132,21 @@ public abstract class AbstractResolver {
         return r;
     }
 
+    /**
+     * Sleeps for the specified duration before another retry attempt.
+     * A small random jitter is added to avoid synchronized retry storms
+     * when multiple resolvers retry simultaneously.
+     *
+     * @param ms base delay in milliseconds
+     */
+    public static void sleep(long ms){
+        if (ms <= 0) return;
+        try{
+            long jitter= ThreadLocalRandom.current().nextInt(30);
+            Thread.sleep(ms+jitter);
+        }
+        catch(InterruptedException e) {Thread.currentThread().interrupt();}
+    }
 
 
 

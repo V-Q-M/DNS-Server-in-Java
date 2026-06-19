@@ -194,21 +194,7 @@ public class StubResolver extends AbstractResolver{
 
 
 
-    /**
-     * Sleeps for the specified duration before another retry attempt.
-     * A small random jitter is added to avoid synchronized retry storms
-     * when multiple resolvers retry simultaneously.
-     *
-     * @param ms base delay in milliseconds
-     */
-    private static void sleep(long ms){
-        if (ms <= 0) return;
-        try{
-            long jitter=ThreadLocalRandom.current().nextInt(30);
-            Thread.sleep(ms+jitter);
-        }
-        catch(InterruptedException e) {Thread.currentThread().interrupt();}
-    }
+
 
     /**
      * helper method for logging,
