@@ -40,18 +40,18 @@ class SListWrapperTest {
 
 
     private void assertSListEntryEquals(SListEntry expected, SListEntry actual){
-        assertArrayEquals(expected.NSname().getNsdname(), actual.NSname().getNsdname());
+        assertArrayEquals(expected.nsName().getNsdname(), actual.nsName().getNsdname());
 
-        if (expected.IPv4() == null|| actual.IPv4()==null){
-            assertEquals(expected.IPv4(), actual.IPv4());
+        if (expected.ipv4() == null|| actual.ipv4()==null){
+            assertEquals(expected.ipv4(), actual.ipv4());
         }else {
-            assertArrayEquals(expected.IPv4().getAddress(), actual.IPv4().getAddress());
+            assertArrayEquals(expected.ipv4().getAddress(), actual.ipv4().getAddress());
         }
 
-        if (expected.IPv6() == null|| actual.IPv6()==null){
-            assertEquals(expected.IPv6(),expected.IPv6());
+        if (expected.ipv6() == null|| actual.ipv6()==null){
+            assertEquals(expected.ipv6(),expected.ipv6());
         }else{
-            assertArrayEquals(expected.IPv6().getAddress(), actual.IPv6().getAddress());
+            assertArrayEquals(expected.ipv6().getAddress(), actual.ipv6().getAddress());
         }
     }
 
@@ -97,9 +97,9 @@ class SListWrapperTest {
         SListWrapper SList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
 
         SListEntry bestServer = SList.getBestServer();
-        assertArrayEquals(bestServer.NSname().getNsdname(), SBelt.getFirst().NSname().getNsdname());
-        assertArrayEquals(bestServer.IPv4().getAddress(), SBelt.getFirst().IPv4().getAddress());
-        assertArrayEquals(bestServer.IPv6().getAddress(), SBelt.getFirst().IPv6().getAddress());
+        assertArrayEquals(bestServer.nsName().getNsdname(), SBelt.getFirst().nsName().getNsdname());
+        assertArrayEquals(bestServer.ipv4().getAddress(), SBelt.getFirst().ipv4().getAddress());
+        assertArrayEquals(bestServer.ipv6().getAddress(), SBelt.getFirst().ipv6().getAddress());
         assertTrue(SList.getCurrentMatchLevel()==0);
     }
 
@@ -117,8 +117,8 @@ class SListWrapperTest {
         result.add(testEntryAAAA);
 
         SListWrapper SList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
-        assertSListEntryEquals(SList.getSList().getFirst(), result.getFirst());
-        assertSListEntryEquals(SList.getSList().getLast(), result.getLast());
+        assertSListEntryEquals(SList.getsList().getFirst(), result.getFirst());
+        assertSListEntryEquals(SList.getsList().getLast(), result.getLast());
         assertEquals(SList.getCurrentMatchLevel(),1);
 
             
@@ -147,11 +147,11 @@ class SListWrapperTest {
         SListWrapper SList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
 
         SList.getBestServer();
-        assertSListEntryEquals(SList.getSList().getFirst(), testEntryAAAA);
+        assertSListEntryEquals(SList.getsList().getFirst(), testEntryAAAA);
         SList.getBestServer();
-        assertEquals(SList.getSList(), new LinkedList<SListEntry>());
+        assertEquals(SList.getsList(), new LinkedList<SListEntry>());
 
-        assertEquals(SList.getBestServer().NSname().getNsdname().length,0);
+        assertEquals(SList.getBestServer().nsName().getNsdname().length,0);
         
     }
 
@@ -169,7 +169,7 @@ class SListWrapperTest {
 
         assertSListEntryEquals(SList.getBestServer(),testEntryAAAA);
 
-        assertEquals(SList.getBestServer().NSname().getNsdname().length, 0);
+        assertEquals(SList.getBestServer().nsName().getNsdname().length, 0);
     }
     
 
@@ -192,8 +192,8 @@ class SListWrapperTest {
 
         SList.addSListEntry(testNS, new RDataA(new byte[4]), (RDataAAAA)testAAAA.getRdata());
 
-        assertSListEntryEquals(SList.getSList().getFirst(),testEntryA);
-        assertSListEntryEquals(SList.getSList().getLast(), testEntryAAAA);
+        assertSListEntryEquals(SList.getsList().getFirst(),testEntryA);
+        assertSListEntryEquals(SList.getsList().getLast(), testEntryAAAA);
     }
 
 }

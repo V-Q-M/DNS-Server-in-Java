@@ -17,30 +17,30 @@ import io.gitlab.teamproject2026.model.RRType;
 
 public class SListWrapper {
 
-    private final String[] SName;
+    private final String[] sName;
 
     // Model SList entries as a Record containing an Array of Labels, the name of the NS, an RDataA and an RDataAAAA Object, the Address of that particular instance
-    public record SListEntry(RDataNS NSname, RDataA IPv4, RDataAAAA IPv6){
+    public record SListEntry(RDataNS nsName, RDataA ipv4, RDataAAAA ipv6){
         @Override 
         public String toString(){
-            String IPv4String="";
-            String IPv6String="";
-            String NSnameString = String.join(".", NSname.getNsdname()) + ".";
-            if (IPv4 != null){
-                IPv4String = IPv4.toString();
+            String ipv4String="";
+            String ipv6String="";
+            String nsNameString = nsName.toString();
+            if (ipv4 != null){
+                ipv4String = ipv4.toString();
             }
-            if(IPv6 != null){
-                IPv6String = IPv6.toString();
+            if(ipv6 != null){
+                ipv6String = ipv6.toString();
             }
 
-            return "NSname: " + NSnameString + "\nIPv4: " + IPv4String + "\nIPv6: " + IPv6String;
+            return "NSname: " + nsNameString + "\nIPv4: " + ipv4String + "\nIPv6: " + ipv6String;
         }
     }
 
     // Model SList as a LinkedList of SListEntries
-    private LinkedList<SListEntry> SList = new LinkedList<SListEntry>(); 
+    private LinkedList<SListEntry> sList = new LinkedList<SListEntry>(); 
 
-    private static final SListEntry[] SBelt = new SListEntry[] {
+    private static final SListEntry[] sBelt = new SListEntry[] {
 
         // fill in SBelt 
         // no, this didn't take long at all, but i refuse to use AI
@@ -62,8 +62,8 @@ public class SListWrapper {
     private int currentMatchLevel=0;
     
 
-    public String[] getSName(){
-        return SName;
+    public String[] getsName(){
+        return sName;
     }
 
 
@@ -71,25 +71,25 @@ public class SListWrapper {
         return currentMatchLevel;
     }
 
-    public LinkedList<SListEntry> getSList(){
-        return SList;
+    public LinkedList<SListEntry> getsList(){
+        return sList;
     }
 
     /** Constructor for the SListWrapper class
      *  Creates an SList for a given SName and fills it with the closest cached entries
      *  Entries take the form of a Name and either an IPv4 or IPv6 Address Rdata field. The other field will contain an RData Object containing a 0 address
      * 
-     * @param SName the Sname which the SList is dedicated to
+     * @param sName the Sname which the SList is dedicated to
      * @param zone A Zonehandler to check whether a NameServer is contained in the Zone 
      * @param cache A cachehandler that is used to check for already cached records
      * @throws SQLException 
      */
-    public SListWrapper(RDataNS SName, CacheHandler cache) throws SQLException{
-        this.SName = SName.getNsdname();
+    public SListWrapper(RDataNS sName, CacheHandler cache) throws SQLException{
+        this.sName = sName.getNsdname();
 
         // fill SList from Cache 
-        for(int i = 0; i <= this.SName.length; i++){
-            String query = String.join(".", Arrays.copyOfRange(this.SName,i , this.SName.length));
+        for(int i = 0; i <= this.sName.length; i++){
+            String query = String.join(".", Arrays.copyOfRange(this.sName,i , this.sName.length));
 
             ResourceRecord[] nameServers;
 
@@ -104,16 +104,16 @@ public class SListWrapper {
                 ipv6 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.AAAA);
 
                 if (ipv4.length == 0 && ipv6.length == 0){
-                    SList.add(new SListEntry((RDataNS)nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
+                    sList.add(new SListEntry((RDataNS)nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
                     break;
                 } else {
                     // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address and break
-                    currentMatchLevel = this.SName.length - i;
+                    currentMatchLevel = this.sName.length - i;
                     for (ResourceRecord address :ipv4){
-                        SList.add(new SListEntry(((RDataNS)nameServer.getRdata()), (RDataA)address.getRdata(), new RDataAAAA(new byte[16])));
+                        sList.add(new SListEntry(((RDataNS)nameServer.getRdata()), (RDataA)address.getRdata(), new RDataAAAA(new byte[16])));
                     }
                     for (ResourceRecord address :ipv6){
-                        SList.add(new SListEntry(((RDataNS)nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)address.getRdata()));
+                        sList.add(new SListEntry(((RDataNS)nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)address.getRdata()));
                     }
                     break;
                 }
@@ -121,9 +121,9 @@ public class SListWrapper {
             }   
             
         }
-        if(SList.isEmpty()){
-            for (SListEntry entry : SBelt){
-                SList.add(entry);
+        if(sList.isEmpty()){
+            for (SListEntry entry : sBelt){
+                sList.add(entry);
             }
         }
         
@@ -135,19 +135,19 @@ public class SListWrapper {
      * else: If the Level is equal current one: add the entry
      *       If the Level is higher than the current one: clear the SList and add the entry 
      * 
-     * @param NS The NS ResourceRecord for the entry
+     * @param ns The NS ResourceRecord for the entry
      * @param ipv4 The IPv4 Address of the NS
      * @param ipv6 The IPv6 Address of the NS
      * @return
      */
-    public void addSListEntry(ResourceRecord NS, RDataA ipv4, RDataAAAA ipv6){
-        int matchLevel = getMatchLevel(NS.getName());
-        if (matchLevel == NS.getName().length){
+    public void addSListEntry(ResourceRecord ns, RDataA ipv4, RDataAAAA ipv6){
+        int matchLevel = getMatchLevel(ns.getName());
+        if (matchLevel == ns.getName().length){
             if (matchLevel > currentMatchLevel){
-                SList.clear();
-                SList.add(new SListEntry(((RDataNS)NS.getRdata()), ipv4,ipv6));
+                sList.clear();
+                sList.add(new SListEntry(((RDataNS)ns.getRdata()), ipv4,ipv6));
             } else if (matchLevel == currentMatchLevel){
-                SList.add(new SListEntry(((RDataNS)NS.getRdata()), ipv4,ipv6));
+                sList.add(new SListEntry(((RDataNS)ns.getRdata()), ipv4,ipv6));
             }
         }
         
@@ -161,16 +161,16 @@ public class SListWrapper {
      */
     public int getMatchLevel(String[] url){
         // iterates through both SName and the url from the top lable to the lowest. 
-        for(int i = 1; i <= SName.length; i++){
+        for(int i = 1; i <= sName.length; i++){
 
-            if (url.length - i >= 0 && url[url.length-i].equals(SName[SName.length-i])){
+            if (url.length - i >= 0 && url[url.length-i].equals(sName[sName.length-i])){
                 continue;
             } else {
                 return i - 1;
             }
         }
 
-        return SName.length;
+        return sName.length;
     }
 
     /** Returns the current best NameServer that can be found and removes it from the SList
@@ -179,7 +179,7 @@ public class SListWrapper {
      */
     public SListEntry getBestServer(){
         try {
-            return SList.removeFirst();
+            return sList.removeFirst();
         } catch (NoSuchElementException e) {
             return new SListEntry(new RDataNS(new String[]{}), new RDataA(), new RDataAAAA());
         }
