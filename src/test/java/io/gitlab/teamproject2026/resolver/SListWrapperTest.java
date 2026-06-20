@@ -18,9 +18,7 @@ import java.util.LinkedList;
 
 import java.sql.SQLException;
 
-// This disables the SListWrapper-Tests during normal Testrun, as the SList is heavily dependant on Cache functionality 
-// manually run these tests via > mvn test -DlocalDB=true
-@EnabledIfSystemProperty(named = "localDB", matches = "true")
+
 class SListWrapperTest {
     private CacheHandler handler;
 
