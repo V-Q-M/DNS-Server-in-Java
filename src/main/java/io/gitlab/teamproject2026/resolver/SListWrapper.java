@@ -104,7 +104,7 @@ public class SListWrapper {
                 ipv6 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.AAAA);
 
                 if (ipv4.length == 0 && ipv6.length == 0){
-                    currentMatchLevel = this.sName.length -1;
+                    currentMatchLevel = this.sName.length -i;
                     sList.add(new SListEntry((RDataNS)nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
                 } else {
                     // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address and break
