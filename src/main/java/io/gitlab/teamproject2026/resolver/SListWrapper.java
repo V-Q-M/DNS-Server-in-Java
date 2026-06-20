@@ -93,21 +93,15 @@ public class SListWrapper {
 
             ResourceRecord[] nameServers;
 
-            try{
-                nameServers = cache.lookup(query,RRType.NS);
-            } catch (SQLException e) {
-                throw e;
-            }
+            nameServers = cache.lookup(query,RRType.NS);
+
             for (ResourceRecord nameServer:nameServers) {
                 ResourceRecord[] ipv4;
                 ResourceRecord[] ipv6;
 
-                try {
-                    ipv4 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.A);
-                    ipv6 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.AAAA);
-                } catch (SQLException e) {
-                    throw e;
-                }
+                
+                ipv4 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.A);
+                ipv6 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.AAAA);
 
                 if (ipv4.length == 0 && ipv6.length == 0){
                     SList.add(new SListEntry((RDataNS)nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
