@@ -108,15 +108,21 @@ public class SListWrapper {
                 } catch (SQLException e) {
                     throw e;
                 }
-                // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address and break
-                currentMatchLevel = this.SName.length - i;
-                for (ResourceRecord address :ipv4){
-                    SList.add(new SListEntry(((RDataNS)nameServer.getRdata()), (RDataA)address.getRdata(), new RDataAAAA(new byte[16])));
+
+                if (ipv4.length == 0 && ipv6.length == 0){
+                    SList.add(new SListEntry((RDataNS)nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
+                    break;
+                } else {
+                    // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address and break
+                    currentMatchLevel = this.SName.length - i;
+                    for (ResourceRecord address :ipv4){
+                        SList.add(new SListEntry(((RDataNS)nameServer.getRdata()), (RDataA)address.getRdata(), new RDataAAAA(new byte[16])));
+                    }
+                    for (ResourceRecord address :ipv6){
+                        SList.add(new SListEntry(((RDataNS)nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)address.getRdata()));
+                    }
+                    break;
                 }
-                for (ResourceRecord address :ipv6){
-                    SList.add(new SListEntry(((RDataNS)nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)address.getRdata()));
-                }
-                break;
             
             }   
             
