@@ -307,8 +307,8 @@ public class DNS_SERVER {
         forwardMode = options.forwardMode();// Determines if we should only forward
         //IO.println("Forward mode: " + forwardMode);
 
-        List<Forwarder> forwarders = options.forwarders().stream()
-                .map(ip -> new Forwarder(ip, 53, ip))
+        List<NameServer> forwarders = options.forwarders().stream()
+                .map(ip -> new NameServer(ip, 53, ip))
                 .toList();
         stubResolver = new StubResolver(
                 forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
