@@ -52,6 +52,7 @@ public class StubResolver extends AbstractResolver{
      * @param query raw DNS query packet
      * @return raw DNS response packet from an upstream server, or a SERVFAIL response
      */
+    @Override
     public byte[] resolve(byte[] query){
 
         int totalServers = forwarders.size();

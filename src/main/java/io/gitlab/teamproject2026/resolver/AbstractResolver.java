@@ -16,6 +16,8 @@ public abstract class AbstractResolver {
 
     public static final int MAX_UDP_SIZE = 4096;
 
+    public abstract byte[] resolve(byte[] query);
+
     /**
      * Sends a DNS query to a single nameserver/forwarder over UDP.
      * The received packet is validated against the expected source address and
@@ -51,7 +53,7 @@ public abstract class AbstractResolver {
 
         } catch (SocketTimeoutException e) {
             return new QueryResult(Status.TIMEOUT, null, "timed out", System.currentTimeMillis() - start);
-        } catch (Exception e) {
+        } catch (IOException e) {
             return new QueryResult(Status.IO_ERROR, null, e.getMessage(), System.currentTimeMillis() - start);
         }
     }
@@ -92,7 +94,7 @@ public abstract class AbstractResolver {
 
         } catch (SocketTimeoutException e) {
             return new QueryResult(Status.TIMEOUT, null, "timed out",  System.currentTimeMillis() - start);
-        } catch (Exception e) {
+        } catch (IOException e) {
             return new QueryResult(Status.IO_ERROR, null, e.getMessage(), System.currentTimeMillis() - start);
         }
     }
