@@ -146,6 +146,7 @@ public class SListWrapper {
             if (matchLevel > currentMatchLevel){
                 sList.clear();
                 sList.add(new SListEntry(((RDataNS)ns.getRdata()), ipv4,ipv6));
+                currentMatchLevel = matchLevel;
             } else if (matchLevel == currentMatchLevel){
                 sList.add(new SListEntry(((RDataNS)ns.getRdata()), ipv4,ipv6));
             }
