@@ -68,7 +68,7 @@ public class SListWrapper {
 
     /** Constructor for the SListWrapper class
      *  Creates an SList for a given SName and fills it with the closest cached entries
-     *  Entries take the form of a Name and either an IPv4 or IPv6 Address Rdata field. The other field will contain an empty RDataA or RDataAAAA object
+     *  Entries take the form of a Name and either an IPv4 or IPv6 Address Rdata field. The other field will contain an RData Object containing a 0 address
      * 
      * @param SName the Sname which the SList is dedicated to
      * @param zone A Zonehandler to check whether a NameServer is contained in the Zone 
@@ -121,10 +121,10 @@ public class SListWrapper {
                 // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address and break
                 currentMatchLevel = SName.length - i;
                 for (ResourceRecord address :ipv4){
-                    SList.add(new SListEntry(((RDataNS)nameServer.getRdata()).getNsdname(), (RDataA)address.getRdata(), new RDataAAAA()));
+                    SList.add(new SListEntry(((RDataNS)nameServer.getRdata()).getNsdname(), (RDataA)address.getRdata(), new RDataAAAA(new byte[16])));
                 }
                 for (ResourceRecord address :ipv6){
-                    SList.add(new SListEntry(((RDataNS)nameServer.getRdata()).getNsdname(), new RDataA(), (RDataAAAA)address.getRdata()));
+                    SList.add(new SListEntry(((RDataNS)nameServer.getRdata()).getNsdname(), new RDataA(new byte[4]), (RDataAAAA)address.getRdata()));
                 }
                 break;
             
@@ -183,7 +183,7 @@ public class SListWrapper {
 
     /** Returns the current best NameServer that can be found and removes it from the SList
      * 
-     * @return An SListEntry containing the Name and the addresses of the current best guess for an authoratative NS for the SName and an empty SListEntry if SList is empty
+     * @return An SListEntry containing the Name and the addresses of the current best guess for an authoratative NS for the SName and an SListEntry with a Labelarray of length 0 if SList is empty
      */
     public SListEntry getBestServer(){
         try {

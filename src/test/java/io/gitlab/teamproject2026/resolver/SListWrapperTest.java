@@ -31,12 +31,12 @@ class SListWrapperTest {
     private SListEntry testEntryA = new SListEntry(
             new String[] {"example","de"},
             (RDataA)testA.getRdata(),
-            null
+            new RDataAAAA(new byte[16])
         );
 
     private SListEntry testEntryAAAA = new SListEntry(
             new String[] {"example","de"},
-            null,
+            new RDataA(new byte[4]),
             (RDataAAAA)testAAAA.getRdata()
         );
 
@@ -52,13 +52,13 @@ class SListWrapperTest {
 
     private void assertSListEntryEquals(SListEntry expected, SListEntry actual){
         assertArrayEquals(expected.NSname(), actual.NSname());
-        if (expected.IPv4() == null){
+        if (expected.IPv4() == null|| actual.IPv4()==null){
             assertEquals(expected.IPv4(), actual.IPv4());
         }else {
             assertArrayEquals(expected.IPv4().getAddress(), actual.IPv4().getAddress());
         }
 
-        if (expected.IPv6() == null){
+        if (expected.IPv6() == null|| actual.IPv6()==null){
             assertEquals(expected.IPv6(),expected.IPv6());
         }else{
             assertArrayEquals(expected.IPv6().getAddress(), actual.IPv6().getAddress());
@@ -161,7 +161,7 @@ class SListWrapperTest {
         SList.getBestServer();
         assertEquals(SList.getSList(), new LinkedList<SListEntry>());
 
-        assertEquals(SList.getBestServer(),null);
+        assertEquals(SList.getBestServer().NSname().length,0);
         
     }
 
@@ -179,7 +179,7 @@ class SListWrapperTest {
 
         assertSListEntryEquals(SList.getBestServer(),testEntryAAAA);
 
-        assertEquals(SList.getBestServer(),null);
+        assertEquals(SList.getBestServer().NSname().length, 0);
     }
     
 
@@ -188,7 +188,7 @@ class SListWrapperTest {
 
         SListWrapper SList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
-        SList.addSListEntry(testNS, (RDataA)testA.getRdata(), null);
+        SList.addSListEntry(testNS, (RDataA)testA.getRdata(), new RDataAAAA(new byte[16]));
 
         assertSListEntryEquals(SList.getBestServer(), testEntryA);
     }
@@ -200,7 +200,7 @@ class SListWrapperTest {
 
         SListWrapper SList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
-        SList.addSListEntry(testNS, null, (RDataAAAA)testAAAA.getRdata());
+        SList.addSListEntry(testNS, new RDataA(new byte[4]), (RDataAAAA)testAAAA.getRdata());
 
         assertSListEntryEquals(SList.getSList().getFirst(),testEntryA);
         assertSListEntryEquals(SList.getSList().getLast(), testEntryAAAA);
