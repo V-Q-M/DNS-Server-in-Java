@@ -40,7 +40,24 @@ public class SListWrapper {
     // Model SList as a LinkedList of SListEntries
     private LinkedList<SListEntry> SList = new LinkedList<SListEntry>(); 
 
-    private ArrayList<SListEntry> SBelt = new ArrayList<SListEntry>();
+    private static final SListEntry[] SBelt = new SListEntry[] {
+
+        // fill in SBelt 
+        // no, this didn't take long at all, but i refuse to use AI
+        new SListEntry(new RDataNS(new String[] {"a","root-servers","net"}),new RDataA(new byte[] {(byte)(198),(byte)(41),(byte)(0),(byte)(4)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x03),(byte)(0xba),(byte)(0x3e),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x02),(byte)(0x00),(byte)(0x30)})),
+        new SListEntry(new RDataNS(new String[] {"b","root-servers","net"}),new RDataA(new byte[] {(byte)(170),(byte)(247),(byte)(170),(byte)(2)}), new RDataAAAA(new byte[] {(byte)(0x28),(byte)(0x01),(byte)(0x01),(byte)(0xb8),(byte)(0x00),(byte)(0x10),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0b)})),
+        new SListEntry(new RDataNS(new String[] {"c","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(33),(byte)(4),(byte)(12)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x02),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0c)})),
+        new SListEntry(new RDataNS(new String[] {"d","root-servers","net"}),new RDataA(new byte[] {(byte)(199),(byte)(7),(byte)(91),(byte)(13)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x2d),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0d)})),
+        new SListEntry(new RDataNS(new String[] {"e","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(203),(byte)(230),(byte)(10)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0xa8),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0e)})),
+        new SListEntry(new RDataNS(new String[] {"f","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(5),(byte)(5),(byte)(241)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x2f),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0f)})),
+        new SListEntry(new RDataNS(new String[] {"g","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(112),(byte)(36),(byte)(4)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x12),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0d),(byte)(0x0d)})),
+        new SListEntry(new RDataNS(new String[] {"h","root-servers","net"}),new RDataA(new byte[] {(byte)(198),(byte)(97),(byte)(190),(byte)(53)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x01),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x53)})),
+        new SListEntry(new RDataNS(new String[] {"i","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(58),(byte)(128),(byte)(30)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x03),(byte)(0x0c),(byte)(0x27),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x02),(byte)(0x00),(byte)(0x30)})),
+        new SListEntry(new RDataNS(new String[] {"j","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(36),(byte)(148),(byte)(17)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x07),(byte)(0xfe),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x53)})),
+        new SListEntry(new RDataNS(new String[] {"k","root-servers","net"}),new RDataA(new byte[] {(byte)(193),(byte)(0),(byte)(14),(byte)(129)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x07),(byte)(0xfd),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x01)})),
+        new SListEntry(new RDataNS(new String[] {"l","root-servers","net"}),new RDataA(new byte[] {(byte)(199),(byte)(7),(byte)(83),(byte)(42)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x9f),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x42)})),
+        new SListEntry(new RDataNS(new String[] {"m","root-servers","net"}),new RDataA(new byte[] {(byte)(202),(byte)(12),(byte)(27),(byte)(33)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x0d),(byte)(0xc3),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x35)})),
+    };
 
     private int currentMatchLevel=0;
     
@@ -69,25 +86,6 @@ public class SListWrapper {
      */
     public SListWrapper(RDataNS SName, CacheHandler cache) throws SQLException{
         this.SName = SName.getNsdname();
-
-
-        // fill in SBelt 
-        // no, this didn't take long at all, but i refuse to use AI
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"a","root-servers","net"}),new RDataA(new byte[] {(byte)(198),(byte)(41),(byte)(0),(byte)(4)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x03),(byte)(0xba),(byte)(0x3e),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x02),(byte)(0x00),(byte)(0x30)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"b","root-servers","net"}),new RDataA(new byte[] {(byte)(170),(byte)(247),(byte)(170),(byte)(2)}), new RDataAAAA(new byte[] {(byte)(0x28),(byte)(0x01),(byte)(0x01),(byte)(0xb8),(byte)(0x00),(byte)(0x10),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0b)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"c","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(33),(byte)(4),(byte)(12)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x02),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0c)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"d","root-servers","net"}),new RDataA(new byte[] {(byte)(199),(byte)(7),(byte)(91),(byte)(13)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x2d),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0d)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"e","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(203),(byte)(230),(byte)(10)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0xa8),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0e)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"f","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(5),(byte)(5),(byte)(241)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x2f),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0f)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"g","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(112),(byte)(36),(byte)(4)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x12),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x0d),(byte)(0x0d)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"h","root-servers","net"}),new RDataA(new byte[] {(byte)(198),(byte)(97),(byte)(190),(byte)(53)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x01),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x53)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"i","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(58),(byte)(128),(byte)(30)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x03),(byte)(0x0c),(byte)(0x27),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x02),(byte)(0x00),(byte)(0x30)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"j","root-servers","net"}),new RDataA(new byte[] {(byte)(192),(byte)(36),(byte)(148),(byte)(17)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x07),(byte)(0xfe),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x53)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"k","root-servers","net"}),new RDataA(new byte[] {(byte)(193),(byte)(0),(byte)(14),(byte)(129)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x07),(byte)(0xfd),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x01)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"l","root-servers","net"}),new RDataA(new byte[] {(byte)(199),(byte)(7),(byte)(83),(byte)(42)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x9f),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x42)})));
-        SBelt.add(new SListEntry(new RDataNS(new String[] {"m","root-servers","net"}),new RDataA(new byte[] {(byte)(202),(byte)(12),(byte)(27),(byte)(33)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x0d),(byte)(0xc3),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x35)})));
-
-    
 
         // fill SList from Cache 
         for(int i = 0; i <= this.SName.length; i++){
@@ -124,7 +122,9 @@ public class SListWrapper {
             
         }
         if(SList.isEmpty()){
-            SList.addAll(SBelt);
+            for (SListEntry entry : SBelt){
+                SList.add(entry);
+            }
         }
         
     }
