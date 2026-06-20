@@ -62,7 +62,7 @@ public class SListWrapper {
     private int currentMatchLevel=0;
     
 
-    public String[] getsName(){
+    public String[] getSName(){
         return sName;
     }
 
@@ -71,7 +71,7 @@ public class SListWrapper {
         return currentMatchLevel;
     }
 
-    public LinkedList<SListEntry> getsList(){
+    public LinkedList<SListEntry> getSList(){
         return sList;
     }
 
@@ -104,8 +104,8 @@ public class SListWrapper {
                 ipv6 = cache.lookup(String.join(".", ((RDataNS)nameServer.getRdata()).getNsdname()),RRType.AAAA);
 
                 if (ipv4.length == 0 && ipv6.length == 0){
+                    currentMatchLevel = this.sName.length -1;
                     sList.add(new SListEntry((RDataNS)nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
-                    break;
                 } else {
                     // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address and break
                     currentMatchLevel = this.sName.length - i;
@@ -115,11 +115,15 @@ public class SListWrapper {
                     for (ResourceRecord address :ipv6){
                         sList.add(new SListEntry(((RDataNS)nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)address.getRdata()));
                     }
-                    break;
+                    
                 }
             
             }   
-            
+
+        
+        if (!sList.isEmpty()){
+            break;
+        }
         }
         if(sList.isEmpty()){
             for (SListEntry entry : sBelt){
@@ -129,11 +133,11 @@ public class SListWrapper {
         
     }
 
-    /** Checks whether an Entry is relevant by comparing its MatchLevel(the number of labels that it shares with the SName) with the current MatchLevel
-     * If the Level is lower, ignore
-     * If the Level is Higher or equal but not equal the length of the the Url, ignore as it is not relevant to resolve SName
-     * else: If the Level is equal current one: add the entry
-     *       If the Level is higher than the current one: clear the SList and add the entry 
+    /** Checks whether an Entry is relevant by comparing its MatchLevel(the number of labels that it shares with the SName) with the current MatchLevel <br>
+     * If the Level is lower, ignore <br>
+     * If the Level is Higher or equal but not equal the length of the the Url, ignore as it is not relevant to resolve SName <br>
+     * else: If the Level is equal current one: add the entry <br>
+     *       If the Level is higher than the current one: clear the SList and add the entry <br>
      * 
      * @param ns The NS ResourceRecord for the entry
      * @param ipv4 The IPv4 Address of the NS
