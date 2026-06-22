@@ -32,13 +32,7 @@ public class ReferralAnalyzer {
         boolean hasAnswer= answers!=null && answers.length>0;
         boolean hasAuthority = authorities != null && authorities.length>0;
 
-        if (hasAnswer && querytype != RRType.CNAME){
-            for (ResourceRecord rr : answers){
-                if(rr.getType()==RRType.CNAME){
-                    return Classification.CNAME_CHAIN;
-                }
-            }
-        }
+
         if (hasAnswer){
             for (ResourceRecord rr : answers)
                 if(rr.getType() == querytype)
