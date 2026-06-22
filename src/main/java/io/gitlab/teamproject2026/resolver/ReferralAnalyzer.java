@@ -39,8 +39,15 @@ public class ReferralAnalyzer {
                 }
             }
         }
-        if (hasAnswer)
+        if (hasAnswer){
+            for (ResourceRecord rr : answers)
+                if(rr.getType() == querytype)
             return Classification.ANSWER;
+            if (querytype != RRType.CNAME)
+                for(ResourceRecord rr : answers)
+                    if(rr.getType() == RRType.CNAME)
+                        return Classification.CNAME_CHAIN;
+            return Classification.SERVFAIL;}
         if (hasAuthority){
             for (ResourceRecord rr: authorities){
                 if (rr.getType()==RRType.NS)
