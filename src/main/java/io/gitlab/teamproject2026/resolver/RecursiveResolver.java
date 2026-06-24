@@ -94,9 +94,9 @@ public class RecursiveResolver extends AbstractResolver{
 
             //build NameServer for queryUDP/queryTCP
             //TODO
-            String ipv4Str = (bestNsserver.ipv4() != null) ? bestNsserver.ipv4().toString() : "0.0.0.0";
-            String ipv6Str = (bestNsserver.ipv6() != null) ? bestNsserver.ipv6().toString() : "0000:0000:0000:0000:0000:0000:0000:0000";
-            String nsName = (bestNsserver.nsName() != null) ? bestNsserver.nsName().toString() : "unknown";
+            String ipv4Str = bestNsserver.ipv4().toString();
+            String ipv6Str = bestNsserver.ipv6().toString();
+            String nsName = (bestNsserver.nsName().getNsdname().length == 0) ? bestNsserver.nsName().toString() : "unknown";
 
             NameServer queriedServerIpv4 = new NameServer(ipv4Str, 53, nsName);
             NameServer queriedServerIpv6 = new NameServer(ipv6Str, 53, nsName);
@@ -115,7 +115,6 @@ public class RecursiveResolver extends AbstractResolver{
 
             //handle failures
             if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
-                slist.removeFirst();
                 sleep(retryDelay);
                 continue;
             }
@@ -124,20 +123,13 @@ public class RecursiveResolver extends AbstractResolver{
             if (isTruncated(result.response())) {
                 QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
                 if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
-                    slist.removeFirst();
                     sleep(retryDelay);
                     continue;
                 }
                 result = tcpResult;
             }
 
-            DNSPacket response;
-            try {
-                response = DNSPacket.fromBytes(result.response());
-            } catch (Exception e) {
-                slist.removeFirst();
-                continue;
-            }
+            DNSPacket response = DNSPacket.fromBytes(result.response());
 
             // Insert everything this hop returned
             try {
