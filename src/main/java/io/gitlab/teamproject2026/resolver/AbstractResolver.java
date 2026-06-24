@@ -31,33 +31,47 @@ public abstract class AbstractResolver {
      * @return QueryResult including status, response bytes, and latency
      */
 
-    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) {
+    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) throws Exception{
         long start = System.currentTimeMillis();
-        try (DatagramSocket socket = new DatagramSocket()) {socket.setSoTimeout(timeoutMs);
+
+        try (DatagramSocket socket = new DatagramSocket()) {
+            socket.setSoTimeout(timeoutMs);
 
             InetAddress address = InetAddress.getByName(server.host());
             socket.send(new DatagramPacket(query, query.length, address, server.port()));
 
             byte[] buffer = new byte[MAX_UDP_SIZE];
-            DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
-            socket.receive(inPacket);
 
-            byte[] response = Arrays.copyOf(inPacket.getData(), inPacket.getLength());
+            while (true) {
+                long elapsed = System.currentTimeMillis() - start;
+                long remaining = timeoutMs - elapsed;
+                if (remaining <= 0) {
+                    return new QueryResult(Status.TIMEOUT, null, "timed out", elapsed);
+                }
+                socket.setSoTimeout((int) remaining);
+                DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
+                socket.receive(inPacket);
 
-            if (!inPacket.getAddress().equals(address))
-                return new QueryResult(Status.IO_ERROR, null, "response from unexpected source",System.currentTimeMillis() - start);
-            if (response.length < 12)
-                return new QueryResult(Status.IO_ERROR, null, "response too short",System.currentTimeMillis() - start);
-            if (response[0] != query[0] || response[1] != query[1])
-                return new QueryResult(Status.IO_ERROR, null, "transaction ID mismatch",System.currentTimeMillis() - start);
+                byte[] response = Arrays.copyOf(inPacket.getData(), inPacket.getLength());
 
-            return new QueryResult(Status.SUCCESS, response, null, System.currentTimeMillis() - start);
+                if (!inPacket.getAddress().equals(address))
+                    return new QueryResult(Status.IO_ERROR, null, "response from unexpected source", System.currentTimeMillis() - start);
+                if (response.length < 12)
+                    return new QueryResult(Status.IO_ERROR, null, "response too short", System.currentTimeMillis() - start);
+                //transaction ID mismatch: try again until timeout
+                if (response[0] != query[0] || response[1] != query[1])
+                    continue;
 
-        } catch (SocketTimeoutException e) {
+                return new QueryResult(Status.SUCCESS, response, null, System.currentTimeMillis() - start);
+
+            }
+        }
+        catch(SocketTimeoutException e){
             return new QueryResult(Status.TIMEOUT, null, "timed out", System.currentTimeMillis() - start);
-        } catch (IOException e) {
+        } catch(IOException e){
             return new QueryResult(Status.IO_ERROR, null, e.getMessage(), System.currentTimeMillis() - start);
         }
+        
     }
 
 
@@ -82,18 +96,28 @@ public abstract class AbstractResolver {
             out.write(query);
             out.flush();
 
-            int responseLength = in.readUnsignedShort();
-            if (responseLength < 12)
-                return new QueryResult(Status.IO_ERROR, null, "response too short",System.currentTimeMillis() - start);
+            while (true) {
 
-            byte[] response = in.readNBytes(responseLength);
-            if (response.length != responseLength)
-                return new QueryResult(Status.IO_ERROR, null, "incomplete TCP response",System.currentTimeMillis() - start);
-            if (response[0] != query[0] || response[1] != query[1])
-                return new QueryResult(Status.IO_ERROR, null, "transaction ID mismatch",System.currentTimeMillis() - start);
+                long elapsed = System.currentTimeMillis() - start;
+                long remaining = timeoutMs - elapsed;
+                if (remaining <= 0) {
+                    return new QueryResult(Status.TIMEOUT, null, "timed out", elapsed);
+                }
+                socket.setSoTimeout((int) remaining);
 
-            return new QueryResult(Status.SUCCESS, response, null, System.currentTimeMillis() - start);
+                int responseLength = in.readUnsignedShort();
+                if (responseLength < 12)
+                    return new QueryResult(Status.IO_ERROR, null, "response too short", System.currentTimeMillis() - start);
 
+                byte[] response = in.readNBytes(responseLength);
+                if (response.length != responseLength)
+                    return new QueryResult(Status.IO_ERROR, null, "incomplete TCP response", System.currentTimeMillis() - start);
+                //transaction id mismatch: try again until timeout
+                if (response[0] != query[0] || response[1] != query[1])
+                    continue;
+
+                return new QueryResult(Status.SUCCESS, response, null, System.currentTimeMillis() - start);
+            }
         } catch (SocketTimeoutException e) {
             return new QueryResult(Status.TIMEOUT, null, "timed out",  System.currentTimeMillis() - start);
         } catch (IOException e) {
