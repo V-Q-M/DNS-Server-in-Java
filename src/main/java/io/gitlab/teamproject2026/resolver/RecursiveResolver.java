@@ -20,7 +20,18 @@ import java.util.List;
  * - placeholder* methods are stand-ins until B (transport/cache), C (classify)
  *   and D (SLIST) land. Verdict and Server get replaced by their real types.
  */
-public class RecursiveResolver {
+public class RecursiveResolver extends AbstractResolver{
+    @Override
+        public byte[] resolve(byte[] query) {
+            DNSPacket queryPacket;
+            try {
+                queryPacket = DNSPacket.fromBytes(query);
+            } catch (Exception e) {
+                return buildServFail(query);
+            }
+            return resolve(queryPacket.getQuestionSections()[0]).toBytes();
+        }
+
 
     // Public entry point: resolve one question.
     public DNSPacket resolve(QuestionSection question) {
