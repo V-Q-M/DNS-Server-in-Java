@@ -1,5 +1,8 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.database.*;
+import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
@@ -11,6 +14,8 @@ import io.gitlab.teamproject2026.model.rdata.RData;
 import io.gitlab.teamproject2026.model.rdata.RDataA;
 import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
+import io.gitlab.teamproject2026.model.rdata.RDataNS;
+import io.gitlab.teamproject2026.resolver.SListWrapper.*;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -37,21 +42,23 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
     @Override
-        public byte[] resolve(byte[] query) {
+        public byte[] resolve(byte[] query) throws Exception{
             DNSPacket queryPacket;
             try {
                 queryPacket = DNSPacket.fromBytes(query);
             } catch (Exception e) {
                 return buildServFail(query);
             }
-            return resolve(queryPacket.getQuestionSections()[0]).toBytes();
-        }
-
-
-    // Public entry point: resolve one question.
-    public DNSPacket resolve(QuestionSection question) {
-        return resolve(question.getNameString(), question.getQtype());
+            //TODO check local zone server &cache
+            QuestionSection question= queryPacket.getQuestionSections()[0];
+        // resolve one question.
+            return resolve(question.getName(), question.getQtype(), query);
     }
+
+
+
+    //important to keep because case of missing glue records needs seperate loop??
+
 
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
     // Terminates because the SLIST strictly shrinks: 
@@ -59,25 +66,33 @@ public class RecursiveResolver extends AbstractResolver{
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private DNSPacket resolve(String sname, RRType qtype) {
+    private byte[] resolve(String[] sname, RRType qtype, byte[] query) throws Exception {
 
         // Seed the SLIST from the closest known ancestor zone, else root hints.
         // TODO(B/D)
-        List<Server> slist = new ArrayList<>(placeholderFindClosestNs(sname));
+
+        CacheHandler handler = new CacheHandler(new DatabaseConnectionProvider());
+        handler.clearAll();
+        SListWrapper slist = new SListWrapper(sname, handler);
+
+
+
+        //List<Server> slist = new ArrayList<>(placeholderFindClosestNs(sname));
 
         while (true) {
 
             // TODO(D): find the best server.
-            Server server = placeholderPickBestServer(slist);
+            //Server server = placeholderPickBestServer(slist);
+            SListEntry bestNsserver = slist.getBestServer();
 
             // SLIST empty.
-            if (server == null) {
-                return placeholderRespond(RCode.SERVFAIL);
+            if (bestNsserver == null) {
+                return buildServFail(query);
             }
-            slist.remove(server); 
+
 
             // TODO(B): send iterative query (RD cleared), parse, id-check.
-            DNSPacket response = placeholderSendQuery(sname, qtype, server);
+            DNSPacket response = placeholderSendQuery(sname, qtype, bestNsserver);
 
             // No response: try the next server.
             if (response == null) {
@@ -121,6 +136,7 @@ public class RecursiveResolver extends AbstractResolver{
                     continue;
                 }
             }
+
         }
     }
 
@@ -137,7 +153,7 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
     // TODO(B): NameServerClient, build iterative query, send, parse and id-check.
-    private DNSPacket placeholderSendQuery(String sname, RRType qtype, Server server) {
+    private DNSPacket placeholderSendQuery(String[] sname, RRType qtype, SListEntry server) {
         return null;
     }
 

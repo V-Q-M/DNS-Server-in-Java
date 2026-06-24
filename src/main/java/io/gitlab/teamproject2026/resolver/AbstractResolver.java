@@ -16,7 +16,7 @@ public abstract class AbstractResolver {
 
     public static final int MAX_UDP_SIZE = 4096;
 
-    public abstract byte[] resolve(byte[] query);
+    public abstract byte[] resolve(byte[] query) throws Exception;
 
     /**
      * Sends a DNS query to a single nameserver/forwarder over UDP.

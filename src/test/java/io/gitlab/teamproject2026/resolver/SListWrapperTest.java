@@ -94,7 +94,7 @@ class SListWrapperTest {
         sBelt.add(new SListEntry(new RDataNS(new String[] {"l","root-servers","net"}),new RDataA(new byte[] {(byte)(199),(byte)(7),(byte)(83),(byte)(42)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x05),(byte)(0x00),(byte)(0x00),(byte)(0x9f),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x42)})));
         sBelt.add(new SListEntry(new RDataNS(new String[] {"m","root-servers","net"}),new RDataA(new byte[] {(byte)(202),(byte)(12),(byte)(27),(byte)(33)}), new RDataAAAA(new byte[] {(byte)(0x20),(byte)(0x01),(byte)(0x0d),(byte)(0xc3),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x00),(byte)(0x35)})));
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         SListEntry bestServer = sList.getBestServer();
         assertArrayEquals(bestServer.nsName().getNsdname(), sBelt.getFirst().nsName().getNsdname());
@@ -116,7 +116,7 @@ class SListWrapperTest {
         result.add(testEntryA);
         result.add(testEntryAAAA);
 
-        SListWrapper SList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper SList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
         assertSListEntryEquals(SList.getSList().getFirst(), result.getFirst());
         assertSListEntryEquals(SList.getSList().getLast(), result.getLast());
         assertEquals(SList.getCurrentMatchLevel(),1);
@@ -127,7 +127,7 @@ class SListWrapperTest {
     @Test
     void calculatingMatchLevel() throws Exception {
         
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertEquals(sList.getMatchLevel(new String[]{}),0);
         assertEquals(sList.getMatchLevel(new String[]{"de"}),1);
@@ -144,7 +144,7 @@ class SListWrapperTest {
             }
         );
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         sList.getBestServer();
         assertSListEntryEquals(sList.getSList().getFirst(), testEntryAAAA);
@@ -163,7 +163,7 @@ class SListWrapperTest {
             }
         );
         
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertSListEntryEquals(sList.getBestServer(), testEntryA);
 
@@ -176,7 +176,7 @@ class SListWrapperTest {
     @Test
     void addSListEntryClearsAndAddsWhenMatchLevelHigher()throws Exception{
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertEquals(sList.getCurrentMatchLevel(), 0);
 
@@ -191,7 +191,7 @@ class SListWrapperTest {
         handler.insertAll(new ResourceRecord[]{testA,testNS});
 
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         sList.addSListEntry(testNS, new RDataA(new byte[4]), (RDataAAAA)testAAAA.getRdata());
 
@@ -203,7 +203,7 @@ class SListWrapperTest {
     void readNSRecordsWithoutGlueRecords() throws Exception{
         handler.insertAll(new ResourceRecord[]{testNS});
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertSListEntryEquals(sList.getBestServer(), new SListEntry((RDataNS)testNS.getRdata(),new RDataA(new byte[4]),new RDataAAAA(new byte[16])));
 
@@ -218,7 +218,7 @@ class SListWrapperTest {
             new ResourceRecord(new String[]{"test","uni-tuebingen","de"},RRClass.IN,30000,new RDataA(new byte[]{1,2,3,4}))
         });
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertEquals(sList.getCurrentMatchLevel(), 2);
         assertSListEntryEquals(sList.getBestServer(), new SListEntry(new RDataNS(new String[]{"test","uni-tuebingen","de"}), new RDataA(new byte[]{1,2,3,4}), new RDataAAAA(new byte[16])));
@@ -233,7 +233,7 @@ class SListWrapperTest {
             testA,testAAAA,testNS
         });
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertEquals(sList.getSList().size(), 3);
     }
@@ -241,7 +241,7 @@ class SListWrapperTest {
     @Test
     void addMultipleLayers() throws Exception {
 
-        SListWrapper sList = new SListWrapper(new RDataNS(new String[] {"uni-tuebingen","de"}), handler);
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen","de"}, handler);
 
         assertEquals(sList.getCurrentMatchLevel(), 0);
 

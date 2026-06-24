@@ -84,8 +84,8 @@ public class SListWrapper {
      * @param cache A cachehandler that is used to check for already cached records
      * @throws SQLException 
      */
-    public SListWrapper(RDataNS sName, CacheHandler cache) throws SQLException{
-        this.sName = sName.getNsdname();
+    public SListWrapper(String[] sName, CacheHandler cache) throws SQLException{
+        this.sName = sName;
 
         // fill SList from Cache 
         for(int i = 0; i <= this.sName.length; i++){
