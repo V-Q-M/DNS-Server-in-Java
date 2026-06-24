@@ -156,7 +156,7 @@ public class RecursiveResolver extends AbstractResolver{
                         if (!d.hasGlue()) {
                             d = placeholderResolveNsAddress(d);
                         }
-                        slist.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
+                        slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                     }
                     continue;
                 }
