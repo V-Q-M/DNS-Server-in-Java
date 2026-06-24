@@ -707,36 +707,43 @@ public class DNS_SERVER {
         uncachedOOPacket.setQdcount(payload.notResolved.size());
 
         // Get Stub/recursive response
-        byte[] rawResponse;
-        try {
-            switch (forwardMode) {
-
-                case null -> {
-                    // only recursive resolver
-                    rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
-                }
-
-                case FORWARD_ONLY -> {
-                    // only stub
+        byte[] rawResponse=null;
+        switch (forwardMode) {
+            case FORWARD_ONLY -> { // only stub
+                try {
                     rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                } catch (RuntimeException e) {
+                    System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                    return payload;
                 }
-
-                case FORWARD_FIRST -> {
+            }
+            case FORWARD_FIRST -> {
+                try {
                     // try stub
                     rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
-
-                    // if stub resolver fails: fallback recursive resolver
-                    if (!payload.notResolved().isEmpty()) {
-                        if (!lessLog) {
-                            System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
-                        }
+                } catch (RuntimeException e) {
+                    if (!lessLog) {
+                        System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
+                    }
+                }
+                // if stub resolver fails: fallback recursive resolver
+                if (rawResponse == null) {
+                    try {
                         rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+                    } catch (RuntimeException e) {
+                        System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
+                        return payload;
                     }
                 }
             }
-        } catch (RuntimeException e) {
-            System.err.println(RED + "[NAMESERVER-ERROR] Failed to resolve query" + RESET);
-            return payload;
+            default -> { // handle null (iterative) and if later adjusted any other forwardmodes
+                try {
+                    rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+                } catch (RuntimeException e) {
+                    System.err.println(RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET);
+                    return payload;
+                }
+            }
         }
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         //----------------------------ReferralAnalyzer-------------------------------------------------
