@@ -46,7 +46,7 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
     @Override
-        public byte[] resolve(byte[] query) throws Exception{
+        public byte[] resolve(byte[] query){
             DNSPacket queryPacket;
             try {
                 queryPacket = DNSPacket.fromBytes(query);
@@ -58,7 +58,7 @@ public class RecursiveResolver extends AbstractResolver{
             }
             //TODO check local zone server &cache
             QuestionSection question= queryPacket.getQuestionSections()[0];
-        // resolve one question.
+            // resolve one question.
             return resolve(question.getName(), question.getQtype(), query);
         }
 
@@ -73,11 +73,15 @@ public class RecursiveResolver extends AbstractResolver{
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, RRType qtype, byte[] query) throws Exception {
+    private byte[] resolve(String[] sname, RRType qtype, byte[] query){
 
         // fill slist
-        SListWrapper slistWrap = new SListWrapper(sname, cache);
-        LinkedList<SListEntry> slist = slistWrap.getSList();
+        SListWrapper slistWrap;
+        try {
+            slistWrap = new SListWrapper(sname, cache);
+        } catch (SQLException e) {
+            slistWrap = new SListWrapper(sname);
+        }
 
         while (true) {
 
@@ -89,9 +93,10 @@ public class RecursiveResolver extends AbstractResolver{
             }
 
             //build NameServer for queryUDP/queryTCP
-            String ipv4Str = (bestNsserver.ipv4() != null) ? bestNsserver.ipv4().toString() : "0.0.0.0";
-            String ipv6Str = (bestNsserver.ipv6() != null) ? bestNsserver.ipv6().toString() : "0000:0000:0000:0000:0000:0000:0000:0000";
-            String nsName = (bestNsserver.nsName() != null) ? bestNsserver.nsName().toString() : "unknown";
+            //TODO
+            String ipv4Str = bestNsserver.ipv4().toString();
+            String ipv6Str = bestNsserver.ipv6().toString();
+            String nsName = (bestNsserver.nsName().getNsdname().length == 0) ? bestNsserver.nsName().toString() : "unknown";
 
             NameServer queriedServerIpv4 = new NameServer(ipv4Str, 53, nsName);
             NameServer queriedServerIpv6 = new NameServer(ipv6Str, 53, nsName);
@@ -110,7 +115,6 @@ public class RecursiveResolver extends AbstractResolver{
 
             //handle failures
             if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
-                slist.removeFirst();
                 sleep(retryDelay);
                 continue;
             }
@@ -119,20 +123,13 @@ public class RecursiveResolver extends AbstractResolver{
             if (isTruncated(result.response())) {
                 QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
                 if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
-                    slist.removeFirst();
                     sleep(retryDelay);
                     continue;
                 }
                 result = tcpResult;
             }
 
-            DNSPacket response;
-            try {
-                response = DNSPacket.fromBytes(result.response());
-            } catch (Exception e) {
-                slist.removeFirst();
-                continue;
-            }
+            DNSPacket response = DNSPacket.fromBytes(result.response());
 
             // Insert everything this hop returned
             try {

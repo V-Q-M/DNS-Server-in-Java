@@ -32,7 +32,7 @@ public abstract class AbstractResolver {
     public static final String GREEN   = "\u001B[32m";
     public static final String BLUE   = "\u001B[34m";
 
-    public abstract byte[] resolve(byte[] query) throws Exception;
+    public abstract byte[] resolve(byte[] query);
 
     /**
      * Sends a DNS query to a single nameserver/forwarder over UDP.
@@ -45,7 +45,7 @@ public abstract class AbstractResolver {
      * @return QueryResult including status, response bytes, and latency
      */
 
-    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) throws Exception{
+    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs){
         long start = System.currentTimeMillis();
 
         try (DatagramSocket socket = new DatagramSocket()) {
