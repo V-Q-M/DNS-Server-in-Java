@@ -46,6 +46,9 @@ public class RecursiveResolver extends AbstractResolver{
             DNSPacket queryPacket;
             try {
                 queryPacket = DNSPacket.fromBytes(query);
+                //clear RA, RD bit
+                queryPacket.setRa(false);
+                queryPacket.setRd(false);
             } catch (Exception e) {
                 return buildServFail(query);
             }
@@ -91,7 +94,7 @@ public class RecursiveResolver extends AbstractResolver{
             NameServer queriedServerIpv4 = new NameServer(ipv4Str, 53, nsName);
             NameServer queriedServerIpv6 = new NameServer(ipv6Str, 53, nsName);
 
-            // TODO(B): send iterative query (RD cleared), parse, id-check.
+            // send iterative query
             QueryResult result = null;
             NameServer currentServer = null;
             //query UDP: try ipv4, if not available use ipv6
@@ -170,26 +173,7 @@ public class RecursiveResolver extends AbstractResolver{
         }
     }
 
-    // Placeholders for B, C and D, replaced at integration.
 
-    // TODO(B): CacheHandler.lookupClosestNs plus root hints to entry-point servers.
-    private List<Server> placeholderFindClosestNs(String name) {
-        return List.of();
-    }
-
-    // TODO(D): SLIST find the best server (null if empty).
-    private Server placeholderPickBestServer(List<Server> slist) {
-        return slist.isEmpty() ? null : slist.getFirst();
-    }
-
-    // TODO(B): NameServerClient, build iterative query, send, parse and id-check.
-    private DNSPacket placeholderSendQuery(String[] sname, RRType qtype, SListEntry server) {
-        return null;
-    }
-
-    // TODO: SLIST add delegation
-    private void placeholderAddSListEntry(List<Server> slist, ResourceRecord ns, RDataA ipv4, RDataAAAA ipv6) {
-    }
 
     // TODO: glue resolver - re-entrant resolve(nsHost, A) for a glue-less delegation,
     // returning a Delegation with the address filled in.
@@ -284,10 +268,4 @@ public class RecursiveResolver extends AbstractResolver{
         return true;
     }
 
-    // TODO(D): becomes the SLIST entry type (name, address, hierarchy level).
-    private record Server(String name, String ip, int level) {
-        boolean hasGlue() {
-            return ip != null;
-        }
-    }
 }
