@@ -22,7 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /*
- * Iterative resolver loop (RFC 1034 5.3.3).
+ * Iterative resolver loop (equivalent to RFC 1034 5.3.3).
  *
  * Flow: seed SLIST -> pick server -> send query -> next server on no response
  *       -> SERVFAIL when SLIST is empty.
@@ -30,8 +30,6 @@ import java.util.List;
  * Notes:
  * - resolve(name, ...) is recursive on purpose. CNAME restart and glue-less
  *   lookups (Step 2/3) just call it again with a different name.
- * - placeholder* methods are stand-ins until B (transport/cache), C (classify)
- *   and D (SLIST) land. Verdict and Server get replaced by their real types.
  */
 public class RecursiveResolver extends AbstractResolver{
 
@@ -39,7 +37,7 @@ public class RecursiveResolver extends AbstractResolver{
     private final ZoneHandler zone;
 
     public RecursiveResolver(CacheHandler cache, ZoneHandler zone, int timeoutMs, long retryDelay) {
-        //TODO maybe delete cache and zone fields??
+        //TODO maybe delete zone field??
         this.cache = cache;
         this.zone = zone;
         this.timeoutMs=timeoutMs;
@@ -111,7 +109,7 @@ public class RecursiveResolver extends AbstractResolver{
                 result = queryUDP(query, queriedServerIpv6, timeoutMs);
             }
 
-            //handle failures
+            //handle failures: new while iteration with new server
             if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
                 sleep(retryDelay);
                 continue;
@@ -120,6 +118,7 @@ public class RecursiveResolver extends AbstractResolver{
             //fallback to TCP in case of truncation
             if (isTruncated(result.response())) {
                 QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
+                //handle failures: new while iteration with new server
                 if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
                     sleep(retryDelay);
                     continue;
