@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.resolver;
 
 import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
 import io.gitlab.teamproject2026.model.DNSPacket;
@@ -35,9 +36,11 @@ import java.util.List;
 public class RecursiveResolver extends AbstractResolver{
 
     private final CacheHandler cache;
+    private final ZoneHandler zone;
 
-    public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
+    public RecursiveResolver(CacheHandler cache, ZoneHandler zone, int timeoutMs, long retryDelay) {
         this.cache = cache;
+        this.zone = zone;
         this.timeoutMs=timeoutMs;
         this.retryDelay=retryDelay;
     }
@@ -55,6 +58,7 @@ public class RecursiveResolver extends AbstractResolver{
             }
             //TODO check local zone server &cache
             QuestionSection question= queryPacket.getQuestionSections()[0];
+            zone.lookup(question.getNameString(), question.getQtype(), String zone)
         // resolve one question.
             return resolve(question.getName(), question.getQtype(), query);
         }
@@ -73,9 +77,7 @@ public class RecursiveResolver extends AbstractResolver{
     private byte[] resolve(String[] sname, RRType qtype, byte[] query) throws Exception {
 
         // fill slist
-        CacheHandler handler = new CacheHandler(new DatabaseConnectionProvider());
-        handler.clearAll();
-        SListWrapper slistWrap = new SListWrapper(sname, handler);
+        SListWrapper slistWrap = new SListWrapper(sname, cache);
         LinkedList<SListEntry> slist = slistWrap.getSList();
 
         while (true) {
