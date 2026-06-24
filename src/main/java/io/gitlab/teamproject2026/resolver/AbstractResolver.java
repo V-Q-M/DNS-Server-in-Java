@@ -14,6 +14,8 @@ public abstract class AbstractResolver {
                                String errorMessage,
                                long latencyMs) {}
 
+    public int timeoutMs;
+    public long retryDelay;
     public static final int MAX_UDP_SIZE = 4096;
 
     public abstract byte[] resolve(byte[] query) throws Exception;

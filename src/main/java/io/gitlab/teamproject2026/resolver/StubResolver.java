@@ -22,9 +22,7 @@ import io.gitlab.teamproject2026.logging.ResponseSource;
 public class StubResolver extends AbstractResolver{
 
     private final List<NameServer> forwarders;
-    private final int timeoutMs;
     private final int maxRetries;
-    private final long retryDelay;
     private final StubResolverStrategy strategy;
     private int RRIndex =0;
 

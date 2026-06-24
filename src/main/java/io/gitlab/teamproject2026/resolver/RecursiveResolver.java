@@ -12,6 +12,7 @@ import io.gitlab.teamproject2026.resolver.SListWrapper.*;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /*
@@ -27,6 +28,7 @@ import java.util.List;
  *   and D (SLIST) land. Verdict and Server get replaced by their real types.
  */
 public class RecursiveResolver extends AbstractResolver{
+    //TODO: constructur including retrydelay,...
     @Override
         public byte[] resolve(byte[] query) throws Exception{
             DNSPacket queryPacket;
@@ -54,36 +56,70 @@ public class RecursiveResolver extends AbstractResolver{
     // servers (so delegations only descend), and CNAME loops get a visited-set.
     private byte[] resolve(String[] sname, RRType qtype, byte[] query) throws Exception {
 
-        // Seed the SLIST from the closest known ancestor zone, else root hints.
-        // TODO(B/D)
-
+        // fill slist
         CacheHandler handler = new CacheHandler(new DatabaseConnectionProvider());
         handler.clearAll();
-        SListWrapper slist = new SListWrapper(sname, handler);
-
-
-
-        //List<Server> slist = new ArrayList<>(placeholderFindClosestNs(sname));
+        SListWrapper slistWrap = new SListWrapper(sname, handler);
+        LinkedList<SListEntry> slist = slistWrap.getSList();
 
         while (true) {
 
-            // TODO(D): find the best server.
-            //Server server = placeholderPickBestServer(slist);
-            SListEntry bestNsserver = slist.getBestServer();
-
+            //  find the best server
+            SListEntry bestNsserver = slistWrap.getBestServer();
             // SLIST empty.
             if (bestNsserver == null) {
                 return buildServFail(query);
             }
 
+            //build NameServer for queryUDP/queryTCP
+            String ipv4Str = (bestNsserver.ipv4() != null) ? bestNsserver.ipv4().toString() : "0.0.0.0";
+            String ipv6Str = (bestNsserver.ipv6() != null) ? bestNsserver.ipv6().toString() : "0000:0000:0000:0000:0000:0000:0000:0000";
+            String nsName = (bestNsserver.nsName() != null) ? bestNsserver.nsName().toString() : "unknown";
+
+            NameServer queriedServerIpv4 = new NameServer(ipv4Str, 53, nsName);
+            NameServer queriedServerIpv6 = new NameServer(ipv6Str, 53, nsName);
 
             // TODO(B): send iterative query (RD cleared), parse, id-check.
-            DNSPacket response = placeholderSendQuery(sname, qtype, bestNsserver);
+            QueryResult result = null;
+            NameServer currentServer = null;
+            //query UDP: try ipv4, if not available use ipv6
+            if (!queriedServerIpv4.host().equals("0.0.0.0")) {
+                currentServer = queriedServerIpv4;
+                result = queryUDP(query, queriedServerIpv4, timeoutMs);
+            } else if (!queriedServerIpv6.host().equals("0000:0000:0000:0000:0000:0000:0000:0000")){
+                currentServer = queriedServerIpv6;
+                result = queryUDP(query, queriedServerIpv6, timeoutMs);
+            }
 
-            // No response: try the next server.
-            if (response == null) {
+            //handle failures
+            if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
+                slist.removeFirst();
+                sleep(retryDelay);
                 continue;
             }
+
+            //fallback to TCP in case of truncation
+            if (isTruncated(result.response())) {
+                QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
+                if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
+                    slist.removeFirst();
+                    sleep(retryDelay);
+                    continue;
+                }
+                result = tcpResult;
+            }
+
+            DNSPacket response;
+            try {
+                response = DNSPacket.fromBytes(result.response());
+            } catch (Exception e) {
+                slist.removeFirst();
+                continue;
+            }
+
+
+            //DNSPacket response = placeholderSendQuery(sname, qtype, bestNsserver);
+
 
             // TODO(C): which branch of the RCODE decision tree is this?
             Verdict verdict = placeholderClassify(response, sname.toString(), qtype);
