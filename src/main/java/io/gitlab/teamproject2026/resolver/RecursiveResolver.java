@@ -84,7 +84,9 @@ public class RecursiveResolver extends AbstractResolver{
             //  find the best server
             SListEntry bestNsserver = slistWrap.getBestServer();
             // SLIST empty.
-            if (bestNsserver == null) {
+            if (bestNsserver == null ||
+                    (bestNsserver.ipv4().toString().equals("0.0.0.0") && bestNsserver.ipv6().toString().equals("0000:0000:0000:0000:0000:0000:0000:0000"))
+                    ||bestNsserver.nsName().getNsdname().length == 0){
                 return buildServFail(query);
             }
 
