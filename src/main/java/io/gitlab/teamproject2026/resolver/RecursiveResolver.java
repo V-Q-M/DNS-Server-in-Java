@@ -33,12 +33,13 @@ import java.util.List;
  *   and D (SLIST) land. Verdict and Server get replaced by their real types.
  */
 public class RecursiveResolver extends AbstractResolver{
-    //TODO: constructur including retrydelay,...
 
     private final CacheHandler cache;
 
-    public RecursiveResolver(CacheHandler cache) {
+    public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
         this.cache = cache;
+        this.timeoutMs=timeoutMs;
+        this.retryDelay=retryDelay;
     }
 
     @Override

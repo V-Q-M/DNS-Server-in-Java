@@ -18,6 +18,12 @@ public abstract class AbstractResolver {
     public long retryDelay;
     public static final int MAX_UDP_SIZE = 4096;
 
+    public static final String RESET  = "\u001B[0m";
+    public static final String RED    = "\u001B[31m";
+    public static final String YELLOW = "\u001B[33m";
+    public static final String GREEN   = "\u001B[32m";
+    public static final String BLUE   = "\u001B[34m";
+
     public abstract byte[] resolve(byte[] query) throws Exception;
 
     /**
