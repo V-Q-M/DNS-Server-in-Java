@@ -7,6 +7,10 @@ import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.OpCode;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.model.rdata.RData;
+import io.gitlab.teamproject2026.model.rdata.RDataA;
+import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
+import io.gitlab.teamproject2026.model.rdata.RDataNS;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -101,9 +105,14 @@ public class RecursiveResolver extends AbstractResolver{
                 case SERVFAIL -> {
                     continue;
                 }
-                // Delegation: add the returned name servers, then keep walking down.
+                // Delegation: resolve any missing glue, add the servers, keep walking down.
                 case REFERRAL -> {
-                    // TODO: extractDelegations(response) -> slist.addSListEntry(...)
+                    for (Delegation d : extractDelegations(response)) {
+                        if (!d.hasGlue()) {
+                            d = placeholderResolveNsAddress(d);
+                        }
+                        placeholderAddSListEntry(slist, d.ns(), d.ipv4(), d.ipv6());
+                    }
                     continue;
                 }
                 // Alias: restart resolution at the canonical name.
@@ -132,6 +141,16 @@ public class RecursiveResolver extends AbstractResolver{
         return null;
     }
 
+    // TODO: SLIST add delegation
+    private void placeholderAddSListEntry(List<Server> slist, ResourceRecord ns, RDataA ipv4, RDataAAAA ipv6) {
+    }
+
+    // TODO: glue resolver - re-entrant resolve(nsHost, A) for a glue-less delegation,
+    // returning a Delegation with the address filled in.
+    private Delegation placeholderResolveNsAddress(Delegation d) {
+        return d;
+    }
+
     // Builds a minimal response carrying just an rcode (skeleton terminal).
     private DNSPacket placeholderRespond(RCode rcode) {
         DNSPacket response = new DNSPacket();
@@ -143,7 +162,81 @@ public class RecursiveResolver extends AbstractResolver{
         return response;
     }
 
-    // Temporary nested types, replaced by C's verdict and D's SLIST entry.
+    // Glue extraction: pull the NS records and their glue out of a referral response.
+
+    // One delegation from a referral: NS record + glue addresses.
+    // No glue = zero address (byte[4]/byte[16]) -> resolve the NS first.
+    record Delegation(ResourceRecord ns, RDataA ipv4, RDataAAAA ipv6) {
+        boolean hasGlue() {
+            return !isZero(ipv4.getAddress()) || !isZero(ipv6.getAddress());
+        }
+    }
+
+    /**
+     * Pulls the NS records from the authority section and matches their glue
+     * (A / AAAA) from the additional section. One Delegation per NS record.
+     *
+     * @param response - a referral response from a name server
+     * @return one Delegation per NS record, with zero-address glue where none was provided
+     */
+    static List<Delegation> extractDelegations(DNSPacket response) {
+        List<Delegation> delegations = new ArrayList<>();
+        ResourceRecord[] authority = response.getAuthoritySections();
+        ResourceRecord[] additional = response.getAdditionalSections();
+        if (authority == null) {
+            return delegations;
+        }
+        for (ResourceRecord rr : authority) {
+            if (rr.getType() != RRType.NS) {
+                continue;
+            }
+            String nsHost = String.join(".", ((RDataNS) rr.getRdata()).getNsdname());
+            RData a = findGlue(additional, nsHost, RRType.A);
+            RData  aaaa = findGlue(additional, nsHost, RRType.AAAA);
+            RDataA ipv4 = a != null ? (RDataA) a : new RDataA(new byte[4]);
+            RDataAAAA ipv6 = aaaa != null ? (RDataAAAA) aaaa : new RDataAAAA(new byte[16]);
+            delegations.add(new Delegation(rr, ipv4, ipv6));
+        }
+        return delegations;
+    }
+
+    /**
+     * Finds the glue rdata of a given type for a name server in the additional section.
+     *
+     * @param additional the additional section of a response (may be null)
+     * @param nsHost     the name server's host name
+     * @param type       the record type to look for (A or AAAA)
+     * @return the matching rdata, or null if none is present
+     */
+    private static RData findGlue(ResourceRecord[] additional, String nsHost, RRType type) {
+        if (additional == null) {
+            return null;
+        }
+        for (ResourceRecord rr : additional) {
+            if (rr.getType() == type && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
+                return rr.getRdata();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether an address is all zeroes, the placeholder for missing glue.
+     *
+     * @param address the address bytes (may be null)
+     * @return true if the address is null or all zero
+     */
+    private static boolean isZero(byte[] address) {
+        if (address == null) {
+            return true;
+        }
+        for (byte b : address) {
+            if (b != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // TODO(D): becomes the SLIST entry type (name, address, hierarchy level).
     private record Server(String name, String ip, int level) {
