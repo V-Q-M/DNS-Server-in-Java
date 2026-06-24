@@ -469,7 +469,7 @@ public class DNS_SERVER {
 
             }
         }
-
+!!!!!!!!!!!!!!
         // StubResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
         if (recursionAllowed && !payload.notResolved.isEmpty()) {
@@ -717,46 +717,13 @@ public class DNS_SERVER {
         //----------------------------ReferralAnalyzer-------------------------------------------------
         RRType queryType = payload.notResolved.isEmpty() ? RRType.A :
                 payload.notResolved.getFirst().getQtype();
-        ReferralAnalyzer.Classification classification=
-                ReferralAnalyzer.classify(stubResponse, queryType);
-        System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
-        switch (classification) {
-            case ANSWER, CNAME_CHAIN, NODATA -> {
-                // Extract RRs from Stub Response and cache them if testing mode is not enabled
-                // caching
-                if (!testing && cacheHandler != null) {
-                    startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
-                    try {
-                        cacheHandler.insertAll(stubResponse.getAnswerSections());
-                        cacheHandler.insertAll(stubResponse.getAuthoritySections());
-                        cacheHandler.insertAll(stubResponse.getAdditionalSections());
-                    } catch (SQLException e) {
-                        System.err.println("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost");
-                        logCacheInsertFailed(startTime);
-                    }
-                }
 
-                // extracting and adding to answers
-                Collections.addAll(payload.answer, stubResponse.getAnswerSections());
-                Collections.addAll(payload.authority, stubResponse.getAuthoritySections());
-                Collections.addAll(payload.additional, stubResponse.getAdditionalSections());
-            }
-            case NXDOMAIN -> {
-                IO.println(YELLOW + "[STUB] NXDOMAIN recieved from upstream" + RESET);
-                Collections.addAll(payload.authority, stubResponse.getAuthoritySections());
-            }
-            case REFERRAL -> {
-                IO.println(YELLOW + "[STUB] Referral recieved" + RESET);
-                Collections.addAll(payload.authority, stubResponse.getAuthoritySections());
-                Collections.addAll(payload.additional, stubResponse.getAdditionalSections());
-            }
-            case SERVFAIL, FORMERR -> {
-                IO.println(RED + "[STUB] upstream returned" + classification + ", skipping cache insert" + RESET);
-            }
-        }
+        stubResolver.processCacheResponse(payload, stubResponse, queryType, cacheHandler, testing);
 
         return  payload;
     }
+
+    //TODO queryRecursiveResolver(probably just abstract over stubresolver, recursiveresolver)
 
 
     // Cache internal logic

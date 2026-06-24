@@ -58,7 +58,6 @@ public class RecursiveResolver extends AbstractResolver{
             }
             //TODO check local zone server &cache
             QuestionSection question= queryPacket.getQuestionSections()[0];
-            zone.lookup(question.getNameString(), question.getQtype(), String zone)
         // resolve one question.
             return resolve(question.getName(), question.getQtype(), query);
         }
