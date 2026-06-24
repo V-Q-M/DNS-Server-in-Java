@@ -4,7 +4,11 @@ import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.OpCode;
+import io.gitlab.teamproject2026.model.ResourceRecord;
+import io.gitlab.teamproject2026.database.CacheHandler;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +25,13 @@ import java.util.List;
  *   and D (SLIST) land. Verdict and Server get replaced by their real types.
  */
 public class RecursiveResolver extends AbstractResolver{
+
+    private final CacheHandler cache;
+
+    public RecursiveResolver(CacheHandler cache) {
+        this.cache = cache;
+    }
+
     @Override
         public byte[] resolve(byte[] query) {
             DNSPacket queryPacket;
@@ -69,17 +80,38 @@ public class RecursiveResolver extends AbstractResolver{
                 continue;
             }
 
-            // TODO(C): which branch of the RCODE decision tree is this?
-            Verdict verdict = placeholderClassify(response, sname, qtype);
+            // Insert everything this hop returned
+            try {
+                cache.insertAll(response.getAnswerSections());
+                cache.insertAll(response.getAuthoritySections());
+                cache.insertAll(response.getAdditionalSections());
+            } catch (SQLException e) {
+                //keep resolving
+            }
 
-            // TODO(Step 2): act on verdict:
-            //   ANSWER or NODATA  -> return to client
-            //   NXDOMAIN or OTHER -> return error to client
-            //   REFERRAL          -> update SLIST (drop higher levels) and loop
-            //   CNAME             -> restart: resolve(canonicalName, qtype)
-            //   SERVFAIL          -> try next server
-            // Until then, return the raw response so the skeleton terminates.
-            return response;
+            // which branch of the RCODE decision tree is this?
+            ReferralAnalyzer.Classification verdict = ReferralAnalyzer.classify(response, qtype);
+
+            switch (verdict) {
+                // The response is the answer, a final SOA, or a DNS error: return it.
+                case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
+                    return response;
+                }
+                // This server could not answer: try the next one.
+                case SERVFAIL -> {
+                    continue;
+                }
+                // Delegation: add the returned name servers, then keep walking down.
+                case REFERRAL -> {
+                    // TODO: extractDelegations(response) -> slist.addSListEntry(...)
+                    continue;
+                }
+                // Alias: restart resolution at the canonical name.
+                case CNAME_CHAIN -> {
+                    // TODO: resolve(cnameTarget(response), qtype)
+                    continue;
+                }
+            }
         }
     }
 
@@ -100,22 +132,18 @@ public class RecursiveResolver extends AbstractResolver{
         return null;
     }
 
-    // TODO(C): ReferralAnalyzer.classify, which RCODE branch is this.
-    private Verdict placeholderClassify(DNSPacket response, String sname, RRType qtype) {
-        return Verdict.OTHER;
-    }
-
     // Builds a minimal response carrying just an rcode (skeleton terminal).
     private DNSPacket placeholderRespond(RCode rcode) {
         DNSPacket response = new DNSPacket();
         response.setRcode(rcode);
+        response.setOpcode(OpCode.QUERY);
+        response.setAnswerSections(new ResourceRecord[0]);
+        response.setAuthoritySections(new ResourceRecord[0]);
+        response.setAdditionalSections(new ResourceRecord[0]);
         return response;
     }
 
     // Temporary nested types, replaced by C's verdict and D's SLIST entry.
-
-    // TODO(C): becomes ReferralAnalyzer's verdict.
-    private enum Verdict { ANSWER, CNAME, REFERRAL, NODATA, NXDOMAIN, SERVFAIL, OTHER }
 
     // TODO(D): becomes the SLIST entry type (name, address, hierarchy level).
     private record Server(String name, String ip, int level) {
