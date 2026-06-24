@@ -87,45 +87,7 @@ public abstract class AbstractResolver {
         }
         
     }
-    public void processCacheResponse(DNSPayload payload, DNSPacket dnsResponse, RRType queryType, CacheHandler cacheHandler, boolean testing){
-        ReferralAnalyzer.Classification classification=
-                ReferralAnalyzer.classify(dnsResponse, queryType);
-        System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
-        switch (classification) {
-            case ANSWER, CNAME_CHAIN, NODATA -> {
-                // Extract RRs from Stub Response and cache them if testing mode is not enabled
-                // caching
-                if (!testing && cacheHandler != null) {
-                    //startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
-                    try {
-                        cacheHandler.insertAll(dnsResponse.getAnswerSections());
-                        cacheHandler.insertAll(dnsResponse.getAuthoritySections());
-                        cacheHandler.insertAll(dnsResponse.getAdditionalSections());
-                    } catch (SQLException e) {
-                        System.err.println("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost");
-                        //logCacheInsertFailed(startTime);
-                    }
-                }
 
-                // extracting and adding to answers
-                Collections.addAll(payload.answer(), dnsResponse.getAnswerSections());
-                Collections.addAll(payload.authority(), dnsResponse.getAuthoritySections());
-                Collections.addAll(payload.additional(), dnsResponse.getAdditionalSections());
-            }
-            case NXDOMAIN -> {
-                IO.println(YELLOW + "[STUB] NXDOMAIN recieved from upstream" + RESET);
-                Collections.addAll(payload.authority(), dnsResponse.getAuthoritySections());
-            }
-            case REFERRAL -> {
-                IO.println(YELLOW + "[STUB] Referral recieved" + RESET);
-                Collections.addAll(payload.authority(), dnsResponse.getAuthoritySections());
-                Collections.addAll(payload.additional(), dnsResponse.getAdditionalSections());
-            }
-            case SERVFAIL, FORMERR -> {
-                IO.println(RED + "[STUB] upstream returned" + classification + ", skipping cache insert" + RESET);
-            }
-        }
-    }
 
     /**
      * Sends a query to nameserver/forwarder over TCP.

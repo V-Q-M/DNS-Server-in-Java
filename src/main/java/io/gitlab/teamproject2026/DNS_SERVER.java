@@ -52,6 +52,7 @@ public class DNS_SERVER {
     private static ResolverSection resolverOptions;
     private static List<String> zoneCatalog;
     private static StubResolver stubResolver;
+    private static RecursiveResolver recursiveResolver;
     private static CacheHandler cacheHandler;
     private static ZoneHandler zoneHandler;
 
@@ -313,7 +314,8 @@ public class DNS_SERVER {
                 .toList();
         stubResolver = new StubResolver(
                 forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
-
+        recursiveResolver = new RecursiveResolver(
+                cacheHandler, zoneHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
@@ -469,12 +471,11 @@ public class DNS_SERVER {
 
             }
         }
-!!!!!!!!!!!!!!
-        // StubResolver should only be queried if there are queries not answered by the
+        // Stub/RecursiveResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
         if (recursionAllowed && !payload.notResolved.isEmpty()) {
             // if (testing){
-            payload = queryStubResolver(payload, data);
+            payload = queryResolver(payload, data);
         }
 
         return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
@@ -696,8 +697,8 @@ public class DNS_SERVER {
         return payload;
     }
 
-    private static DNSPayload queryStubResolver(DNSPayload payload, byte[] data){
-        // Build packet to be sent to Stub resolver
+    private static DNSPayload queryResolver(DNSPayload payload, byte[] data){
+        // Build packet to be sent to Stub/recursive resolver
         // The ID should not have to be changed, as the Server should not receive any
         // other packages using this ID from the original sender
         DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
@@ -705,25 +706,86 @@ public class DNS_SERVER {
                 payload.notResolved.toArray(new QuestionSection[0]));
         uncachedOOPacket.setQdcount(payload.notResolved.size());
 
-        // Get Stub response
+        // Get Stub/recursive response
         byte[] rawResponse;
         try {
-            rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+            switch (forwardMode) {
+
+                case null -> {
+                    // only recursive resolver
+                    rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+                }
+
+                case FORWARD_ONLY -> {
+                    // only stub
+                    rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                }
+
+                case FORWARD_FIRST -> {
+                    // try stub
+                    rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+
+                    // if stub resolver fails: fallback recursive resolver
+                    if (!payload.notResolved().isEmpty()) {
+                        if (!lessLog) {
+                            System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
+                        }
+                        rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+                    }
+                }
+            }
         } catch (RuntimeException e) {
-            System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+            System.err.println(RED + "[NAMESERVER-ERROR] Failed to resolve query" + RESET);
             return payload;
         }
-        DNSPacket stubResponse = DNSPacket.fromBytes(rawResponse);
+        DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         //----------------------------ReferralAnalyzer-------------------------------------------------
         RRType queryType = payload.notResolved.isEmpty() ? RRType.A :
                 payload.notResolved.getFirst().getQtype();
+        //stub response
+        ReferralAnalyzer.Classification classification=
+                ReferralAnalyzer.classify(parsedResponse, queryType);
+        System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
+        switch (classification) {
+            case ANSWER, CNAME_CHAIN, NODATA -> {
+                // Extract RRs from Stub Response and cache them if testing mode is not enabled
+                // caching
+                if (!testing && cacheHandler != null) {
+                    startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
+                    try {
+                        cacheHandler.insertAll(parsedResponse.getAnswerSections());
+                        cacheHandler.insertAll(parsedResponse.getAuthoritySections());
+                        cacheHandler.insertAll(parsedResponse.getAdditionalSections());
+                    } catch (SQLException e) {
+                        System.err.println("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost");
+                        logCacheInsertFailed(startTime);
+                    }
+                }
 
-        stubResolver.processCacheResponse(payload, stubResponse, queryType, cacheHandler, testing);
+                // extracting and adding to answers
+                Collections.addAll(payload.answer(), parsedResponse.getAnswerSections());
+                Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+                Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
+            }
+            case NXDOMAIN -> {
+                IO.println(YELLOW + "[STUB] NXDOMAIN recieved from upstream" + RESET);
+                Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+            }
+            case REFERRAL -> {
+                IO.println(YELLOW + "[STUB] Referral recieved" + RESET);
+                Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+                Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
+            }
+            case SERVFAIL, FORMERR -> {
+                IO.println(RED + "[STUB] upstream returned" + classification + ", skipping cache insert" + RESET);
+            }
+        }
+
+        
 
         return  payload;
     }
 
-    //TODO queryRecursiveResolver(probably just abstract over stubresolver, recursiveresolver)
 
 
     // Cache internal logic

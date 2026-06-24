@@ -39,6 +39,7 @@ public class RecursiveResolver extends AbstractResolver{
     private final ZoneHandler zone;
 
     public RecursiveResolver(CacheHandler cache, ZoneHandler zone, int timeoutMs, long retryDelay) {
+        //TODO maybe delete cache and zone fields??
         this.cache = cache;
         this.zone = zone;
         this.timeoutMs=timeoutMs;
@@ -56,15 +57,12 @@ public class RecursiveResolver extends AbstractResolver{
             } catch (Exception e) {
                 return buildServFail(query);
             }
-            //TODO check local zone server &cache
             QuestionSection question= queryPacket.getQuestionSections()[0];
             // resolve one question.
             return resolve(question.getName(), question.getQtype(), query);
         }
 
 
-
-    //important to keep because case of missing glue records needs seperate loop??
 
 
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
