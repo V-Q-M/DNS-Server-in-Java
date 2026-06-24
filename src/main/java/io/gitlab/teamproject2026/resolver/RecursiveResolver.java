@@ -46,7 +46,7 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
     @Override
-        public byte[] resolve(byte[] query) throws Exception{
+        public byte[] resolve(byte[] query){
             DNSPacket queryPacket;
             try {
                 queryPacket = DNSPacket.fromBytes(query);
@@ -58,8 +58,7 @@ public class RecursiveResolver extends AbstractResolver{
             }
             //TODO check local zone server &cache
             QuestionSection question= queryPacket.getQuestionSections()[0];
-            zone.lookup(question.getNameString(), question.getQtype(), String zone)
-        // resolve one question.
+            // resolve one question.
             return resolve(question.getName(), question.getQtype(), query);
         }
 
@@ -94,6 +93,7 @@ public class RecursiveResolver extends AbstractResolver{
             }
 
             //build NameServer for queryUDP/queryTCP
+            //TODO
             String ipv4Str = (bestNsserver.ipv4() != null) ? bestNsserver.ipv4().toString() : "0.0.0.0";
             String ipv6Str = (bestNsserver.ipv6() != null) ? bestNsserver.ipv6().toString() : "0000:0000:0000:0000:0000:0000:0000:0000";
             String nsName = (bestNsserver.nsName() != null) ? bestNsserver.nsName().toString() : "unknown";

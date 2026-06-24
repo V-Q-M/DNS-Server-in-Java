@@ -24,7 +24,7 @@ public abstract class AbstractResolver {
     public static final String GREEN   = "\u001B[32m";
     public static final String BLUE   = "\u001B[34m";
 
-    public abstract byte[] resolve(byte[] query) throws Exception;
+    public abstract byte[] resolve(byte[] query);
 
     /**
      * Sends a DNS query to a single nameserver/forwarder over UDP.
