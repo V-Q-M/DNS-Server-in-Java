@@ -9,11 +9,9 @@ import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.OpCode;
 import io.gitlab.teamproject2026.model.ResourceRecord;
-import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.model.rdata.RData;
 import io.gitlab.teamproject2026.model.rdata.RDataA;
 import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
-import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.resolver.SListWrapper.*;
 
@@ -53,7 +51,7 @@ public class RecursiveResolver extends AbstractResolver{
             QuestionSection question= queryPacket.getQuestionSections()[0];
         // resolve one question.
             return resolve(question.getName(), question.getQtype(), query);
-    }
+        }
 
 
 
@@ -114,7 +112,7 @@ public class RecursiveResolver extends AbstractResolver{
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
                 case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
-                    return response;
+                    return response.toBytes();
                 }
                 // This server could not answer: try the next one.
                 case SERVFAIL -> {
@@ -126,7 +124,7 @@ public class RecursiveResolver extends AbstractResolver{
                         if (!d.hasGlue()) {
                             d = placeholderResolveNsAddress(d);
                         }
-                        placeholderAddSListEntry(slist, d.ns(), d.ipv4(), d.ipv6());
+                        slist.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                     }
                     continue;
                 }
