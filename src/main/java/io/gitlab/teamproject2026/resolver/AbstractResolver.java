@@ -37,7 +37,7 @@ public abstract class AbstractResolver {
      * @return QueryResult including status, response bytes, and latency
      */
 
-    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) throws Exception{
+    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs){
         long start = System.currentTimeMillis();
 
         try (DatagramSocket socket = new DatagramSocket()) {

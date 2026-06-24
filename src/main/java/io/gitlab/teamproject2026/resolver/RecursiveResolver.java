@@ -74,11 +74,15 @@ public class RecursiveResolver extends AbstractResolver{
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, RRType qtype, byte[] query) throws Exception {
+    private byte[] resolve(String[] sname, RRType qtype, byte[] query){
 
         // fill slist
-        SListWrapper slistWrap = new SListWrapper(sname, cache);
-        LinkedList<SListEntry> slist = slistWrap.getSList();
+        SListWrapper slistWrap;
+        try {
+            slistWrap = new SListWrapper(sname, cache);
+        } catch (SQLException e) {
+            slistWrap = new SListWrapper(sname);
+        }
 
         while (true) {
 
