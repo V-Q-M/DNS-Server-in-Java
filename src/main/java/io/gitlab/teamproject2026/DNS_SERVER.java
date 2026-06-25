@@ -38,8 +38,6 @@ public class DNS_SERVER {
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
 
-    // probably obsolete?
-    private static boolean testing = false;
 
 
     // If true, disable glue data to improve performance
@@ -342,8 +340,6 @@ public class DNS_SERVER {
             } else if (args[i].equals("-a") && i + 1 < args.length) {
                 bindIP = args[i + 1];
                 i++;
-            } else if (args[i].equals("--testing")) {
-                testing = true;
             } else if (args[i].equals("--less-log")) {
                 lessLog = true;
             } else if (args[i].equals("--minimal-responses")) {
@@ -355,8 +351,6 @@ public class DNS_SERVER {
     private static void initializeDatabase() {
         startTime = System.currentTimeMillis();
 
-        if (testing) return;
-
         try {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
             cacheHandler = new CacheHandler(provider);
@@ -364,25 +358,22 @@ public class DNS_SERVER {
             System.err.println(GREEN + "[DATABASE] Connection to the database successful" + RESET);
         } catch (ClassNotFoundException e) {
             System.err.println(RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
-            testing = true;
         } catch (SQLException e) {
             System.err.println(RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET);
             logCacheConnectionLost(startTime);
-            testing = true;
         }
     }
 
     // cache helper
     private static void handleCacheCleanUp() {
         while (!Thread.currentThread().isInterrupted()) {
-            if (!testing && cacheHandler != null) {
+            if (cacheHandler != null) {
                 long cleanupStart = System.currentTimeMillis();
                 try {
                     cacheHandler.deleteExpired();
                 } catch (SQLException e) {
                     IO.println(RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET);
                     logCacheConnectionLost(cleanupStart);
-                    testing = true;
                 }
             }
             try {
@@ -413,7 +404,7 @@ public class DNS_SERVER {
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
         boolean authoritative = false;
-        if (!testing && cacheHandler != null && zoneHandler != null) {
+        if (cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
             payload = zoneLookUp(oopPacket, id);
 
@@ -458,13 +449,13 @@ public class DNS_SERVER {
             }
             payload = cacheLookUp(payload, oopPacket, id);
         } else {
-            // if testing is active, do not check cache
+            // if Cache can't be reached
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
                 if (!lessLog) {
                     LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
                     LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
+                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cachHandler or zoneHandler is null", null));
                 }
 
             }
@@ -473,7 +464,6 @@ public class DNS_SERVER {
         // StubResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
         if (recursionAllowed && !payload.notResolved.isEmpty()) {
-            // if (testing){
             payload = queryStubResolver(payload, data);
         }
 
@@ -722,9 +712,9 @@ public class DNS_SERVER {
         System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
-                // Extract RRs from Stub Response and cache them if testing mode is not enabled
+                // Extract RRs from Stub Response and cache them if cachHandler is available
                 // caching
-                if (!testing && cacheHandler != null) {
+                if (cacheHandler != null) {
                     startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                     try {
                         cacheHandler.insertAll(stubResponse.getAnswerSections());
@@ -992,9 +982,5 @@ public class DNS_SERVER {
         }
 
         return stringBuilder.toString().trim();
-    }
-
-    public static boolean getTestingStatus() {
-        return testing;
     }
 }
