@@ -57,7 +57,7 @@ public class RecursiveResolver extends AbstractResolver{
             }
             QuestionSection question= queryPacket.getQuestionSections()[0];
             // resolve one question.
-            return resolve(question.getName(), question.getQtype(), query);
+            return resolve(question.getName(), question.getQtype(), queryPacket.toBytes());
         }
 
 

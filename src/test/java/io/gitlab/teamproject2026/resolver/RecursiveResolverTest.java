@@ -4,6 +4,7 @@ import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
+import io.gitlab.teamproject2026.model.rdata.RDataA;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -93,7 +94,16 @@ public class RecursiveResolverTest {
         assertTrue(recursiveResponse.getAnswerSections().length > 0, "stub answer should not be empty");
 
         //assert same A-RR is returned
-        assertEquals(stubResponse.getAnswerSections()[0], recursiveResponse.getAnswerSections()[0], "stub and recursive should both return same IP (A-RR)");
+        ResourceRecord stubAnswer = stubResponse.getAnswerSections()[0];
+        ResourceRecord recursiveAnswer = recursiveResponse.getAnswerSections()[0];
+        //ttl in stubAnswer may be different from ttl in recursiveAnswer, so set both to 0
+        stubAnswer.setTtl(0L);
+        recursiveAnswer.setTtl(0L);
+        //example.com. has more than 1 valid IPv4-address, so just check that type A, RCode=0,... match
+        stubAnswer.setRdata(new RDataA());
+        recursiveAnswer.setRdata(new RDataA());
+        assertArrayEquals(stubAnswer.toBytes(), recursiveAnswer.toBytes(), "stub and recursive should both return same IP (A-RR)");
+        assertEquals(stubAnswer.toString(), recursiveAnswer.toString(), "stub and recursive should both return same IP (A-RR)");
     }
 
 }
