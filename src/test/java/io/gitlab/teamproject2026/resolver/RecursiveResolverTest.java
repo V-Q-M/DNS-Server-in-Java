@@ -40,44 +40,42 @@ public class RecursiveResolverTest {
 
     @Test
     public void testCompareStubAndRecursiveResolution() {
+        //--------------------A-RR test------------------------------------------------
         // build querypacket for example.com,A
-        DNSPacket queryPacket = new DNSPacket();
-        queryPacket.setId(new byte[]{0x12, 0x34});
-        queryPacket.setQr(false);
-        queryPacket.setOpcode(OpCode.QUERY);
-        queryPacket.setRd(true);
+        DNSPacket queryPacketA = new DNSPacket();
+        queryPacketA.setId(new byte[]{0x12, 0x34});
+        queryPacketA.setQr(false);
+        queryPacketA.setOpcode(OpCode.QUERY);
+        queryPacketA.setRd(true);
 
-        QuestionSection question = new QuestionSection();
-        question.setName(new String[]{"example", "com"});
-        question.setQtype(RRType.A);
-        question.setQclass(RRClass.IN);
-        queryPacket.setQuestionSections(new QuestionSection[]{question});
-        queryPacket.setQdcount(1);
-        queryPacket.setAnswerSections(new ResourceRecord[0]);
-        queryPacket.setAuthoritySections(new ResourceRecord[0]);
-        queryPacket.setAdditionalSections(new ResourceRecord[0]);
+        QuestionSection questionA = new QuestionSection();
+        questionA.setName(new String[]{"example", "com"});
+        questionA.setQtype(RRType.A);
+        questionA.setQclass(RRClass.IN);
+        queryPacketA.setQuestionSections(new QuestionSection[]{questionA});
+        queryPacketA.setQdcount(1);
+        queryPacketA.setAnswerSections(new ResourceRecord[0]);
+        queryPacketA.setAuthoritySections(new ResourceRecord[0]);
+        queryPacketA.setAdditionalSections(new ResourceRecord[0]);
 
 
         // raw bytes for stub (rd=true)
-        byte[] rawQueryBytes = queryPacket.toBytes();
-
+        byte[] rawQueryBytesA = queryPacketA.toBytes();
         // raw bytes for recursive resolver: rd=false
-        queryPacket.setRd(false);
-        byte[] rawQueryBytesRecursive = queryPacket.toBytes();
-
+        queryPacketA.setRd(false);
+        byte[] rawQueryBytesRecursiveA = queryPacketA.toBytes();
 
         // stub resolve
         byte[] stubRawResponse = null;
         try {
-            stubRawResponse = stubResolver.resolve(rawQueryBytes);
+            stubRawResponse = stubResolver.resolve(rawQueryBytesA);
         } catch (Exception e) {
             fail("StubResolver crashed or timed out: " + e.getMessage());
         }
-
         // recursive resolve
         byte[] recursiveRawResponse = null;
         try {
-            recursiveRawResponse = recursiveResolver.resolve(rawQueryBytesRecursive);
+            recursiveRawResponse = recursiveResolver.resolve(rawQueryBytesRecursiveA);
         } catch (Exception e) {
             fail("RecursiveResolver crashed or timed out: " + e.getMessage());
         }
@@ -88,12 +86,10 @@ public class RecursiveResolverTest {
         // assert both stub and recursive return SUCCESS
         assertEquals(RCode.NOERROR, stubResponse.getRcode(), "stub should return NOERROR");
         assertEquals(RCode.NOERROR, recursiveResponse.getRcode(), "recursive resolver should return NOERROR");
-
         // assert both stub and recursive return not-empty answers
         assertTrue(stubResponse.getAnswerSections().length > 0, "stub answer should not be empty");
         assertTrue(recursiveResponse.getAnswerSections().length > 0, "stub answer should not be empty");
-
-        //assert same A-RR is returned
+        //assert A-RR is returned
         ResourceRecord stubAnswer = stubResponse.getAnswerSections()[0];
         ResourceRecord recursiveAnswer = recursiveResponse.getAnswerSections()[0];
         //ttl in stubAnswer may be different from ttl in recursiveAnswer, so set both to 0
@@ -102,8 +98,71 @@ public class RecursiveResolverTest {
         //example.com. has more than 1 valid IPv4-address, so just check that type A, RCode=0,... match
         stubAnswer.setRdata(new RDataA());
         recursiveAnswer.setRdata(new RDataA());
-        assertArrayEquals(stubAnswer.toBytes(), recursiveAnswer.toBytes(), "stub and recursive should both return same IP (A-RR)");
-        assertEquals(stubAnswer.toString(), recursiveAnswer.toString(), "stub and recursive should both return same IP (A-RR)");
+        assertArrayEquals(stubAnswer.toBytes(), recursiveAnswer.toBytes(), "stub and recursive should both return A-RR");
+        assertEquals(stubAnswer.toString(), recursiveAnswer.toString(), "stub and recursive should both return same A-RR");
+
+
+
+        // ---------------SOA test---------------------------------------------------------------
+        DNSPacket queryPacketSOA = new DNSPacket();
+        queryPacketSOA.setId(new byte[]{0x12, 0x33});
+        queryPacketSOA.setQr(false);
+        queryPacketSOA.setOpcode(OpCode.QUERY);
+        queryPacketSOA.setRd(true);
+
+        QuestionSection questionSOA = new QuestionSection();
+        questionSOA.setName(new String[]{"example", "com"});
+        questionSOA.setQtype(RRType.SOA);
+        questionSOA.setQclass(RRClass.IN);
+
+        queryPacketSOA.setQuestionSections(new QuestionSection[]{questionSOA});
+        queryPacketSOA.setQdcount(1);
+        queryPacketSOA.setAnswerSections(new ResourceRecord[0]);
+        queryPacketSOA.setAuthoritySections(new ResourceRecord[0]);
+        queryPacketSOA.setAdditionalSections(new ResourceRecord[0]);
+
+        // raw bytes for stub (rd=true)
+        byte[] rawQueryBytesSOA = queryPacketSOA.toBytes();
+        // raw bytes for recursive resolver: rd=false
+        queryPacketSOA.setRd(false);
+        byte[] rawQueryBytesRecursiveSOA = queryPacketSOA.toBytes();
+
+        // stub resolve
+        byte[] stubRawResponseSOA = null;
+        try {
+            stubRawResponseSOA = stubResolver.resolve(rawQueryBytesSOA);
+        } catch (Exception e) {
+            fail("StubResolver crashed or timed out: " + e.getMessage());
+        }
+        // recursive resolve
+        byte[] recursiveRawResponseSOA = null;
+        try {
+            recursiveRawResponseSOA = recursiveResolver.resolve(rawQueryBytesRecursiveSOA);
+        } catch (Exception e) {
+            fail("RecursiveResolver crashed or timed out: " + e.getMessage());
+        }
+
+        DNSPacket stubResponseSOA = DNSPacket.fromBytes(stubRawResponseSOA);
+        DNSPacket recursiveResponseSOA = DNSPacket.fromBytes(recursiveRawResponseSOA);
+        ResourceRecord stubAnswerSOA = stubResponseSOA.getAnswerSections()[0];
+        ResourceRecord recursiveAnswerSOA = recursiveResponseSOA.getAnswerSections()[0];
+
+        //ttl in stubAnswer may be different from ttl in recursiveAnswer, so set both to 0
+        stubAnswerSOA.setTtl(0L);
+        recursiveAnswerSOA.setTtl(0L);
+        //assert answer sections are the same (byte version and parsed version)
+        //since SOA is unique, it is possible to test same contents of SOA (different from A-RR)
+        assertArrayEquals(stubAnswerSOA.toBytes(), recursiveAnswerSOA.toBytes(), "stub and recursive should both return same SOA-RR");
+        assertEquals(stubAnswerSOA.toString(), recursiveAnswerSOA.toString(), "stub and recursive should both return same SOA-RR");
+
+        // set AA, RA,RD flags explicitly because they might differ
+        stubResponseSOA.setAa(true);
+        recursiveResponseSOA.setAa(true);
+        recursiveResponseSOA.setRa(true);
+        recursiveResponseSOA.setRd(true);
+        //assert whole package response is same from stub and recursive
+        assertEquals(stubResponseSOA.toString(), recursiveResponseSOA.toString(), "stub and recursive should both return same response (SOA)");
+
     }
 
 }
