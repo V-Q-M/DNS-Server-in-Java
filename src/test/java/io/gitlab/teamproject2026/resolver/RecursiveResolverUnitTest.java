@@ -111,7 +111,7 @@ public class RecursiveResolverUnitTest {
                 record(new String[]{"ns1", "cachetest", "example"}, new RDataA(new byte[]{7, 7, 7, 7}))
         });
 
-        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+        RecursiveResolver resolver = new RecursiveResolver(cache, 2000, 500);
 
         // a glue-less delegation for that name server
         RecursiveResolver.Delegation glueless = new RecursiveResolver.Delegation(
@@ -135,7 +135,7 @@ public class RecursiveResolverUnitTest {
         cache.insertAll(new ResourceRecord[]{
                 record(new String[]{"target", "cnamecache", "example"}, new RDataA(new byte[]{8, 8, 4, 4}))
         });
-        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+        RecursiveResolver resolver = new RecursiveResolver(cache,  2000, 500);
 
         byte[] resp = resolver.cachedResponse(new String[]{"target", "cnamecache", "example"}, RRType.A);
 
@@ -151,7 +151,7 @@ public class RecursiveResolverUnitTest {
     void cachedResponseReturnsNullOnMiss() {
         assumeTrue(cache != null, "needs a running database");
 
-        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+        RecursiveResolver resolver = new RecursiveResolver(cache, 2000, 500);
         byte[] resp = resolver.cachedResponse(new String[]{"absent", "cnamecache", "example"}, RRType.A);
         assertNull(resp, "a cache miss should return null so the loop falls back to iterating");
     }
@@ -168,7 +168,7 @@ public class RecursiveResolverUnitTest {
                         0x20, 0x01, 0x0d, (byte) 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01
                 }))
         });
-        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+        RecursiveResolver resolver = new RecursiveResolver(cache, 2000, 500);
 
         var aaaa = resolver.resolveAddress(new String[]{"ns6", "v6test", "example"}, RRType.AAAA,
                 RecursiveResolver.ResolveContext.start());
@@ -184,7 +184,7 @@ public class RecursiveResolverUnitTest {
         cache.insertAll(new ResourceRecord[]{
                 record(new String[]{"ns4", "v6test", "example"}, new RDataA(new byte[]{1, 1, 1, 1}))
         });
-        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+        RecursiveResolver resolver = new RecursiveResolver(cache,  2000, 500);
 
         var a = resolver.resolveAddress(new String[]{"ns4", "v6test", "example"}, RRType.A,
                 RecursiveResolver.ResolveContext.start());
