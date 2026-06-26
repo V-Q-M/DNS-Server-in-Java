@@ -156,6 +156,44 @@ public class RecursiveResolverUnitTest {
         assertNull(resp, "a cache miss should return null so the loop falls back to iterating");
     }
 
+    // ---- glue resolver AAAA fallback ----
+
+    @Test
+    void resolveAddressFindsCachedAaaa() throws Exception {
+        assumeTrue(cache != null, "needs a running database");
+
+        // an IPv6-only name server: only an AAAA is cached
+        cache.insertAll(new ResourceRecord[]{
+                record(new String[]{"ns6", "v6test", "example"}, new RDataAAAA(new byte[]{
+                        0x20, 0x01, 0x0d, (byte) 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01
+                }))
+        });
+        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+
+        var aaaa = resolver.resolveAddress(new String[]{"ns6", "v6test", "example"}, RRType.AAAA,
+                RecursiveResolver.ResolveContext.start());
+
+        assertNotNull(aaaa, "cached AAAA should be found");
+        assertEquals(RRType.AAAA, aaaa.getType());
+    }
+
+    @Test
+    void resolveAddressFindsCachedA() throws Exception {
+        assumeTrue(cache != null, "needs a running database");
+
+        cache.insertAll(new ResourceRecord[]{
+                record(new String[]{"ns4", "v6test", "example"}, new RDataA(new byte[]{1, 1, 1, 1}))
+        });
+        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+
+        var a = resolver.resolveAddress(new String[]{"ns4", "v6test", "example"}, RRType.A,
+                RecursiveResolver.ResolveContext.start());
+
+        assertNotNull(a, "cached A should be found");
+        assertEquals(RRType.A, a.getType());
+        assertEquals("1.1.1.1", a.toString());
+    }
+
     // ---- helpers ----
 
     private static ResourceRecord record(String[] name, io.gitlab.teamproject2026.model.rdata.RData rdata) {

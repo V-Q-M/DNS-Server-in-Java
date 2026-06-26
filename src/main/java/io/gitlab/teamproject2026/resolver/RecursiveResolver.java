@@ -211,26 +211,44 @@ public class RecursiveResolver extends AbstractResolver{
     Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
         String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
 
-        // cache first
+        // prefer IPv4, fall back to IPv6 if the name server is v6-only
+        RData a = resolveAddress(nsName, RRType.A, ctx);
+        if (a != null) {
+            return new Delegation(d.ns(), (RDataA) a, d.ipv6());
+        }
+        RData aaaa = resolveAddress(nsName, RRType.AAAA, ctx);
+        if (aaaa != null) {
+            return new Delegation(d.ns(), d.ipv4(), (RDataAAAA) aaaa);
+        }
+        return d;
+    }
+
+    /**
+     * Looks up an address record for a name, cache first then iterative.
+     *
+     * @param name the name server's host name
+     * @param type the address type (A or AAAA)
+     * @param ctx the resolution context
+     * @return the matching address rdata, or null if it cannot be resolved
+     */
+    RData resolveAddress(String[] name, RRType type, ResolveContext ctx) {
         try {
-            ResourceRecord[] cached = cache.lookup(String.join(".", nsName), RRType.A);
+            ResourceRecord[] cached = cache.lookup(String.join(".", name), type);
             if (cached.length > 0) {
-                return new Delegation(d.ns(), (RDataA) cached[0].getRdata(), d.ipv6());
+                return cached[0].getRdata();
             }
         } catch (SQLException ignored) {
         }
-
-        // not cached: resolve iteratively
-        byte[] response = resolve(nsName, RRType.A, buildQuery(nsName, RRType.A), ctx.deeper());
+        byte[] response = resolve(name, type, buildQuery(name, type), ctx.deeper());
         DNSPacket parsed = DNSPacket.fromBytes(response);
         if (parsed.getAnswerSections() != null) {
             for (ResourceRecord rr : parsed.getAnswerSections()) {
-                if (rr.getType() == RRType.A) {
-                    return new Delegation(d.ns(), (RDataA) rr.getRdata(), d.ipv6());
+                if (rr.getType() == type) {
+                    return rr.getRdata();
                 }
             }
         }
-        return d;
+        return null;
     }
 
 
