@@ -736,7 +736,7 @@ public class DNS_SERVER {
                 }
             }
         }
-        else {
+        else {//especially null case (only recursive resolver)
             try {
                     rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                 } catch (RuntimeException e) {

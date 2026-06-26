@@ -85,7 +85,6 @@ public class RecursiveResolver extends AbstractResolver{
             }
 
             //build NameServer for queryUDP/queryTCP
-            //TODO
             String ipv4Str = bestNsserver.ipv4().toString();
             String ipv6Str = bestNsserver.ipv6().toString();
             String nsName =  bestNsserver.nsName().toString();
