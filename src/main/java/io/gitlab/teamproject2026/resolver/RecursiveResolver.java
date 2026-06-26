@@ -15,11 +15,13 @@ import io.gitlab.teamproject2026.model.rdata.RDataA;
 import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.resolver.SListWrapper.*;
+import io.gitlab.teamproject2026.model.RRClass;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /*
  * Iterative resolver loop (equivalent to RFC 1034 5.3.3).
@@ -34,6 +36,9 @@ import java.util.List;
 public class RecursiveResolver extends AbstractResolver{
 
     private final CacheHandler cache;
+
+    /** Depth limit so NS/glue resolution doesn't loop infinitely. */
+    private static final int MAX_DEPTH = 16;
 
     public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
         this.cache = cache;
@@ -51,7 +56,7 @@ public class RecursiveResolver extends AbstractResolver{
 
             QuestionSection question= queryPacket.getQuestionSections()[0];
             // resolve one question.
-            return resolve(question.getName(), question.getQtype(), queryPacket.toBytes());
+            return resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
         }
 
 
@@ -63,7 +68,12 @@ public class RecursiveResolver extends AbstractResolver{
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, RRType qtype, byte[] query){
+    private byte[] resolve(String[] sname, RRType qtype, byte[] query, ResolveContext ctx){
+
+        // Cap glue/CNAME resolution to avoid infinite recursion.
+        if (ctx.depth() > MAX_DEPTH) {
+            return buildServFail(query);
+        }
 
         // fill slist
         SListWrapper slistWrap;
@@ -148,7 +158,7 @@ public class RecursiveResolver extends AbstractResolver{
                 case REFERRAL -> {
                     for (Delegation d : extractDelegations(response)) {
                         if (!d.hasGlue()) {
-                            d = placeholderResolveNsAddress(d);
+                            d = resolveNsAddress(d, ctx);
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                     }
@@ -165,11 +175,81 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
 
+    /** Per-resolution state: recursion depth, capped to bound nesting. */
+    private record ResolveContext(int depth) {
+        static ResolveContext start() {
+            return new ResolveContext(0);
+        }
+        ResolveContext deeper() {
+            return new ResolveContext(depth + 1);
+        }
+    }
 
-    // TODO: glue resolver - re-entrant resolve(nsHost, A) for a glue-less delegation,
-    // returning a Delegation with the address filled in.
-    private Delegation placeholderResolveNsAddress(Delegation d) {
+
+    /**
+     * Resolves a glue-less delegation's name server address (cache first, then iterative).
+     *
+     * @param d the glue-less delegation
+     * @param ctx the resolution context
+     * @return the delegation with its address, or unchanged if it cannot be resolved
+     */
+    private Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
+        String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
+
+        // cache first
+        try {
+            ResourceRecord[] cached = cache.lookup(String.join(".", nsName), RRType.A);
+            if (cached.length > 0) {
+                return new Delegation(d.ns(), (RDataA) cached[0].getRdata(), d.ipv6());
+            }
+        } catch (SQLException ignored) {
+        }
+
+        // not cached: resolve iteratively
+        byte[] response = resolve(nsName, RRType.A, buildQuery(nsName, RRType.A), ctx.deeper());
+        DNSPacket parsed = DNSPacket.fromBytes(response);
+        if (parsed.getAnswerSections() != null) {
+            for (ResourceRecord rr : parsed.getAnswerSections()) {
+                if (rr.getType() == RRType.A) {
+                    return new Delegation(d.ns(), (RDataA) rr.getRdata(), d.ipv6());
+                }
+            }
+        }
         return d;
+    }
+
+
+    /**
+     * Builds a minimal iterative query (RD cleared) for one question.
+     *
+     * @param name the query name
+     * @param qtype the query type
+     * @return the query bytes
+     */
+    private static byte[] buildQuery(String[] name, RRType qtype) {
+        QuestionSection question = new QuestionSection();
+        question.setName(name);
+        question.setQtype(qtype);
+        question.setQclass(RRClass.IN);
+
+        DNSPacket packet = new DNSPacket();
+        packet.setId(randomId());
+        packet.setOpcode(OpCode.QUERY);
+        packet.setQr(false);
+        packet.setRd(false);
+        packet.setRcode(RCode.NOERROR);
+        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setAnswerSections(new ResourceRecord[0]);
+        packet.setAuthoritySections(new ResourceRecord[0]);
+        packet.setAdditionalSections(new ResourceRecord[0]);
+        return packet.toBytes();
+    }
+
+    /** @return a random 16-bit DNS transaction id */
+    private static byte[] randomId() {
+        byte[] id = new byte[2];
+        ThreadLocalRandom.current().nextBytes(id);
+        return id;
     }
 
     // Builds a minimal response carrying just an rcode (skeleton terminal).
