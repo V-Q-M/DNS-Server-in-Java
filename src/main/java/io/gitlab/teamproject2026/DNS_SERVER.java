@@ -39,6 +39,7 @@ public class DNS_SERVER {
     private static final String YELLOW = "\u001B[33m";
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
+    private static final String PINK = "\u001B[95m";
 
     // probably obsolete?
     private static boolean testing = false;
@@ -567,6 +568,11 @@ public class DNS_SERVER {
         //needed for cache logging:
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
+
+        //first question for Trace-logs
+        
+        logger.log(PINK + "[TRACE] Revieced query for: " + oopPacket.getQuestionSection(0).getName().toString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype(), LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
@@ -610,18 +616,48 @@ public class DNS_SERVER {
                 response.setAnswerSections(new ResourceRecord[0]);
                 response.setAuthoritySections(new ResourceRecord[0]);
                 response.setAdditionalSections(new ResourceRecord[0]);
-                return serializeResponsePacket(response);
+
+                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getName().toString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN, LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
             }
+
+            if(payload.notResolved.isEmpty() && !payload.answer.isEmpty() 
+                && payload.authority.isEmpty() ){
+            DNSPacket response = new DNSPacket();
+            response.setId(oopPacket.getId());
+            response.setOpcode(oopPacket.getOpcode());
+            response.setAa(true);
+            response.setRd(oopPacket.isRd());
+            response.setRa(recursionAllowed);
+            response.setRcode(RCode.NXDOMAIN);
+            response.setQuestionSections(oopPacket.getQuestionSections());
+            response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
+            response.setAuthoritySections(new ResourceRecord[0]);
+            response.setAdditionalSections(new ResourceRecord[0]);
+
+            logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getName().toString() +" contained in Zones but no authoratative Answer could be supplied. Return " + RCode.NXDOMAIN, LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+
+            return serializeResponsePacket(response);
+        }
+
             // Step 2: Cache lookup only for questions not resolved by zone
             if(payload.notResolved.isEmpty()){
                 authoritative = true;
             }
+
             payload = cacheLookUp(payload, oopPacket, id);
+
+            if(payload.notResolved.isEmpty()){
+                logger.log(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + "resolved from Cache", LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+            } else {
+                logger.log(PINK + "[TRACE] Query: " + request.getName().toString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+            }
+
         } else {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
 
+                logger.log(PINK + "[TRACE] Query: " + request.getName().toString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
 
 
                 logger.log(
@@ -640,6 +676,7 @@ public class DNS_SERVER {
             payload = queryResolver(payload, data);
         }
 
+        logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " resolved succesfully.", LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
         return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
     }
 
