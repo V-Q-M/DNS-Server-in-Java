@@ -278,7 +278,7 @@ public class RecursiveResolver extends AbstractResolver{
      * @param qtype the record type
      * @return a serialized NOERROR response with the cached records, or null if not cached
      */
-    private byte[] cachedResponse(String[] name, RRType qtype) {
+    byte[] cachedResponse(String[] name, RRType qtype) {
         ResourceRecord[] cached;
         try {
             cached = cache.lookup(String.join(".", name), qtype);

@@ -126,6 +126,36 @@ public class RecursiveResolverUnitTest {
         assertEquals("7.7.7.7", resolved.ipv4().toString());
     }
 
+    // ---- cname cache-first ----
+
+    @Test
+    void cachedResponseReturnsCachedRecords() throws Exception {
+        assumeTrue(cache != null, "needs a running database");
+
+        cache.insertAll(new ResourceRecord[]{
+                record(new String[]{"target", "cnamecache", "example"}, new RDataA(new byte[]{8, 8, 4, 4}))
+        });
+        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+
+        byte[] resp = resolver.cachedResponse(new String[]{"target", "cnamecache", "example"}, RRType.A);
+
+        assertNotNull(resp, "cached records should produce a response");
+        DNSPacket packet = DNSPacket.fromBytes(resp);
+        assertEquals(RCode.NOERROR, packet.getRcode());
+        assertEquals(1, packet.getAnswerSections().length);
+        assertEquals(RRType.A, packet.getAnswerSections()[0].getType());
+        assertEquals("8.8.4.4", packet.getAnswerSections()[0].getRdata().toString());
+    }
+
+    @Test
+    void cachedResponseReturnsNullOnMiss() {
+        assumeTrue(cache != null, "needs a running database");
+
+        RecursiveResolver resolver = new RecursiveResolver(cache, null, 2000, 500);
+        byte[] resp = resolver.cachedResponse(new String[]{"absent", "cnamecache", "example"}, RRType.A);
+        assertNull(resp, "a cache miss should return null so the loop falls back to iterating");
+    }
+
     // ---- helpers ----
 
     private static ResourceRecord record(String[] name, io.gitlab.teamproject2026.model.rdata.RData rdata) {
