@@ -315,7 +315,7 @@ public class DNS_SERVER {
         stubResolver = new StubResolver(
                 forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
         recursiveResolver = new RecursiveResolver(
-                cacheHandler, zoneHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
+                cacheHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
@@ -708,43 +708,43 @@ public class DNS_SERVER {
 
         // Get Stub/recursive response
         byte[] rawResponse=null;
-        switch (forwardMode) {
-            case FORWARD_ONLY -> { // only stub
+        if (forwardMode == ForwardMode.FORWARD_ONLY){
+         // only stub
+            try {
+                rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+            } catch (RuntimeException e) {
+                System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                return payload;
+            }
+        }
+        else if (forwardMode == ForwardMode.FORWARD_FIRST) {
+            try {
+                // try stub
+                rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+            } catch (RuntimeException e) {
+                if (!lessLog) {
+                    System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
+                }
+            }
+            // if stub resolver fails: fallback recursive resolver
+            if (rawResponse == null) {
                 try {
-                    rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                    rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                 } catch (RuntimeException e) {
-                    System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                    System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
                     return payload;
                 }
             }
-            case FORWARD_FIRST -> {
-                try {
-                    // try stub
-                    rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
-                } catch (RuntimeException e) {
-                    if (!lessLog) {
-                        System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
-                    }
-                }
-                // if stub resolver fails: fallback recursive resolver
-                if (rawResponse == null) {
-                    try {
-                        rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
-                    } catch (RuntimeException e) {
-                        System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
-                        return payload;
-                    }
-                }
-            }
-            default -> { // handle null (iterative) and if later adjusted any other forwardmodes
-                try {
+        }
+        else {
+            try {
                     rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                 } catch (RuntimeException e) {
                     System.err.println(RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET);
                     return payload;
                 }
-            }
         }
+
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         //----------------------------ReferralAnalyzer-------------------------------------------------
         RRType queryType = payload.notResolved.isEmpty() ? RRType.A :

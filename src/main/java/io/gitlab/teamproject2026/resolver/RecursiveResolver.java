@@ -34,12 +34,9 @@ import java.util.List;
 public class RecursiveResolver extends AbstractResolver{
 
     private final CacheHandler cache;
-    private final ZoneHandler zone;
 
-    public RecursiveResolver(CacheHandler cache, ZoneHandler zone, int timeoutMs, long retryDelay) {
-        //TODO maybe delete zone field??
+    public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
         this.cache = cache;
-        this.zone = zone;
         this.timeoutMs=timeoutMs;
         this.retryDelay=retryDelay;
     }
@@ -47,14 +44,11 @@ public class RecursiveResolver extends AbstractResolver{
     @Override
         public byte[] resolve(byte[] query){
             DNSPacket queryPacket;
-            try {
-                queryPacket = DNSPacket.fromBytes(query);
-                //clear RA, RD bit
-                queryPacket.setRa(false);
-                queryPacket.setRd(false);
-            } catch (Exception e) {
-                return buildServFail(query);
-            }
+            queryPacket = DNSPacket.fromBytes(query);
+            //clear RA, RD bit
+            queryPacket.setRa(false);
+            queryPacket.setRd(false);
+
             QuestionSection question= queryPacket.getQuestionSections()[0];
             // resolve one question.
             return resolve(question.getName(), question.getQtype(), queryPacket.toBytes());
@@ -94,7 +88,7 @@ public class RecursiveResolver extends AbstractResolver{
             //TODO
             String ipv4Str = bestNsserver.ipv4().toString();
             String ipv6Str = bestNsserver.ipv6().toString();
-            String nsName = (bestNsserver.nsName().getNsdname().length == 0) ? bestNsserver.nsName().toString() : "unknown";
+            String nsName =  bestNsserver.nsName().toString();
 
             NameServer queriedServerIpv4 = new NameServer(ipv4Str, 53, nsName);
             NameServer queriedServerIpv6 = new NameServer(ipv6Str, 53, nsName);

@@ -18,28 +18,23 @@ public class RecursiveResolverTest {
     private static RecursiveResolver recursiveResolver;
 
     @BeforeAll
-    public static void setUp() throws Exception {
-        int timeoutMs = 4000;
-        int retryDelayMs = 1000;
-        int maxRetries = 3;
-        StubResolverStrategy strategy = StubResolverStrategy.ROUND_ROBIN;
-        List<NameServer> forwarders = List.of(new NameServer("8.8.8.8", 53, "8.8.8.8")        );
-        CacheHandler cacheHandler = new CacheHandler(new DatabaseConnectionProvider());
-        ZoneHandler zoneHandler = null;
-
+    public static void setUp() {
         try {
-            cacheHandler = new CacheHandler(new DatabaseConnectionProvider());
-            zoneHandler = new ZoneHandler(new DatabaseConnectionProvider());
-        } catch (Exception e) {
+            int timeoutMs = 4000;
+            int retryDelayMs = 1000;
+            int maxRetries = 3;
+            StubResolverStrategy strategy = StubResolverStrategy.ROUND_ROBIN;
+            List<NameServer> forwarders = List.of(new NameServer("8.8.8.8", 53, "8.8.8.8")        );
+            CacheHandler cacheHandler = new CacheHandler(new DatabaseConnectionProvider());
+            stubResolver = new StubResolver(forwarders, timeoutMs, maxRetries, retryDelayMs, strategy);
+            recursiveResolver = new RecursiveResolver(cacheHandler, timeoutMs, retryDelayMs);
+            } catch (Exception e) {
             System.out.println("[TEST-SETUP] failed database conn, resolve with null handlers");
         }
-
-        stubResolver = new StubResolver(forwarders, timeoutMs, maxRetries, retryDelayMs, strategy);
-        recursiveResolver = new RecursiveResolver(cacheHandler, zoneHandler, timeoutMs, retryDelayMs);
     }
 
     @Test
-    public void testCompareStubAndRecursiveResolution() {
+    public void testCompareStubAndRecursiveResolutionAnswerSection() {
         //--------------------A-RR test------------------------------------------------
         // build querypacket for example.com,A
         DNSPacket queryPacketA = new DNSPacket();
@@ -103,6 +98,11 @@ public class RecursiveResolverTest {
 
 
 
+
+    }
+
+    @Test
+    public void testCompareStubAndRecursiveResolutionResponse() {
         // ---------------SOA test---------------------------------------------------------------
         DNSPacket queryPacketSOA = new DNSPacket();
         queryPacketSOA.setId(new byte[]{0x12, 0x33});
