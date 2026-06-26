@@ -177,7 +177,11 @@ public class RecursiveResolver extends AbstractResolver{
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
                         return buildServFail(query);
                     }
-                    byte[] resolved = resolve(target, qtype, buildQuery(target, qtype), ctx.deeper());
+                    // cache first, otherwise resolve iteratively
+                    byte[] resolved = cachedResponse(target, qtype);
+                    if (resolved == null) {
+                        resolved = resolve(target, qtype, buildQuery(target, qtype), ctx.deeper());
+                    }
                     return prependCnames(response, resolved);
                 }
             }
@@ -187,7 +191,7 @@ public class RecursiveResolver extends AbstractResolver{
 
 
     /** Per-resolution state: recursion depth (capped) and the CNAME loop guard. */
-    private record ResolveContext(int depth, Set<String> cnamesSeen) {
+    record ResolveContext(int depth, Set<String> cnamesSeen) {
         static ResolveContext start() {
             return new ResolveContext(0, new HashSet<>());
         }
@@ -204,7 +208,7 @@ public class RecursiveResolver extends AbstractResolver{
      * @param ctx the resolution context
      * @return the delegation with its address, or unchanged if it cannot be resolved
      */
-    private Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
+    Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
         String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
 
         // cache first
@@ -236,7 +240,7 @@ public class RecursiveResolver extends AbstractResolver{
      * @param response a response classified as a CNAME chain
      * @return the canonical name as labels, or null if there is no CNAME
      */
-    private static String[] cnameTarget(DNSPacket response) {
+    static String[] cnameTarget(DNSPacket response) {
         for (ResourceRecord rr : response.getAnswerSections()) {
             if (rr.getType() == RRType.CNAME) {
                 return ((RDataCNAME) rr.getRdata()).getCname();
@@ -252,7 +256,7 @@ public class RecursiveResolver extends AbstractResolver{
      * @param resolved the serialized response for the canonical name
      * @return the merged response bytes, CNAME records first then the resolved answer
      */
-    private static byte[] prependCnames(DNSPacket cnameResponse, byte[] resolved) {
+    static byte[] prependCnames(DNSPacket cnameResponse, byte[] resolved) {
         DNSPacket result = DNSPacket.fromBytes(resolved);
         List<ResourceRecord> answer = new ArrayList<>();
         for (ResourceRecord rr : cnameResponse.getAnswerSections()) {
@@ -265,6 +269,39 @@ public class RecursiveResolver extends AbstractResolver{
         }
         result.setAnswerSections(answer.toArray(new ResourceRecord[0]));
         return result.toBytes();
+    }
+
+    /**
+     * A response built from cached records for the name and type, or null on a cache miss.
+     *
+     * @param name the name to look up
+     * @param qtype the record type
+     * @return a serialized NOERROR response with the cached records, or null if not cached
+     */
+    private byte[] cachedResponse(String[] name, RRType qtype) {
+        ResourceRecord[] cached;
+        try {
+            cached = cache.lookup(String.join(".", name), qtype);
+        } catch (SQLException e) {
+            return null;
+        }
+        if (cached.length == 0) {
+            return null;
+        }
+        QuestionSection question = new QuestionSection();
+        question.setName(name);
+        question.setQtype(qtype);
+        question.setQclass(RRClass.IN);
+
+        DNSPacket packet = new DNSPacket();
+        packet.setId(randomId());
+        packet.setOpcode(OpCode.QUERY);
+        packet.setRcode(RCode.NOERROR);
+        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setAnswerSections(cached);
+        packet.setAuthoritySections(new ResourceRecord[0]);
+        packet.setAdditionalSections(new ResourceRecord[0]);
+        return packet.toBytes();
     }
 
     /**
