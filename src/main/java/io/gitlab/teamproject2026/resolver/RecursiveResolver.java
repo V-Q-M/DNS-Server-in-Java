@@ -16,12 +16,15 @@ import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.resolver.SListWrapper.*;
 import io.gitlab.teamproject2026.model.RRClass;
+import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.Set;
+import java.util.HashSet;
 
 /*
  * Iterative resolver loop (equivalent to RFC 1034 5.3.3).
@@ -164,10 +167,18 @@ public class RecursiveResolver extends AbstractResolver{
                     }
                     continue;
                 }
-                // Alias: restart resolution at the canonical name.
+                // Alias: restart at the canonical name, then prepend the CNAME we followed.
                 case CNAME_CHAIN -> {
-                    // TODO: resolve(cnameTarget(response), qtype)
-                    continue;
+                    String[] target = cnameTarget(response);
+                    if (target == null) {
+                        return buildServFail(query);
+                    }
+                    // loop guard: a target we have already followed means a CNAME loop
+                    if (!ctx.cnamesSeen().add(String.join(".", target))) {
+                        return buildServFail(query);
+                    }
+                    byte[] resolved = resolve(target, qtype, buildQuery(target, qtype), ctx.deeper());
+                    return prependCnames(response, resolved);
                 }
             }
 
@@ -175,13 +186,13 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
 
-    /** Per-resolution state: recursion depth, capped to bound nesting. */
-    private record ResolveContext(int depth) {
+    /** Per-resolution state: recursion depth (capped) and the CNAME loop guard. */
+    private record ResolveContext(int depth, Set<String> cnamesSeen) {
         static ResolveContext start() {
-            return new ResolveContext(0);
+            return new ResolveContext(0, new HashSet<>());
         }
         ResolveContext deeper() {
-            return new ResolveContext(depth + 1);
+            return new ResolveContext(depth + 1, cnamesSeen);
         }
     }
 
@@ -218,6 +229,43 @@ public class RecursiveResolver extends AbstractResolver{
         return d;
     }
 
+
+    /**
+     * The canonical name a CNAME response points to.
+     *
+     * @param response a response classified as a CNAME chain
+     * @return the canonical name as labels, or null if there is no CNAME
+     */
+    private static String[] cnameTarget(DNSPacket response) {
+        for (ResourceRecord rr : response.getAnswerSections()) {
+            if (rr.getType() == RRType.CNAME) {
+                return ((RDataCNAME) rr.getRdata()).getCname();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Prepends the followed CNAME records onto a resolved answer, building the chain.
+     *
+     * @param cnameResponse the response holding the CNAME(s) we followed
+     * @param resolved the serialized response for the canonical name
+     * @return the merged response bytes, CNAME records first then the resolved answer
+     */
+    private static byte[] prependCnames(DNSPacket cnameResponse, byte[] resolved) {
+        DNSPacket result = DNSPacket.fromBytes(resolved);
+        List<ResourceRecord> answer = new ArrayList<>();
+        for (ResourceRecord rr : cnameResponse.getAnswerSections()) {
+            if (rr.getType() == RRType.CNAME) {
+                answer.add(rr);
+            }
+        }
+        for (ResourceRecord rr : result.getAnswerSections()) {
+            answer.add(rr);
+        }
+        result.setAnswerSections(answer.toArray(new ResourceRecord[0]));
+        return result.toBytes();
+    }
 
     /**
      * Builds a minimal iterative query (RD cleared) for one question.
