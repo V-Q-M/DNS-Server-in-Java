@@ -14,10 +14,10 @@ import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.resolver.*;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.*;
-import java.sql.Ref;
 import java.util.*;
 import java.sql.SQLException;
 
@@ -39,6 +39,7 @@ public class DNS_SERVER {
     private static final String YELLOW = "\u001B[33m";
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(DNS_SERVER.class);
 
     // probably obsolete?
     private static boolean testing = false;
@@ -46,9 +47,6 @@ public class DNS_SERVER {
 
     // If true, disable glue data to improve performance
     private static boolean minimalResponses = false;
-    // If true, disable a few success messages in the server to improve performance
-    private static boolean lessLog = false;
-
 
     private static Config serverConfig;
     private static ResolverSection resolverOptions;
@@ -116,9 +114,12 @@ public class DNS_SERVER {
                     if (now - lastRefresh < refreshMillis) {
                         continue;
                     }
-                    if (!lessLog) {
-                        IO.println(BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET);
-                    }
+                    logger.log(
+                        (BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.NOTICE,
+                            true
+                        );
 
                     lastRefreshZoneBy.put(zone, now);
 
@@ -130,16 +131,22 @@ public class DNS_SERVER {
                     DNSZone newLoadedZone = ConfigManager.loadZoneFile(dir, file, zone);
 
                     if (newLoadedZone != null) {
-                        if (!lessLog) {
-                            IO.println("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial());
-                        }
+                        logger.log(
+                            ("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial()),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.INFO,
+                                true
+                            );
                         if (newLoadedZone.serial() != zoneSoa.getSerial()) {
                             IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
                             zoneHandler.replaceZone(newLoadedZone);
                         } else {
-                            if (!lessLog) {
-                                IO.println(GREEN + "[ZONE] Serials match -> Nothing to do" + RESET);
-                            }
+                            logger.log(
+                                (GREEN + "[ZONE] Serials match -> Nothing to do" + RESET),
+                                    LoggingCategoryType.DEFAULT,
+                                    LoggingSeverity.INFO,
+                                    true
+                                );
                         }
                     }
 
@@ -168,7 +175,12 @@ public class DNS_SERVER {
     private static void handleUDP(){
         // Open UDP socket
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
-            IO.println(GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET);
+            logger.log(
+                    (GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.NOTICE,
+                    true
+            );
 
             // Buffer necessary to store the packet
             byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
@@ -185,11 +197,19 @@ public class DNS_SERVER {
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
 
-                if (!lessLog) {
-                    IO.println(BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET);
+                logger.log(
+                        (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.NOTICE,
+                        true
+                );
                     // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                    IO.println("[SERVER] IN: " + toHex(data));
-                }
+                logger.log(
+                        ("[SERVER] IN: " + toHex(data)),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.INFO,
+                        true
+                );
 
                 // Handle the query and receive a byte array as response
                 byte[] byteResponse = handleUDPQuery(data);
@@ -204,10 +224,18 @@ public class DNS_SERVER {
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
 
-                if (!lessLog) {
-                    IO.println(BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET);
-                    IO.println("[SERVER] OUT: " + toHex(byteResponse));
-                }
+                logger.log(
+                    (BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.NOTICE,
+                        true
+                    );
+                logger.log(
+                    ("[SERVER] OUT: " + toHex(byteResponse)),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.INFO,
+                        true
+                );
             }
         } catch (IOException e){
             throw new RuntimeException(e);
@@ -217,7 +245,12 @@ public class DNS_SERVER {
     private static void handleTCP(){
         // Open TCP socket
         try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress)) {
-            IO.println(GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET);
+            logger.log(
+                    (GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.NOTICE,
+                    true
+            );
 
             // Server loop
             while (true) {
@@ -236,11 +269,19 @@ public class DNS_SERVER {
                         System.err.println(RED + "[SERVER-ERROR] Incomplete DNS query" + RESET);
                         continue;
                     }
-                    if (!lessLog) {
-                        IO.println(BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET);
 
-                        IO.println("[SERVER] IN: " + toHex(data));
-                    }
+                    logger.log(
+                        (BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                        );
+
+                    logger.log(
+                        ("[SERVER] IN: " + toHex(data)),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO
+                    );
 
                     byte[] response = handleQuery(data);
 
@@ -253,10 +294,19 @@ public class DNS_SERVER {
                     output.write(response);
                     output.flush();
 
-                    if (!lessLog) {
-                        IO.println(BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET);
-                        IO.println("[SERVER] OUT: " + toHex(response));
-                    }
+                    logger.log(
+                        (BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                        );
+
+                    logger.log(
+                        ("[SERVER] OUT: " + toHex(response)),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO,
+                            true
+                    );
 
 
                 } catch (IOException e) {
@@ -358,7 +408,17 @@ public class DNS_SERVER {
             } else if (args[i].equals("--testing")) {
                 testing = true;
             } else if (args[i].equals("--less-log")) {
-                lessLog = true;
+                if (logger != null){
+                    logger.overwriteSeverity(LoggingSeverity.NOTICE);
+                }
+            } else if (args[i].equals("--quiet")) {
+                if (logger != null){
+                    logger.overwriteSeverity(LoggingSeverity.ERROR);
+                }
+            } else if (args[i].equals("--silent")) {
+                if (logger != null){
+                    logger.overwriteSeverity(LoggingSeverity.CRITICAL);
+                }
             } else if (args[i].equals("--minimal-responses")) {
                 minimalResponses = true;
             }
@@ -474,12 +534,23 @@ public class DNS_SERVER {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
-                if (!lessLog) {
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
-                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
-                }
 
+                logger.log(
+                    (DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE).toHumanReadable()), //since cache isn't checked latency is 0
+                    LoggingCategoryType.QUERIES,
+                    LoggingSeverity.NOTICE
+                );
+
+                logger.log(
+                    (DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
+                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null).toHumanReadable()),
+                    LoggingCategoryType.QUERIES,
+                    LoggingSeverity.NOTICE
+                );
+
+                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
+                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
+                        resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
             }
         }
         // Stub/RecursiveResolver should only be queried if there are queries not answered by the
@@ -579,11 +650,23 @@ public class DNS_SERVER {
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
-                        if (!lessLog) {
+
+                        logger.log(
+                            (DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE).toHumanReadable()),
+                            LoggingCategoryType.QUERIES,
+                            LoggingSeverity.INFO
+                        );
+
+                        logger.log(
+                            (DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
+                                    resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null).toHumanReadable()),
+                            LoggingCategoryType.QUERIES,
+                            LoggingSeverity.INFO
+                        );
+
                             LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
                             LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
                                     resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
-                        }
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
@@ -666,18 +749,40 @@ public class DNS_SERVER {
                 RRType qType = request.getQtype();
                 if (cacheResult.notResolved.contains(request)) {
                     IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
-                    if (!lessLog) {
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
-                    }
+
+                    logger.log(
+                        (DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.NOTICE
+                    );
+
+                    logger.log(
+                        (DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.NOTICE
+                    );
+
+                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
+                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                 } else {
-                    IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET);
-                    if (!lessLog) {
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
-                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
-                    }
+                    logger.log(
+                        (GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.NOTICE,
+                        true
+                    );
+                    logger.log(
+                        (DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.INFO
+                    );
+                    logger.log(
+                        (DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
+                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.INFO
+                    );
                 }
 
             }
@@ -742,9 +847,12 @@ public class DNS_SERVER {
                         // try stub
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
-                        if (!lessLog) {
-                            System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
-                        }
+                        logger.log(
+                            (YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.WARNING,
+                            true
+                        );
                     }
                     // if stub resolver fails: fallback recursive resolver
                     if (rawResponse == null) {

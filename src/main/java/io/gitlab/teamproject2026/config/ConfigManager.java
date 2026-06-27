@@ -3,7 +3,9 @@ package io.gitlab.teamproject2026.config;
 import io.gitlab.teamproject2026.DNSZone;
 import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
+import io.gitlab.teamproject2026.config.logging.LoggingSection;
 import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.zones.ZoneParser;
@@ -32,7 +34,7 @@ public class ConfigManager {
 
     public static Config defaultConfig() {
         return new Config(
-                null,
+                LoggingSection.defaultLogger(),
                 OptionSection.defaultOptions(),
                 List.of()
         );

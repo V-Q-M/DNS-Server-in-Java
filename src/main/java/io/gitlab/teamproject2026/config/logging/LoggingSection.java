@@ -1,5 +1,9 @@
 package io.gitlab.teamproject2026.config.logging;
 
+import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
+
 import java.util.List;
 import java.util.Map;
 
@@ -18,4 +22,67 @@ import java.util.Map;
 public record LoggingSection(
         List<LoggingChannel> channels,
         Map<LoggingCategoryType, LoggingCategory> categories
-) {}
+) {
+    /** Gets called when the config fails */
+    public static LoggingSection defaultLogger() {
+
+        LoggingChannel defaultLog = new LoggingChannel(
+                "default_log",
+                "log/named.log",
+                LoggingSeverity.INFO,
+                true,
+                true,
+                true
+        );
+
+        LoggingChannel errorLog = new LoggingChannel(
+                "error_log",
+                "log/named-error.log",
+                LoggingSeverity.ERROR,
+                true,
+                true,
+                true
+        );
+
+        LoggingChannel criticalLog = new LoggingChannel(
+                "critical_log",
+                "log/named-critical.log",
+                LoggingSeverity.CRITICAL,
+                true,
+                true,
+                true
+        );
+
+        return new LoggingSection(
+                List.of(defaultLog, errorLog, criticalLog),
+                Map.of(
+                        LoggingCategoryType.DEFAULT,
+                        new LoggingCategory(
+                                LoggingCategoryType.DEFAULT,
+                                List.of(defaultLog, errorLog, criticalLog)
+                        ),
+                        LoggingCategoryType.GENERAL,
+                        new LoggingCategory(
+                                LoggingCategoryType.GENERAL,
+                                List.of(defaultLog, errorLog, criticalLog)
+                        ),
+                        LoggingCategoryType.CONFIG,
+                        new LoggingCategory(
+                                LoggingCategoryType.CONFIG,
+                                List.of(defaultLog, errorLog, criticalLog)
+                        ),
+                        LoggingCategoryType.QUERIES,
+                        new LoggingCategory(
+                                LoggingCategoryType.QUERIES,
+                                List.of(defaultLog, errorLog, criticalLog)
+                        ),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        new LoggingCategory(
+                                LoggingCategoryType.QUERY_ERRORS,
+                                List.of(defaultLog, errorLog, criticalLog)
+                        )
+                )
+        );
+    }
+
+}

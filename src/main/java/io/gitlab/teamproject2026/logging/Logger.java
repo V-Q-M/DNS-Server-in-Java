@@ -131,7 +131,11 @@ public class Logger {
 
             // Optionally echo the original (ANSI-colored) message to the console.
             if (alsoPrintToConsole){
-                IO.println(message);
+                if (severity.level() <= LoggingSeverity.WARNING.level()) {
+                    System.err.println(message);
+                } else {
+                    IO.println(message);
+                }
             }
         } catch (IOException e) {
             System.err.println("Failed to write to log file: " + channel.fileName());
