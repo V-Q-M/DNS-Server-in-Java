@@ -1,55 +1,111 @@
 <configuration>
-<!--for writing to stubInfo.log:-->
-<appender name="INFO_FILE"
-          class="ch.qos.logback.core.FileAppender">
-    <file>logs/stubInfo.log</file>
 
-    <filter class="ch.qos.logback.classic.filter.LevelFilter">
-        <level>INFO</level>
-        <onMatch>ACCEPT</onMatch>
-        <onMismatch>DENY</onMismatch>
-    </filter>
+<!--json format info logging-->
+    <appender name="JSON_FILE_INFO" class="ch.qos.logback.core.FileAppender">
+        <file>logs/stubJsonInfo.log</file>
 
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
 
-        <fieldNames>
-            <thread>[ignore]</thread>
-            <version>[ignore]</version>
-            <message>[ignore]</message>
-            <levelValue>[ignore]</levelValue>
-            <logger>[ignore]</logger>
-            <level>[ignore]</level>
-        </fieldNames>
-    </encoder>
-</appender>
-<!--for writing to stubDebug.log:-->
-<appender name="DEBUG_FILE"
-          class="ch.qos.logback.core.FileAppender">
-    <file>logs/stubDebug.log</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <thread>[ignore]</thread>
+                <version>[ignore]</version>
+                <message>[ignore]</message>
+                <levelValue>[ignore]</levelValue>
+                <logger>[ignore]</logger>
+                <level>[ignore]</level>
+            </fieldNames>
+        </encoder>
+    </appender>
 
-    <filter class="ch.qos.logback.classic.filter.LevelFilter">
-        <level>DEBUG</level>
-        <onMatch>ACCEPT</onMatch>
-        <onMismatch>DENY</onMismatch>
-    </filter>
+    <!--human readable info logging-->
+    <appender name="HUMAN_FILE_INFO" class="ch.qos.logback.core.FileAppender">
+        <file>logs/stubHumanInfo.log</file>
 
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-        <fieldNames>
-            <thread>[ignore]</thread>
-            <version>[ignore]</version>
-            <message>[ignore]</message>
-            <levelValue>[ignore]</levelValue>
-            <logger>[ignore]</logger>
-            <level>[ignore]</level>
-        </fieldNames>
-    </encoder>
-</appender>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
 
-<root level="DEBUG">
-<!--root logger currently accpets all log events DEBUG or higher (so including INFO)-->
-<!--if you want INFO logging only exchange root level="DEBUG" in line above with root level="INFO"-->
-    <appender-ref ref="INFO_FILE"/>
-    <appender-ref ref="DEBUG_FILE"/>
-</root>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+
+    <!--json format debug logging-->
+    <appender name="JSON_FILE_DEBUG" class="ch.qos.logback.core.FileAppender">
+        <file>logs/stubJsonDebug.log</file>
+
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <fieldNames>
+                <thread>[ignore]</thread>
+                <version>[ignore]</version>
+                <message>[ignore]</message>
+                <levelValue>[ignore]</levelValue>
+                <logger>[ignore]</logger>
+                <level>[ignore]</level>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <!--human readable debug logging-->
+    <appender name="HUMAN_FILE_DEBUG" class="ch.qos.logback.core.FileAppender">
+        <file>logs/stubHumanDebug.log</file>
+
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--print to console-->
+    <appender name="HUMAN_CONSOLE_DEBUG" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>[%cyan(%-5level)] %msg%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="HUMAN_CONSOLE_INFO" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>[%cyan(%-5level)] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+<!--set level="INFO": less logging. set level="OFF": no logging-->
+    <root level="DEBUG">
+        <appender-ref ref="JSON_FILE_INFO"/>
+        <appender-ref ref="HUMAN_FILE_INFO"/>
+        <appender-ref ref="JSON_FILE_DEBUG"/>
+        <appender-ref ref="HUMAN_FILE_DEBUG"/>
+        <appender-ref ref="HUMAN_CONSOLE_DEBUG"/>
+        <appender-ref ref="HUMAN_CONSOLE_INFO"/>
+    </root>
+
 
 </configuration>

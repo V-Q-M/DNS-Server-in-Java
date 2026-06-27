@@ -26,4 +26,11 @@ public record DNSEventDebug(
                                  String strategy, String nsName, String nsHost, int attempt, String error, RCode rCode) {
         return new DNSEventDebug(type, id, domain, qType, latencyMs, source, strategy, nsName, nsHost, attempt, error, rCode);
     }
+
+    public String toHumanReadable() {
+        return String.format(
+                " Strategy: %s. Nameserver: %s. Upstream: %s. Attempt: %s. Error message: %s. RCODE: %s",
+                 strategy, nameserver, upstream, attempt, error, rCode
+        );
+    }
 }
