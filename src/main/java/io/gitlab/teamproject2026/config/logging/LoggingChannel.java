@@ -1,8 +1,9 @@
 package io.gitlab.teamproject2026.config.logging;
 
 public record LoggingChannel(
+        String channelName,
         String fileName,
-        String severity
+        LoggingSeverity severity
 
 ) {
 

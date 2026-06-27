@@ -1,10 +1,7 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
 import io.gitlab.teamproject2026.config.Config;
-import io.gitlab.teamproject2026.config.logging.LoggingCategory;
-import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
-import io.gitlab.teamproject2026.config.logging.LoggingChannel;
-import io.gitlab.teamproject2026.config.logging.LoggingSection;
+import io.gitlab.teamproject2026.config.logging.*;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
@@ -68,25 +65,101 @@ public class ConfInterpreter {
         return interpreterError ? null : new Config(logging, option, zones);
     }
 
-    public LoggingSection parseLoggingConfig(ConfNode root){
-        // Default values
+    public LoggingSection parseLoggingConfig(ConfNode root) {
         List<LoggingChannel> channels = new ArrayList<>();
         Map<LoggingCategoryType, LoggingCategory> categories = new HashMap<>();
 
+        Map<String, LoggingChannel> channelLookup = new HashMap<>();
 
+        for (ConfNode node : root.children()) {
 
+            if (node.name().equalsIgnoreCase("channel")) {
 
+                LoggingChannel channel = parseLoggingChannel(node);
+
+                if (channel != null) {
+                    channels.add(channel);
+                    channelLookup.put(channel.channelName(), channel);
+                }
+
+            } else if (node.name().equalsIgnoreCase("category")) {
+
+                if (node.args().isEmpty()) {
+                    error("logging.category requires a name", node.lineNumber());
+                    continue;
+                }
+
+                LoggingCategoryType type;
+
+                try {
+                    type = LoggingCategoryType.valueOf(
+                            node.args().getFirst()
+                                    .replace('-', '_')
+                                    .toUpperCase()
+                    );
+                } catch (IllegalArgumentException e) {
+                    error("Unknown logging category: " + node.args().getFirst(), node.lineNumber());
+                    continue;
+                }
+
+                List<LoggingChannel> categoryChannels = new ArrayList<>();
+
+                for (ConfNode child : node.children()) {
+                    LoggingChannel channel = channelLookup.get(child.name());
+
+                    if (channel == null) {
+                        error("Unknown logging channel: " + child.name(), child.lineNumber());
+                        continue;
+                    }
+
+                    categoryChannels.add(channel);
+                }
+
+                categories.put(type, new LoggingCategory(type, categoryChannels));
+
+            } else {
+                error("Unknown logging directive: \"" + node.name() + "\"", node.lineNumber());
+            }
+        }
 
         return new LoggingSection(channels, categories);
     }
 
-    public LoggingChannel parseLoggingChannel(ConfNode root){
-        String filePath = "";
-        String severity = "";
+    public LoggingChannel parseLoggingChannel(ConfNode root) {
+        if (root.args().isEmpty()) {
+            error("logging.channel requires a name", root.lineNumber());
+            return null;
+        }
+        String channelName = root.args().getFirst();
+        String fileName = "";
+        LoggingSeverity severity = LoggingSeverity.INFO;
 
+        for (ConfNode node : root.children()) {
+            switch (node.name().toLowerCase()) {
+                case "file" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.file requires a path", node.lineNumber());
+                        continue;
+                    }
+                    fileName = node.args().getFirst();
+                }
+                case "severity" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.severity requires a value", node.lineNumber());
+                        continue;
+                    }
+                    try {
+                        severity = LoggingSeverity.fromValue(node.args().getFirst());
+                    } catch (IllegalArgumentException e) {
+                        error("Invalid logging severity: " + node.args().getFirst(), node.lineNumber());
+                    }
+                }
+                default ->
+                        warning( "Unknown logging channel directive: \"" + node.name() + "\"", node.lineNumber() );
+            }
+        }
 
-
-        return new LoggingChannel(filePath, severity);
+        return new LoggingChannel(channelName, fileName, severity);
     }
 
     /**
