@@ -1,6 +1,10 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
 import io.gitlab.teamproject2026.config.Config;
+import io.gitlab.teamproject2026.config.logging.LoggingCategory;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingChannel;
+import io.gitlab.teamproject2026.config.logging.LoggingSection;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
@@ -9,7 +13,9 @@ import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Interprets the configuration AST represented by {@link ConfNode}s and
@@ -27,12 +33,20 @@ public class ConfInterpreter {
      * @return the interpreted {@link Config}, or {@code null} if interpretation fails
      */
     public Config fromAst(List<ConfNode> rootNodes){
+        LoggingSection logging = null;
         OptionSection option = null;
         List<ZoneSection> zones = new ArrayList<>();
 
         for (ConfNode node : rootNodes) {
             String name = node.name().toLowerCase();
             switch (name){
+                case "logging" ->{
+                    if (logging == null) {
+                        logging = parseLoggingConfig(node);
+                    } else {
+                        error("Only one logging section allowed", node.lineNumber());
+                    }
+                }
                 case "options" -> {
                     // Check first if option is already set
                     if (option == null) {
@@ -51,7 +65,28 @@ public class ConfInterpreter {
             }
         }
 
-        return interpreterError ? null : new Config(option, zones);
+        return interpreterError ? null : new Config(logging, option, zones);
+    }
+
+    public LoggingSection parseLoggingConfig(ConfNode root){
+        // Default values
+        List<LoggingChannel> channels = new ArrayList<>();
+        Map<LoggingCategoryType, LoggingCategory> categories = new HashMap<>();
+
+
+
+
+
+        return new LoggingSection(channels, categories);
+    }
+
+    public LoggingChannel parseLoggingChannel(ConfNode root){
+        String filePath = "";
+        String severity = "";
+
+
+
+        return new LoggingChannel(filePath, severity);
     }
 
     /**

@@ -32,6 +32,7 @@ public class ConfigManager {
 
     public static Config defaultConfig() {
         return new Config(
+                null,
                 OptionSection.defaultOptions(),
                 List.of()
         );
