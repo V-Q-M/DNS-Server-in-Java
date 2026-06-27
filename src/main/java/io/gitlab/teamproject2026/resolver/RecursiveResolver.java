@@ -142,7 +142,8 @@ public class RecursiveResolver extends AbstractResolver{
                 cache.insertAll(response.getAuthoritySections());
                 cache.insertAll(response.getAdditionalSections());
             } catch (SQLException e) {
-                //keep resolving
+                // caching is best-effort: keep resolving even if the insert fails
+                IO.println(RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET);
             }
 
             // which branch of the RCODE decision tree is this?
@@ -233,7 +234,9 @@ public class RecursiveResolver extends AbstractResolver{
             if (cached.length > 0) {
                 return cached[0].getRdata();
             }
-        } catch (SQLException ignored) {
+        } catch (SQLException e) {
+            // cache unavailable: fall through to an iterative lookup
+            IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
         }
         byte[] response = resolve(name, type, buildQuery(name, type), ctx.deeper());
         DNSPacket parsed = DNSPacket.fromBytes(response);
@@ -325,6 +328,8 @@ public class RecursiveResolver extends AbstractResolver{
         try {
             cached = cache.lookup(String.join(".", name), qtype);
         } catch (SQLException e) {
+            // treat a cache error like a miss so the caller falls back to iterating
+            IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
             return null;
         }
         if (cached.length == 0) {
