@@ -775,16 +775,40 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                IO.println(YELLOW + "[STUB] NXDOMAIN recieved from upstream" + RESET);
+                if (forwardMode == ForwardMode.FORWARD_ONLY){
+                    IO.println(YELLOW + "[STUB] NXDOMAIN received from upstream" + RESET);
+                }
+                else if (forwardMode == ForwardMode.FORWARD_FIRST){
+                    IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
+                }
+                else {
+                    IO.println(YELLOW + "[RECURSIVE] NXDOMAIN received from upstream" + RESET);
+                }
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
-                IO.println(YELLOW + "[STUB] Referral recieved" + RESET);
+                if (forwardMode == ForwardMode.FORWARD_ONLY){
+                    IO.println(YELLOW + "[STUB] Referral received" + RESET);
+                }
+                else if (forwardMode == ForwardMode.FORWARD_FIRST){
+                    IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
+                }
+                else {
+                    IO.println(YELLOW + "[RECURSIVE] Referral received" + RESET);
+                }
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
-                IO.println(RED + "[STUB] upstream returned" + classification + ", skipping cache insert" + RESET);
+                if (forwardMode == ForwardMode.FORWARD_ONLY){
+                    IO.println(RED + "[STUB] upstream returned" + classification + ", skipping cache insert" + RESET);
+                }
+                else if (forwardMode == ForwardMode.FORWARD_FIRST){
+                    IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
+                }
+                else {
+                    IO.println(RED + "[RECURSIVE] upstream returned" + classification + ", skipping cache insert" + RESET);
+                }
             }
         }
 
