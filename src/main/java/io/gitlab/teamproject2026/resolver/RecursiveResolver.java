@@ -15,11 +15,16 @@ import io.gitlab.teamproject2026.model.rdata.RDataA;
 import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.resolver.SListWrapper.*;
+import io.gitlab.teamproject2026.model.RRClass;
+import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.Set;
+import java.util.HashSet;
 
 /*
  * Iterative resolver loop (equivalent to RFC 1034 5.3.3).
@@ -34,6 +39,9 @@ import java.util.List;
 public class RecursiveResolver extends AbstractResolver{
 
     private final CacheHandler cache;
+
+    /** Depth limit so NS/glue resolution doesn't loop infinitely. */
+    private static final int MAX_DEPTH = 16;
 
     public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
         this.cache = cache;
@@ -51,7 +59,7 @@ public class RecursiveResolver extends AbstractResolver{
 
             QuestionSection question= queryPacket.getQuestionSections()[0];
             // resolve one question.
-            return resolve(question.getName(), question.getQtype(), queryPacket.toBytes());
+            return resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
         }
 
 
@@ -63,7 +71,12 @@ public class RecursiveResolver extends AbstractResolver{
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, RRType qtype, byte[] query){
+    private byte[] resolve(String[] sname, RRType qtype, byte[] query, ResolveContext ctx){
+
+        // Cap glue/CNAME resolution to avoid infinite recursion.
+        if (ctx.depth() > MAX_DEPTH) {
+            return buildServFail(query);
+        }
 
         // fill slist
         SListWrapper slistWrap;
@@ -148,16 +161,24 @@ public class RecursiveResolver extends AbstractResolver{
                 case REFERRAL -> {
                     for (Delegation d : extractDelegations(response)) {
                         if (!d.hasGlue()) {
-                            d = placeholderResolveNsAddress(d);
+                            d = resolveNsAddress(d, ctx);
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                     }
                     continue;
                 }
-                // Alias: restart resolution at the canonical name.
+                // Alias: restart at the canonical name, then prepend the CNAME we followed.
                 case CNAME_CHAIN -> {
-                    // TODO: resolve(cnameTarget(response), qtype)
-                    continue;
+                    String[] target = cnameTarget(response);
+                    if (target == null) {
+                        return buildServFail(query);
+                    }
+                    // loop guard: a target we have already followed means a CNAME loop
+                    if (!ctx.cnamesSeen().add(String.join(".", target))) {
+                        return buildServFail(query);
+                    }
+                    // resolve the target via cache (following cached CNAMEs) then iterate the tail
+                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx));
                 }
             }
 
@@ -165,23 +186,201 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
 
+    /** Per-resolution state: recursion depth (capped) and the CNAME loop guard. */
+    record ResolveContext(int depth, Set<String> cnamesSeen) {
+        static ResolveContext start() {
+            return new ResolveContext(0, new HashSet<>());
+        }
+        ResolveContext deeper() {
+            return new ResolveContext(depth + 1, cnamesSeen);
+        }
+    }
 
-    // TODO: glue resolver - re-entrant resolve(nsHost, A) for a glue-less delegation,
-    // returning a Delegation with the address filled in.
-    private Delegation placeholderResolveNsAddress(Delegation d) {
+
+    /**
+     * Resolves a glue-less delegation's name server address (cache first, then iterative).
+     *
+     * @param d the glue-less delegation
+     * @param ctx the resolution context
+     * @return the delegation with its address, or unchanged if it cannot be resolved
+     */
+    Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
+        String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
+
+        // prefer IPv4, fall back to IPv6 if the name server is v6-only
+        RData a = resolveAddress(nsName, RRType.A, ctx);
+        if (a != null) {
+            return new Delegation(d.ns(), (RDataA) a, d.ipv6());
+        }
+        RData aaaa = resolveAddress(nsName, RRType.AAAA, ctx);
+        if (aaaa != null) {
+            return new Delegation(d.ns(), d.ipv4(), (RDataAAAA) aaaa);
+        }
         return d;
     }
 
-    // Builds a minimal response carrying just an rcode (skeleton terminal).
-    private DNSPacket placeholderRespond(RCode rcode) {
-        DNSPacket response = new DNSPacket();
-        response.setRcode(rcode);
-        response.setOpcode(OpCode.QUERY);
-        response.setAnswerSections(new ResourceRecord[0]);
-        response.setAuthoritySections(new ResourceRecord[0]);
-        response.setAdditionalSections(new ResourceRecord[0]);
-        return response;
+    /**
+     * Looks up an address record for a name, cache first then iterative.
+     *
+     * @param name the name server's host name
+     * @param type the address type (A or AAAA)
+     * @param ctx the resolution context
+     * @return the matching address rdata, or null if it cannot be resolved
+     */
+    RData resolveAddress(String[] name, RRType type, ResolveContext ctx) {
+        try {
+            ResourceRecord[] cached = cache.lookup(String.join(".", name), type);
+            if (cached.length > 0) {
+                return cached[0].getRdata();
+            }
+        } catch (SQLException ignored) {
+        }
+        byte[] response = resolve(name, type, buildQuery(name, type), ctx.deeper());
+        DNSPacket parsed = DNSPacket.fromBytes(response);
+        if (parsed.getAnswerSections() != null) {
+            for (ResourceRecord rr : parsed.getAnswerSections()) {
+                if (rr.getType() == type) {
+                    return rr.getRdata();
+                }
+            }
+        }
+        return null;
     }
+
+
+    /**
+     * The canonical name a CNAME response points to.
+     *
+     * @param response a response classified as a CNAME chain
+     * @return the canonical name as labels, or null if there is no CNAME
+     */
+    static String[] cnameTarget(DNSPacket response) {
+        for (ResourceRecord rr : response.getAnswerSections()) {
+            if (rr.getType() == RRType.CNAME) {
+                return ((RDataCNAME) rr.getRdata()).getCname();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Prepends the followed CNAME records onto a resolved answer, building the chain.
+     *
+     * @param cnameResponse the response holding the CNAME(s) we followed
+     * @param resolved the serialized response for the canonical name
+     * @return the merged response bytes, CNAME records first then the resolved answer
+     */
+    static byte[] prependCnames(DNSPacket cnameResponse, byte[] resolved) {
+        DNSPacket result = DNSPacket.fromBytes(resolved);
+        List<ResourceRecord> answer = new ArrayList<>();
+        for (ResourceRecord rr : cnameResponse.getAnswerSections()) {
+            if (rr.getType() == RRType.CNAME) {
+                answer.add(rr);
+            }
+        }
+        for (ResourceRecord rr : result.getAnswerSections()) {
+            answer.add(rr);
+        }
+        result.setAnswerSections(answer.toArray(new ResourceRecord[0]));
+        return result.toBytes();
+    }
+
+    /**
+     * Resolves a name using the cache as far as it reaches: it follows cached CNAME
+     * records and only resolves the remaining tail of the chain iteratively.
+     *
+     * @param name the name to resolve
+     * @param qtype the wanted record type
+     * @param ctx the resolution context
+     * @return a serialized response, cached CNAMEs prepended onto the resolved tail
+     */
+    byte[] resolveCnameTarget(String[] name, RRType qtype, ResolveContext ctx) {
+        // the wanted type is cached directly
+        byte[] direct = cachedResponse(name, qtype);
+        if (direct != null) {
+            return direct;
+        }
+        // the name is a cached alias: follow the cached CNAME, then resolve the rest
+        if (qtype != RRType.CNAME) {
+            byte[] cnameResp = cachedResponse(name, RRType.CNAME);
+            if (cnameResp != null) {
+                DNSPacket cnamePacket = DNSPacket.fromBytes(cnameResp);
+                String[] next = cnameTarget(cnamePacket);
+                if (next != null && ctx.cnamesSeen().add(String.join(".", next))) {
+                    return prependCnames(cnamePacket, resolveCnameTarget(next, qtype, ctx));
+                }
+            }
+        }
+        // end of the cached chain: resolve the tail over the network
+        return resolve(name, qtype, buildQuery(name, qtype), ctx.deeper());
+    }
+
+    /**
+     * A response built from cached records for the name and type, or null on a cache miss.
+     *
+     * @param name the name to look up
+     * @param qtype the record type
+     * @return a serialized NOERROR response with the cached records, or null if not cached
+     */
+    byte[] cachedResponse(String[] name, RRType qtype) {
+        ResourceRecord[] cached;
+        try {
+            cached = cache.lookup(String.join(".", name), qtype);
+        } catch (SQLException e) {
+            return null;
+        }
+        if (cached.length == 0) {
+            return null;
+        }
+        QuestionSection question = new QuestionSection();
+        question.setName(name);
+        question.setQtype(qtype);
+        question.setQclass(RRClass.IN);
+
+        DNSPacket packet = new DNSPacket();
+        packet.setId(randomId());
+        packet.setOpcode(OpCode.QUERY);
+        packet.setRcode(RCode.NOERROR);
+        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setAnswerSections(cached);
+        packet.setAuthoritySections(new ResourceRecord[0]);
+        packet.setAdditionalSections(new ResourceRecord[0]);
+        return packet.toBytes();
+    }
+
+    /**
+     * Builds a minimal iterative query (RD cleared) for one question.
+     *
+     * @param name the query name
+     * @param qtype the query type
+     * @return the query bytes
+     */
+    private static byte[] buildQuery(String[] name, RRType qtype) {
+        QuestionSection question = new QuestionSection();
+        question.setName(name);
+        question.setQtype(qtype);
+        question.setQclass(RRClass.IN);
+
+        DNSPacket packet = new DNSPacket();
+        packet.setId(randomId());
+        packet.setOpcode(OpCode.QUERY);
+        packet.setQr(false);
+        packet.setRd(false);
+        packet.setRcode(RCode.NOERROR);
+        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setAnswerSections(new ResourceRecord[0]);
+        packet.setAuthoritySections(new ResourceRecord[0]);
+        packet.setAdditionalSections(new ResourceRecord[0]);
+        return packet.toBytes();
+    }
+
+    /** @return a random 16-bit DNS transaction id */
+    private static byte[] randomId() {
+        byte[] id = new byte[2];
+        ThreadLocalRandom.current().nextBytes(id);
+        return id;
+    }
+
 
     // Glue extraction: pull the NS records and their glue out of a referral response.
 
