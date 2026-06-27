@@ -708,42 +708,46 @@ public class DNS_SERVER {
 
         // Get Stub/recursive response
         byte[] rawResponse=null;
-        if (forwardMode == ForwardMode.FORWARD_ONLY){
-         // only stub
+        if (forwardMode == null) {
             try {
-                rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
             } catch (RuntimeException e) {
-                System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                System.err.println(RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET);
                 return payload;
             }
         }
-        else if (forwardMode == ForwardMode.FORWARD_FIRST) {
-            try {
-                // try stub
-                rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
-            } catch (RuntimeException e) {
-                if (!lessLog) {
-                    System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
+        else {
+            switch (forwardMode) {
+                case FORWARD_ONLY -> { // only stub
+                    try {
+                        rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                    } catch (RuntimeException e) {
+                        System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                        return payload;
+                    }
                 }
-            }
-            // if stub resolver fails: fallback recursive resolver
-            if (rawResponse == null) {
-                try {
-                    rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
-                } catch (RuntimeException e) {
-                    System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
-                    return payload;
+                case FORWARD_FIRST -> {
+                    try {
+                        // try stub
+                        rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                    } catch (RuntimeException e) {
+                        if (!lessLog) {
+                            System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
+                        }
+                    }
+                    // if stub resolver fails: fallback recursive resolver
+                    if (rawResponse == null) {
+                        try {
+                            rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+                        } catch (RuntimeException e) {
+                            System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
+                            return payload;
+                        }
+                    }
                 }
             }
         }
-        else {//especially null case (only recursive resolver)
-            try {
-                    rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
-                } catch (RuntimeException e) {
-                    System.err.println(RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET);
-                    return payload;
-                }
-        }
+
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         //----------------------------ReferralAnalyzer-------------------------------------------------
@@ -775,41 +779,18 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                if (forwardMode == ForwardMode.FORWARD_ONLY){
-                    IO.println(YELLOW + "[STUB] NXDOMAIN received from upstream" + RESET);
-                }
-                else if (forwardMode == ForwardMode.FORWARD_FIRST){
-                    IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
-                }
-                else {
-                    IO.println(YELLOW + "[RECURSIVE] NXDOMAIN received from upstream" + RESET);
-                }
+                IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
-                if (forwardMode == ForwardMode.FORWARD_ONLY){
-                    IO.println(YELLOW + "[STUB] Referral received" + RESET);
-                }
-                else if (forwardMode == ForwardMode.FORWARD_FIRST){
-                    IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
-                }
-                else {
-                    IO.println(YELLOW + "[RECURSIVE] Referral received" + RESET);
-                }
+                IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
-                if (forwardMode == ForwardMode.FORWARD_ONLY){
-                    IO.println(RED + "[STUB] upstream returned" + classification + ", skipping cache insert" + RESET);
-                }
-                else if (forwardMode == ForwardMode.FORWARD_FIRST){
-                    IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
-                }
-                else {
-                    IO.println(RED + "[RECURSIVE] upstream returned" + classification + ", skipping cache insert" + RESET);
-                }
+                IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
             }
+
         }
 
         
