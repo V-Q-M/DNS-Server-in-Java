@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026;
 
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.*;
 import io.gitlab.teamproject2026.config.zones.*;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
@@ -55,6 +57,7 @@ public class DNS_SERVER {
     private static RecursiveResolver recursiveResolver;
     private static CacheHandler cacheHandler;
     private static ZoneHandler zoneHandler;
+    public static Logger logger;
 
     private static int portNumber;
     private static String bindIP;
@@ -265,9 +268,6 @@ public class DNS_SERVER {
         }
     }
 
-
-
-
     /**
      * Initializes the server state from configuration and command-line arguments.
      */
@@ -276,6 +276,7 @@ public class DNS_SERVER {
 
         // named.conf
         serverConfig = ConfigManager.loadConfig("named.conf");
+        logger = new Logger(serverConfig.logging());
 
         OptionSection options = serverConfig.options();
         resolverOptions = options.resolverSection();
@@ -308,7 +309,12 @@ public class DNS_SERVER {
         //IO.println("Recursion: " + recursionAllowed);
         forwardMode = options.forwardMode();// Determines if we should only forward
         if (forwardMode == null){
-            IO.println(GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)" );
+            logger.log(
+                    (GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)" ),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.INFO,
+                    true
+            );
         }
         else {
             IO.println(GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode);

@@ -9,20 +9,34 @@ package io.gitlab.teamproject2026.config.logging;
  */
 public enum LoggingSeverity {
     /** Critical failures that may prevent normal server operation. */
-    CRITICAL,
+    CRITICAL(0),
     /** Errors that affect functionality but are not fatal. */
-    ERROR,
+    ERROR(1),
     /** Warnings about potential problems or unexpected conditions. */
-    WARNING,
+    WARNING(2),
     /** Significant normal events. */
-    NOTICE,
+    NOTICE(3),
     /** General informational messages. */
-    INFO,
+    INFO(4),
     /** Verbose debugging output. */
-    DEBUG,
+    DEBUG(5),
     /** Uses the server's current debug level dynamically. */
-    DYNAMIC;
+    DYNAMIC(6);
 
+    private final int level;
+    LoggingSeverity(int level) {
+        this.level = level;
+    }
+
+    /**
+     * Returns the numeric severity level.
+     *
+     * @return the severity level, where lower values indicate more severe
+     *         messages
+     */
+    public int level() {
+        return level;
+    }
 
     public static LoggingSeverity fromValue(String value) {
         return LoggingSeverity.valueOf(value.toUpperCase());
