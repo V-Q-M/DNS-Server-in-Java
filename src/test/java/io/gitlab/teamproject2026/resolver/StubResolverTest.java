@@ -1,8 +1,5 @@
-package io.gitlab.teamproject2026;
+package io.gitlab.teamproject2026.resolver;
 
-import io.gitlab.teamproject2026.resolver.NameServer;
-import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
-import io.gitlab.teamproject2026.resolver.StubResolver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
