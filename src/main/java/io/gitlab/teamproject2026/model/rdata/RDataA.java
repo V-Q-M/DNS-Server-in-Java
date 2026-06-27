@@ -11,7 +11,7 @@ import java.util.Arrays;
 public class RDataA implements RData {
     private byte[] address;
 
-    public RDataA(){}
+    public RDataA(){this.address = new byte[4];}
     public RDataA(byte[] address){
         this.address = address;
     }

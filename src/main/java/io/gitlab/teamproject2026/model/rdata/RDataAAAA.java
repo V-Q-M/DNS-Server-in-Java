@@ -12,7 +12,7 @@ import java.util.HexFormat;
 public class RDataAAAA implements RData {
     private byte[] address;
 
-    public RDataAAAA(){}
+    public RDataAAAA(){this.address = new byte[16];}
     public RDataAAAA(byte[] address){
         this.address = address;
     }

@@ -26,12 +26,8 @@ public class SListWrapper {
             String ipv4String="";
             String ipv6String="";
             String nsNameString = nsName.toString();
-            if (ipv4 != null){
-                ipv4String = ipv4.toString();
-            }
-            if(ipv6 != null){
-                ipv6String = ipv6.toString();
-            }
+            ipv4String = ipv4.toString();
+            ipv6String = ipv6.toString();
 
             return "NSname: " + nsNameString + "\nIPv4: " + ipv4String + "\nIPv6: " + ipv6String;
         }
@@ -79,13 +75,12 @@ public class SListWrapper {
      *  Creates an SList for a given SName and fills it with the closest cached entries
      *  Entries take the form of a Name and either an IPv4 or IPv6 Address Rdata field. The other field will contain an RData Object containing a 0 address
      * 
-     * @param sName the Sname which the SList is dedicated to
-     * @param zone A Zonehandler to check whether a NameServer is contained in the Zone 
+     * @param sName the Sname which the SList is dedicated to 
      * @param cache A cachehandler that is used to check for already cached records
      * @throws SQLException 
      */
-    public SListWrapper(RDataNS sName, CacheHandler cache) throws SQLException{
-        this.sName = sName.getNsdname();
+    public SListWrapper(String[] sName, CacheHandler cache) throws SQLException{
+        this.sName = sName;
 
         // fill SList from Cache 
         for(int i = 0; i <= this.sName.length; i++){
@@ -131,6 +126,20 @@ public class SListWrapper {
             }
         }
         
+    }
+
+    /** Constructor for the SListWrapper class if no Cache Connection can be made
+    *  Creates an SList for a given SName by filling it with SBelt
+    *  Entries take the form of a Name and either an IPv4 or IPv6 Address Rdata field. The other field will contain an RData Object containing a 0 address
+    * 
+    * @param sName the Sname which the SList is dedicated to
+    */
+    public SListWrapper(String[] sName){
+        this.sName = sName;
+
+        for (SListEntry entry : sBelt){
+            sList.add(entry);
+        }
     }
 
     /** Checks whether an Entry is relevant by comparing its MatchLevel(the number of labels that it shares with the SName) with the current MatchLevel <br>
