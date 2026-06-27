@@ -307,7 +307,12 @@ public class DNS_SERVER {
         recursionAllowed = options.recursionAllowed();
         //IO.println("Recursion: " + recursionAllowed);
         forwardMode = options.forwardMode();// Determines if we should only forward
-        //IO.println("Forward mode: " + forwardMode);
+        if (forwardMode == null){
+            IO.println(GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)" );
+        }
+        else {
+            IO.println(GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode);
+        }
 
         List<NameServer> forwarders = options.forwarders().stream()
                 .map(ip -> new NameServer(ip, 53, ip))
