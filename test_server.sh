@@ -99,8 +99,8 @@ testParser(){
 }
 
 
-testStubResolver(){
-    echo "Testing Stub Resolver..."
+testResolver(){
+    echo "Testing Resolver according to forwardMode..."
     doLookup "uni-tuebingen.de" "A" "134.2.5.1" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "ANSWER: 3" ${NOCACHE}
@@ -198,6 +198,6 @@ startServer ${PORT}
 verifyServerRunning
 # First query, as first quries always take much longer than later queries
 dig @127.0.0.1 -p ${PORT} +nodnssec +noedns uni-tuebingen.de A > /dev/null
-testStubResolver
+testResolver
 testCache
 testZone
