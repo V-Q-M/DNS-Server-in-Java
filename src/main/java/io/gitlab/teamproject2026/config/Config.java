@@ -10,7 +10,7 @@ import java.util.List;
  * Immutable representation of the complete server configuration,
  * consisting of global options and configured DNS zones.
  */
-public record Config(LoggingSection logs, OptionSection options, List<ZoneSection> zones) {
+public record Config(LoggingSection logging, OptionSection options, List<ZoneSection> zones) {
 
 }
 

@@ -6,6 +6,8 @@ import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.config.zones.ZoneType;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 import org.junit.jupiter.api.Nested;
@@ -487,6 +489,199 @@ public class ConfInterpreterTest {
                     """));
 
             assertTrue(err.contains("Invalid zone type: nonsense"));
+        }
+    }
+
+    @Nested
+    class LoggingParsing {
+
+        @Test
+        void parsesLoggingSection() {
+            Config config = parseValidConfig("""
+                    logging {
+                        channel default_log {
+                            file "log/named.log";
+                            severity info;
+                        };
+                    
+                        category default { default_log; };
+                        category queries { default_log; };
+                    };
+                    """);
+
+            assertNotNull(config.logging());
+
+            assertEquals(1, config.logging().channels().size());
+
+            var channel = config.logging().channels().getFirst();
+            assertEquals("default_log", channel.channelName());
+            assertEquals("log/named.log", channel.fileName());
+            assertEquals(LoggingSeverity.INFO, channel.severity());
+
+            assertEquals(2, config.logging().categories().size());
+
+            assertTrue(config.logging().categories().containsKey(LoggingCategoryType.DEFAULT));
+            assertTrue(config.logging().categories().containsKey(LoggingCategoryType.QUERIES));
+
+            assertEquals(
+                    channel,
+                    config.logging()
+                            .categories()
+                            .get(LoggingCategoryType.DEFAULT)
+                            .channels()
+                            .getFirst()
+            );
+        }
+
+        @Test
+        void invalidLoggingSeverityFails() {
+            String err = captureStderr(() -> interpretInvalidConfig("""
+                    logging {
+                        channel default_log {
+                            file "log/named.log";
+                            severity nonsense;
+                        };
+                    };
+                    """));
+
+            assertTrue(err.contains("Invalid logging severity: nonsense"));
+        }
+
+        @Test
+        void unknownLoggingCategoryFails() {
+            String err = captureStderr(() -> interpretInvalidConfig("""
+                    logging {
+                        channel default_log {
+                            file "log/named.log";
+                        };
+                    
+                        category made-up { default_log; };
+                    };
+                    """));
+
+            assertTrue(err.contains("Unknown logging category: made-up"));
+        }
+
+        @Test
+        void unknownLoggingChannelFails() {
+            String err = captureStderr(() -> interpretInvalidConfig("""
+                    logging {
+                        category default { does_not_exist; };
+                    };
+                    """));
+
+            assertTrue(err.contains("Unknown logging channel: does_not_exist"));
+        }
+
+        @Test
+        void duplicateLoggingSectionsFail() {
+            String err = captureStderr(() -> interpretInvalidConfig("""
+                    logging {
+                    };
+                    
+                    logging {
+                    };
+                    """));
+
+            assertTrue(err.contains("Only one logging section allowed"));
+        }
+
+        @Test
+        void loggingChannelWithoutNameFails() {
+            String err = captureStderr(() -> interpretInvalidConfig("""
+                    logging {
+                        channel {
+                            file "log/named.log";
+                        };
+                    };
+                    """));
+
+            assertTrue(err.contains("logging.channel requires a name"));
+        }
+
+        @Test
+        void loggingCategoryWithoutNameFails() {
+            String err = captureStderr(() -> interpretInvalidConfig("""
+                    logging {
+                        category {
+                            default_log;
+                        };
+                    };
+                    """));
+
+            assertTrue(err.contains("logging.category requires a name"));
+        }
+        @Test
+        void parsesMultipleLoggingChannels() {
+            Config config = parseValidConfig("""
+        logging {
+            channel default_log {
+                file "log/default.log";
+                severity info;
+            };
+
+            channel query_log {
+                file "log/query.log";
+                severity warning;
+            };
+
+            category queries {
+                default_log;
+                query_log;
+            };
+        };
+        """);
+
+            assertEquals(2, config.logging().channels().size());
+
+            var queries =
+                    config.logging()
+                            .categories()
+                            .get(LoggingCategoryType.QUERIES);
+
+            assertEquals(2, queries.channels().size());
+
+            assertEquals("default_log", queries.channels().get(0).channelName());
+            assertEquals("query_log", queries.channels().get(1).channelName());
+        }
+        @Test
+        void parsesHyphenatedCategoryNames() {
+            Config config = parseValidConfig("""
+        logging {
+            channel default_log {
+                file "log/named.log";
+            };
+
+            category query-errors {
+                default_log;
+            };
+        };
+        """);
+
+            assertTrue(
+                    config.logging()
+                            .categories()
+                            .containsKey(LoggingCategoryType.QUERY_ERRORS)
+            );
+        }
+        @Test
+        void parsesLoggingPrintFlags() {
+            Config config = parseValidConfig("""
+            logging {
+                channel default_log {
+                    file "log/named.log";
+                    print-time yes;
+                    print-category yes;
+                    print-severity no;
+                };
+            };
+            """);
+
+            var channel = config.logging().channels().getFirst();
+
+            assertTrue(channel.printTime());
+            assertTrue(channel.printCategory());
+            assertFalse(channel.printSeverity());
         }
     }
 }
