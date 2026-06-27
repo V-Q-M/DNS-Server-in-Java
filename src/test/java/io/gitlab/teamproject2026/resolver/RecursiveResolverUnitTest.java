@@ -156,6 +156,31 @@ public class RecursiveResolverUnitTest {
         assertNull(resp, "a cache miss should return null so the loop falls back to iterating");
     }
 
+    @Test
+    void resolveCnameTargetFollowsCachedChain() throws Exception {
+        assumeTrue(cache != null, "needs a running database");
+
+        // a full chain in the cache: www -> mid -> end -> 9.9.9.9
+        cache.insertAll(new ResourceRecord[]{
+                record(new String[]{"www", "chain", "example"}, new RDataCNAME(new String[]{"mid", "chain", "example"})),
+                record(new String[]{"mid", "chain", "example"}, new RDataCNAME(new String[]{"end", "chain", "example"})),
+                record(new String[]{"end", "chain", "example"}, new RDataA(new byte[]{9, 9, 9, 9}))
+        });
+        RecursiveResolver resolver = new RecursiveResolver(cache, 2000, 500);
+
+        byte[] resp = resolver.resolveCnameTarget(new String[]{"www", "chain", "example"}, RRType.A,
+                RecursiveResolver.ResolveContext.start());
+
+        // the whole chain is served from the cache: two CNAMEs then the final A
+        DNSPacket packet = DNSPacket.fromBytes(resp);
+        ResourceRecord[] answer = packet.getAnswerSections();
+        assertEquals(3, answer.length, "two cached CNAMEs then the final A");
+        assertEquals(RRType.CNAME, answer[0].getType());
+        assertEquals(RRType.CNAME, answer[1].getType());
+        assertEquals(RRType.A, answer[2].getType());
+        assertEquals("9.9.9.9", answer[2].getRdata().toString());
+    }
+
     // ---- glue resolver AAAA fallback ----
 
     @Test

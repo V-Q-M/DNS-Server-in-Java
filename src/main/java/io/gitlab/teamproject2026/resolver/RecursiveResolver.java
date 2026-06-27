@@ -177,12 +177,8 @@ public class RecursiveResolver extends AbstractResolver{
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
                         return buildServFail(query);
                     }
-                    // cache first, otherwise resolve iteratively
-                    byte[] resolved = cachedResponse(target, qtype);
-                    if (resolved == null) {
-                        resolved = resolve(target, qtype, buildQuery(target, qtype), ctx.deeper());
-                    }
-                    return prependCnames(response, resolved);
+                    // resolve the target via cache (following cached CNAMEs) then iterate the tail
+                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx));
                 }
             }
 
@@ -290,6 +286,36 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
     /**
+     * Resolves a name using the cache as far as it reaches: it follows cached CNAME
+     * records and only resolves the remaining tail of the chain iteratively.
+     *
+     * @param name the name to resolve
+     * @param qtype the wanted record type
+     * @param ctx the resolution context
+     * @return a serialized response, cached CNAMEs prepended onto the resolved tail
+     */
+    byte[] resolveCnameTarget(String[] name, RRType qtype, ResolveContext ctx) {
+        // the wanted type is cached directly
+        byte[] direct = cachedResponse(name, qtype);
+        if (direct != null) {
+            return direct;
+        }
+        // the name is a cached alias: follow the cached CNAME, then resolve the rest
+        if (qtype != RRType.CNAME) {
+            byte[] cnameResp = cachedResponse(name, RRType.CNAME);
+            if (cnameResp != null) {
+                DNSPacket cnamePacket = DNSPacket.fromBytes(cnameResp);
+                String[] next = cnameTarget(cnamePacket);
+                if (next != null && ctx.cnamesSeen().add(String.join(".", next))) {
+                    return prependCnames(cnamePacket, resolveCnameTarget(next, qtype, ctx));
+                }
+            }
+        }
+        // end of the cached chain: resolve the tail over the network
+        return resolve(name, qtype, buildQuery(name, qtype), ctx.deeper());
+    }
+
+    /**
      * A response built from cached records for the name and type, or null on a cache miss.
      *
      * @param name the name to look up
@@ -355,16 +381,6 @@ public class RecursiveResolver extends AbstractResolver{
         return id;
     }
 
-    // Builds a minimal response carrying just an rcode (skeleton terminal).
-    private DNSPacket placeholderRespond(RCode rcode) {
-        DNSPacket response = new DNSPacket();
-        response.setRcode(rcode);
-        response.setOpcode(OpCode.QUERY);
-        response.setAnswerSections(new ResourceRecord[0]);
-        response.setAuthoritySections(new ResourceRecord[0]);
-        response.setAdditionalSections(new ResourceRecord[0]);
-        return response;
-    }
 
     // Glue extraction: pull the NS records and their glue out of a referral response.
 
