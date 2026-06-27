@@ -178,7 +178,7 @@ public class RecursiveResolver extends AbstractResolver{
                         return buildServFail(query);
                     }
                     // resolve the target via cache (following cached CNAMEs) then iterate the tail
-                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx));
+                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx)).toBytes();
                 }
             }
 
@@ -267,22 +267,21 @@ public class RecursiveResolver extends AbstractResolver{
      * Prepends the followed CNAME records onto a resolved answer, building the chain.
      *
      * @param cnameResponse the response holding the CNAME(s) we followed
-     * @param resolved the serialized response for the canonical name
-     * @return the merged response bytes, CNAME records first then the resolved answer
+     * @param resolved the response for the canonical name
+     * @return the merged response, CNAME records first then the resolved answer
      */
-    static byte[] prependCnames(DNSPacket cnameResponse, byte[] resolved) {
-        DNSPacket result = DNSPacket.fromBytes(resolved);
+    static DNSPacket prependCnames(DNSPacket cnameResponse, DNSPacket resolved) {
         List<ResourceRecord> answer = new ArrayList<>();
         for (ResourceRecord rr : cnameResponse.getAnswerSections()) {
             if (rr.getType() == RRType.CNAME) {
                 answer.add(rr);
             }
         }
-        for (ResourceRecord rr : result.getAnswerSections()) {
+        for (ResourceRecord rr : resolved.getAnswerSections()) {
             answer.add(rr);
         }
-        result.setAnswerSections(answer.toArray(new ResourceRecord[0]));
-        return result.toBytes();
+        resolved.setAnswerSections(answer.toArray(new ResourceRecord[0]));
+        return resolved;
     }
 
     /**
@@ -292,19 +291,18 @@ public class RecursiveResolver extends AbstractResolver{
      * @param name the name to resolve
      * @param qtype the wanted record type
      * @param ctx the resolution context
-     * @return a serialized response, cached CNAMEs prepended onto the resolved tail
+     * @return a response, cached CNAMEs prepended onto the resolved tail
      */
-    byte[] resolveCnameTarget(String[] name, RRType qtype, ResolveContext ctx) {
+    DNSPacket resolveCnameTarget(String[] name, RRType qtype, ResolveContext ctx) {
         // the wanted type is cached directly
-        byte[] direct = cachedResponse(name, qtype);
+        DNSPacket direct = cachedResponse(name, qtype);
         if (direct != null) {
             return direct;
         }
         // the name is a cached alias: follow the cached CNAME, then resolve the rest
         if (qtype != RRType.CNAME) {
-            byte[] cnameResp = cachedResponse(name, RRType.CNAME);
-            if (cnameResp != null) {
-                DNSPacket cnamePacket = DNSPacket.fromBytes(cnameResp);
+            DNSPacket cnamePacket = cachedResponse(name, RRType.CNAME);
+            if (cnamePacket != null) {
                 String[] next = cnameTarget(cnamePacket);
                 if (next != null && ctx.cnamesSeen().add(String.join(".", next))) {
                     return prependCnames(cnamePacket, resolveCnameTarget(next, qtype, ctx));
@@ -312,7 +310,7 @@ public class RecursiveResolver extends AbstractResolver{
             }
         }
         // end of the cached chain: resolve the tail over the network
-        return resolve(name, qtype, buildQuery(name, qtype), ctx.deeper());
+        return DNSPacket.fromBytes(resolve(name, qtype, buildQuery(name, qtype), ctx.deeper()));
     }
 
     /**
@@ -320,9 +318,9 @@ public class RecursiveResolver extends AbstractResolver{
      *
      * @param name the name to look up
      * @param qtype the record type
-     * @return a serialized NOERROR response with the cached records, or null if not cached
+     * @return a NOERROR response with the cached records, or null if not cached
      */
-    byte[] cachedResponse(String[] name, RRType qtype) {
+    DNSPacket cachedResponse(String[] name, RRType qtype) {
         ResourceRecord[] cached;
         try {
             cached = cache.lookup(String.join(".", name), qtype);
@@ -345,7 +343,7 @@ public class RecursiveResolver extends AbstractResolver{
         packet.setAnswerSections(cached);
         packet.setAuthoritySections(new ResourceRecord[0]);
         packet.setAdditionalSections(new ResourceRecord[0]);
-        return packet.toBytes();
+        return packet;
     }
 
     /**

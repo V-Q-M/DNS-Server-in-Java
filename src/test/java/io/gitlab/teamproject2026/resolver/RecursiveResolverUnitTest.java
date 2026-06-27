@@ -207,10 +207,10 @@ public class RecursiveResolverUnitTest {
                 record(new String[]{"www", "example", "com"}, new RDataCNAME(new String[]{"target", "example", "net"}))
         });
 
-        byte[] resolved = answerPacket(
-                record(new String[]{"target", "example", "net"}, new RDataA(new byte[]{1, 2, 3, 4}))).toBytes();
+        DNSPacket resolved = answerPacket(
+                record(new String[]{"target", "example", "net"}, new RDataA(new byte[]{1, 2, 3, 4})));
 
-        DNSPacket merged = DNSPacket.fromBytes(RecursiveResolver.prependCnames(cnameResponse, resolved));
+        DNSPacket merged = RecursiveResolver.prependCnames(cnameResponse, resolved);
         ResourceRecord[] answer = merged.getAnswerSections();
 
         assertEquals(2, answer.length, "chain should be CNAME then the final record");
@@ -282,10 +282,9 @@ public class RecursiveResolverUnitTest {
         });
         RecursiveResolver resolver = new RecursiveResolver(cache,  2000, 500);
 
-        byte[] resp = resolver.cachedResponse(new String[]{"target", "cnamecache", "example"}, RRType.A);
+        DNSPacket packet = resolver.cachedResponse(new String[]{"target", "cnamecache", "example"}, RRType.A);
 
-        assertNotNull(resp, "cached records should produce a response");
-        DNSPacket packet = DNSPacket.fromBytes(resp);
+        assertNotNull(packet, "cached records should produce a response");
         assertEquals(RCode.NOERROR, packet.getRcode());
         assertEquals(1, packet.getAnswerSections().length);
         assertEquals(RRType.A, packet.getAnswerSections()[0].getType());
@@ -297,7 +296,7 @@ public class RecursiveResolverUnitTest {
         assumeTrue(cache != null, "needs a running database");
 
         RecursiveResolver resolver = new RecursiveResolver(cache, 2000, 500);
-        byte[] resp = resolver.cachedResponse(new String[]{"absent", "cnamecache", "example"}, RRType.A);
+        DNSPacket resp = resolver.cachedResponse(new String[]{"absent", "cnamecache", "example"}, RRType.A);
         assertNull(resp, "a cache miss should return null so the loop falls back to iterating");
     }
 
@@ -313,11 +312,10 @@ public class RecursiveResolverUnitTest {
         });
         RecursiveResolver resolver = new RecursiveResolver(cache, 2000, 500);
 
-        byte[] resp = resolver.resolveCnameTarget(new String[]{"www", "chain", "example"}, RRType.A,
+        DNSPacket packet = resolver.resolveCnameTarget(new String[]{"www", "chain", "example"}, RRType.A,
                 RecursiveResolver.ResolveContext.start());
 
         // the whole chain is served from the cache: two CNAMEs then the final A
-        DNSPacket packet = DNSPacket.fromBytes(resp);
         ResourceRecord[] answer = packet.getAnswerSections();
         assertEquals(3, answer.length, "two cached CNAMEs then the final A");
         assertEquals(RRType.CNAME, answer[0].getType());
@@ -352,11 +350,11 @@ public class RecursiveResolverUnitTest {
         assumeTrue(cache != null, "needs a running database");
 
         cache.insertAll(new ResourceRecord[]{
-                record(new String[]{"ns4", "v6test", "example"}, new RDataA(new byte[]{1, 1, 1, 1}))
+                record(new String[]{"ns4", "v4test", "example"}, new RDataA(new byte[]{1, 1, 1, 1}))
         });
         RecursiveResolver resolver = new RecursiveResolver(cache,  2000, 500);
 
-        var a = resolver.resolveAddress(new String[]{"ns4", "v6test", "example"}, RRType.A,
+        var a = resolver.resolveAddress(new String[]{"ns4", "v4test", "example"}, RRType.A,
                 RecursiveResolver.ResolveContext.start());
 
         assertNotNull(a, "cached A should be found");
