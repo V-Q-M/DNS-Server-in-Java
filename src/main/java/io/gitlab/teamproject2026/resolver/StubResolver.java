@@ -1,5 +1,8 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
+import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.*;
 
@@ -12,11 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 
 
-import io.gitlab.teamproject2026.logging.LoggingFeature;
-import io.gitlab.teamproject2026.logging.DNSEventInfo;
-import io.gitlab.teamproject2026.logging.DNSEventDebug;
-import io.gitlab.teamproject2026.logging.DNSEventType;
-import io.gitlab.teamproject2026.logging.ResponseSource;
+import io.gitlab.teamproject2026.logging.DNSEvent;
 
 
 public class StubResolver extends AbstractResolver{
@@ -25,7 +24,7 @@ public class StubResolver extends AbstractResolver{
     private final int maxRetries;
     private final StubResolverStrategy strategy;
     private int RRIndex =0;
-
+    public static Logger logger;
 
 
     public StubResolver(List<NameServer> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){
@@ -63,8 +62,14 @@ public class StubResolver extends AbstractResolver{
         for(int attempt=0; attempt<maxAttempts;attempt++){
             NameServer server = forwarders.get(startIndex);
             //log QUERY_SENT for every question section separately (usually different qType or domain queried)
+            logger.log(
+                    ("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.NOTICE,
+                    true
+            );
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
-            IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
+            //IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
 
             QueryResult result = queryUDP(query, server, timeoutMs);//forward once over UDP
 
@@ -82,15 +87,31 @@ public class StubResolver extends AbstractResolver{
                     }
 
                     if (isTruncated(result.response())){
-                        IO.println(YELLOW + "[STUB] UDP response truncated. Retrying over TCP..." + RESET);
+                        logger.log(
+                                (YELLOW + "[STUB] UDP response truncated. Retrying over TCP..." + RESET),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.NOTICE,
+                                true
+                        );
+                        //IO.println(YELLOW + "[STUB] UDP response truncated. Retrying over TCP..." + RESET);
                         QueryResult tcpResult = queryTCP(query, server, timeoutMs); //forward once over TCP
 
                         if (tcpResult.status() != Status.SUCCESS){
-                            IO.println(RED + "[STUB] TCP fallback failed: "
-                                    + tcpResult.status()
-                                    + " - "
-                                    + tcpResult.errorMessage()
-                                    + RESET);
+                            logger.log(
+                                    (RED + "[STUB] TCP fallback failed: "
+                                            + tcpResult.status()
+                                            + " - "
+                                            + tcpResult.errorMessage()
+                                            + RESET),
+                                    LoggingCategoryType.GENERAL,
+                                    LoggingSeverity.NOTICE,
+                                    true
+                            );
+                            //IO.println(RED + "[STUB] TCP fallback failed: "
+                                 //   + tcpResult.status()
+                                  //  + " - "
+                                   // + tcpResult.errorMessage()
+                                   // + RESET);
 
                             logQuestionEvents(
                                     tcpResult.status() == Status.TIMEOUT ? DNSEventType.TIMEOUT : DNSEventType.IO_ERROR,
@@ -110,7 +131,13 @@ public class StubResolver extends AbstractResolver{
                     try {
                         responsePacket = DNSPacket.fromBytes(result.response());
                     } catch (Exception e) {
-                        IO.println(RED + "[STUB] Invalid DNS response: " + e.getMessage() + RESET);
+                        logger.log(
+                                (RED + "[STUB] Invalid DNS response: " + e.getMessage() + RESET),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.NOTICE,
+                                true
+                        );
+                        //IO.println(RED + "[STUB] Invalid DNS response: " + e.getMessage() + RESET);
                         
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                             result.latencyMs(), server, attempt,
@@ -120,7 +147,13 @@ public class StubResolver extends AbstractResolver{
                     RCode rCode = responsePacket.getRcode();
                     //log SUCCESS for every question section separately
                     logQuestionEvents(DNSEventType.SUCCESS, responsePacket, result.latencyMs(), server, attempt, result.errorMessage(), rCode);
-                    IO.println(GREEN + "[STUB] Success! Reply from: " + server + " took " + result.latencyMs() + "ms" + RESET);
+                    logger.log(
+                            (GREEN + "[STUB] Success! Reply from: " + server + " took " + result.latencyMs() + "ms" + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                    );
+                    //IO.println(GREEN + "[STUB] Success! Reply from: " + server + " took " + result.latencyMs() + "ms" + RESET);
                     return result.response();
                 }
                 case TIMEOUT -> {
@@ -128,13 +161,31 @@ public class StubResolver extends AbstractResolver{
                     String error = result.errorMessage() != null ? result.errorMessage() : "timed out";
                     //log TIMEOUT for every question section separately
                     logQuestionEvents(DNSEventType.TIMEOUT, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
-                    IO.println(YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET);
+                    logger.log(
+                            (YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                    );
+                    //IO.println(YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
-                            IO.println("[STUB] Switching to next available nameserver..");
+                            logger.log(
+                                    ("[STUB] Switching to next available nameserver.."),
+                                    LoggingCategoryType.GENERAL,
+                                    LoggingSeverity.NOTICE,
+                                    true
+                            );
+                            //IO.println("[STUB] Switching to next available nameserver..");
                             startIndex = (startIndex + 1) % totalServers;
                         } else {
-                            IO.println("[STUB] Retrying current configuration target..");
+                            logger.log(
+                                    ("[STUB] Retrying current configuration target.."),
+                                    LoggingCategoryType.GENERAL,
+                                    LoggingSeverity.NOTICE,
+                                    true
+                            );
+                            //IO.println("[STUB] Retrying current configuration target..");
                         }
                         sleep(retryDelay);
                     }
@@ -144,7 +195,13 @@ public class StubResolver extends AbstractResolver{
                     String error = result.errorMessage() != null ? result.errorMessage() : "I/O error";
                     //log IO_ERROR for every question section separately
                     logQuestionEvents(DNSEventType.IO_ERROR, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
-                    IO.println(RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET);
+                    logger.log(
+                            (RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                    );
+                    //IO.println(RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             startIndex = (startIndex + 1) % totalServers;
@@ -163,8 +220,13 @@ public class StubResolver extends AbstractResolver{
             "All structural retries exhausted. Returning SERVFAIL.",
             RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
         );
-
-        IO.println(RED + "[STUB] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET);
+        logger.log(
+                (RED + "[STUB] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.NOTICE,
+                true
+        );
+        //IO.println(RED + "[STUB] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET);
         return buildServFail(query);
     }
 
@@ -206,14 +268,29 @@ public class StubResolver extends AbstractResolver{
             String domain = question.nameToString();
             RRType qType = question.getQtype();
             //log info
-            if (type != DNSEventType.TIMEOUT && type != DNSEventType.IO_ERROR) {
-                LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency, ResponseSource.FORWARDER));
+            if (type == DNSEventType.QUERY_SENT || type == DNSEventType.SUCCESS) {
+                logger.log(
+                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.FORWARDER,
+                                this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.INFO
+                );
+             //   LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency, ResponseSource.FORWARDER));
             }
             //log debug
-            LoggingFeature.logDebug(DNSEventDebug.debug(
-                    type, id, domain, qType, latency, ResponseSource.FORWARDER,
-                    this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
-            ));
+            else {
+                logger.log(
+                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.FORWARDER,
+                                this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode).toHumanReadable()),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR
+                );
+            }
+            //LoggingFeature.logDebug(DNSEventDebug.debug(
+            //        type, id, domain, qType, latency, ResponseSource.FORWARDER,
+             //       this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
+            //));
+
         }
     }
 }
