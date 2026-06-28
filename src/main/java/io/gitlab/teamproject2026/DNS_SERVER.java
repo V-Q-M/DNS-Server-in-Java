@@ -157,7 +157,13 @@ public class DNS_SERVER {
                         return;
                     }
                 } catch (SQLException e) {
-                    System.err.println(RED + "[DATABASE-ERROR] Couldn't query SOA record of: \"" + zone + "\"" + RESET);
+                    logger.log(
+                            (RED + "[DATABASE-ERROR] Couldn't query SOA record of: \"" + zone + "\"" + RESET),
+                            LoggingCategoryType.QUERY_ERRORS,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
+
                 }
             }
         }
@@ -266,7 +272,12 @@ public class DNS_SERVER {
                     byte[] data = input.readNBytes(length);
 
                     if (data.length != length) {
-                        System.err.println(RED + "[SERVER-ERROR] Incomplete DNS query" + RESET);
+                            logger.log(
+                                    (RED + "[SERVER-ERROR] Incomplete DNS query" + RESET),
+                                    LoggingCategoryType.QUERY_ERRORS,
+                                    LoggingSeverity.ERROR,
+                                    true
+                            );
                         continue;
                     }
 
@@ -286,7 +297,12 @@ public class DNS_SERVER {
                     byte[] response = handleQuery(data);
 
                     if (response.length > 65535) {
-                        System.err.println(RED + "[SERVER-ERROR] TCP DNS response too large" + RESET);
+                        logger.log(
+                                (RED + "[SERVER-ERROR] TCP DNS response too large" + RESET),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
                         continue;
                     }
 
@@ -310,7 +326,12 @@ public class DNS_SERVER {
 
 
                 } catch (IOException e) {
-                    System.err.println(RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET);
+                    logger.log(
+                            (RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                 }
             }
         } catch (IOException e){
@@ -338,7 +359,12 @@ public class DNS_SERVER {
         if(zoneHandler != null){
             zoneCatalog = loadZonesFromConf(serverConfig);
         } else {
-            System.err.println(RED + "[DATABASE] No zone handler found, skipping zones" + RESET);
+            logger.log(
+                    (RED + "[DATABASE] No zone handler found, skipping zones" + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             zoneCatalog = new ArrayList<>();
         }
 
@@ -350,8 +376,13 @@ public class DNS_SERVER {
 
         // port check
         if (portNumber < 0 || portNumber > 65535) {
-            System.err.println(RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
-                    + DEFAULT_PORT + RESET);
+            logger.log(
+                    (RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
+                            + DEFAULT_PORT + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             portNumber = DEFAULT_PORT;
         }
 
@@ -367,7 +398,12 @@ public class DNS_SERVER {
             );
         }
         else {
-            IO.println(GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode);
+            logger.log(
+                    (GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.INFO,
+                    true
+            );
         }
 
         List<NameServer> forwarders = options.forwarders().stream()
@@ -380,7 +416,12 @@ public class DNS_SERVER {
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
-            System.err.println(RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET);
+            logger.log(
+                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             bindIP = DEFAULT_IP;
             try {
                 bindAddress = InetAddress.getByName(DEFAULT_IP);
@@ -398,7 +439,12 @@ public class DNS_SERVER {
                 try {
                     portNumber = Integer.parseInt(args[i + 1]);
                 } catch (NumberFormatException e) {
-                    System.err.println(RED + "Invalid port: " + args[i + 1] + " — using default " + DEFAULT_PORT + RESET);
+                    logger.log(
+                            (RED + "[SERVER] Invalid port: " + args[i + 1] + " — using default " + DEFAULT_PORT + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                     portNumber = DEFAULT_PORT;
                 }
                 i++;
@@ -434,12 +480,27 @@ public class DNS_SERVER {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
             cacheHandler = new CacheHandler(provider);
             zoneHandler = new ZoneHandler(provider);
-            System.err.println(GREEN + "[DATABASE] Connection to the database successful" + RESET);
+            logger.log(
+                    (GREEN + "[DATABASE] Connection to the database successful" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.INFO,
+                    true
+            );
         } catch (ClassNotFoundException e) {
-            System.err.println(RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
+            logger.log(
+                    (RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             testing = true;
         } catch (SQLException e) {
-            System.err.println(RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET);
+            logger.log(
+                    (RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             logCacheConnectionLost(startTime);
             testing = true;
         }
@@ -453,7 +514,12 @@ public class DNS_SERVER {
                 try {
                     cacheHandler.deleteExpired();
                 } catch (SQLException e) {
-                    IO.println(RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET);
+                    logger.log(
+                            (RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                     logCacheConnectionLost(cleanupStart);
                     testing = true;
                 }
@@ -492,7 +558,12 @@ public class DNS_SERVER {
 
             // If recursion is disabled and something is outside our zones, REFUSE
             if (!recursionAllowed && !payload.notResolved.isEmpty()) {
-                System.err.println(RED + "[SERVER] Received a foreign query but recursion is currently not allowed!");
+                logger.log(
+                        (RED + "[SERVER] Received a foreign query but recursion is currently not allowed!" ),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
                 DNSPacket response = buildResponsePacket(payload, oopPacket, false);
                 response.setRd(oopPacket.isRd());
                 response.setRa(false);
@@ -828,7 +899,12 @@ public class DNS_SERVER {
             try {
                 rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
             } catch (RuntimeException e) {
-                System.err.println(RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET);
+                logger.log(
+                        (RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
                 return payload;
             }
         }
@@ -838,7 +914,12 @@ public class DNS_SERVER {
                     try {
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
-                        System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                        logger.log(
+                                (RED + "[STUB-ERROR] Failed to resolve query" + RESET),
+                                LoggingCategoryType.QUERY_ERRORS,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
                         return payload;
                     }
                 }
@@ -859,7 +940,12 @@ public class DNS_SERVER {
                         try {
                             rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                         } catch (RuntimeException e) {
-                            System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
+                            logger.log(
+                                    (RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET),
+                                    LoggingCategoryType.QUERY_ERRORS,
+                                    LoggingSeverity.ERROR,
+                                    true
+                            );
                             return payload;
                         }
                     }
@@ -887,7 +973,12 @@ public class DNS_SERVER {
                         cacheHandler.insertAll(parsedResponse.getAuthoritySections());
                         cacheHandler.insertAll(parsedResponse.getAdditionalSections());
                     } catch (SQLException e) {
-                        System.err.println("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost");
+                        logger.log(
+                                ("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost"),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
                         logCacheInsertFailed(startTime);
                     }
                 }
@@ -992,8 +1083,12 @@ public class DNS_SERVER {
                 }
             }
         } catch (SQLException e) {
-            System.err.println(
-                    "Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?");
+            logger.log(
+                    ("Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?"),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             throw e;
         }
 
@@ -1104,8 +1199,12 @@ public class DNS_SERVER {
                 }
             }
         } catch (Exception e) {
-            System.err.println(RED + "Failed to insert zone files to the zone database, continuing without it" + RESET);
-            //e.printStackTrace();
+            logger.log(
+                    (RED + "Failed to insert zone files to the zone database, continuing without it" + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
         }
         return zoneCatalog;
     }
