@@ -88,13 +88,13 @@ public class StubResolver extends AbstractResolver{
 
                         if (tcpResult.status() != Status.SUCCESS){
                             logger.log(
-                                    (RED + "[STUB] TCP fallback failed: "
+                                    (RED + "[STUB-ERROR] TCP fallback failed: "
                                             + tcpResult.status()
                                             + " - "
                                             + tcpResult.errorMessage()
                                             + RESET),
                                     LoggingCategoryType.GENERAL,
-                                    LoggingSeverity.NOTICE,
+                                    LoggingSeverity.ERROR,
                                     true
                             );
 
@@ -118,9 +118,9 @@ public class StubResolver extends AbstractResolver{
                         responsePacket = DNSPacket.fromBytes(result.response());
                     } catch (Exception e) {
                         logger.log(
-                                (RED + "[STUB] Invalid DNS response: " + e.getMessage() + RESET),
+                                (RED + "[STUB-ERROR] Invalid DNS response: " + e.getMessage() + RESET),
                                 LoggingCategoryType.GENERAL,
-                                LoggingSeverity.NOTICE,
+                                LoggingSeverity.ERROR,
                                 true
                         );
 
@@ -148,7 +148,7 @@ public class StubResolver extends AbstractResolver{
                     logger.log(
                             (YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET),
                             LoggingCategoryType.GENERAL,
-                            LoggingSeverity.NOTICE,
+                            LoggingSeverity.WARNING,
                             true
                     );
                     if (attempt + 1 < maxAttempts) {
@@ -177,9 +177,9 @@ public class StubResolver extends AbstractResolver{
                     //log IO_ERROR for every question section separately
                     logQuestionEvents(DNSEventType.IO_ERROR, queryPacket, result.latencyMs(), server, attempt, error, null); // RCode is null since response is null
                     logger.log(
-                            (RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET),
+                            (RED + "[STUB-ERROR] I/O error from: " + server + " after: " + result.errorMessage() + RESET),
                             LoggingCategoryType.GENERAL,
-                            LoggingSeverity.NOTICE,
+                            LoggingSeverity.ERROR,
                             true
                     );
                     if (attempt + 1 < maxAttempts) {
@@ -201,9 +201,9 @@ public class StubResolver extends AbstractResolver{
             RCode.SERVFAIL // buildServFail sets RCode to SERVFAIL
         );
         logger.log(
-                (RED + "[STUB] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET),
+                (RED + "[STUB-ERROR] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET),
                 LoggingCategoryType.GENERAL,
-                LoggingSeverity.NOTICE,
+                LoggingSeverity.ERROR,
                 true
         );
         return buildServFail(query);

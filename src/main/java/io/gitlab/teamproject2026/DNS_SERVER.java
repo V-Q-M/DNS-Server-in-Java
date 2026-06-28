@@ -113,7 +113,7 @@ public class DNS_SERVER {
                     }
                     logger.log(
                         (BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET),
-                            LoggingCategoryType.DEFAULT,
+                            LoggingCategoryType.CONFIG,
                             LoggingSeverity.NOTICE,
                             true
                         );
@@ -130,7 +130,7 @@ public class DNS_SERVER {
                     if (newLoadedZone != null) {
                         logger.log(
                             ("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial()),
-                                LoggingCategoryType.DEFAULT,
+                                LoggingCategoryType.CONFIG,
                                 LoggingSeverity.INFO,
                                 true
                             );
@@ -145,7 +145,7 @@ public class DNS_SERVER {
                         } else {
                             logger.log(
                                 (GREEN + "[ZONE] Serials match -> Nothing to do" + RESET),
-                                    LoggingCategoryType.DEFAULT,
+                                    LoggingCategoryType.CONFIG,
                                     LoggingSeverity.INFO,
                                     true
                                 );
@@ -293,7 +293,8 @@ public class DNS_SERVER {
                     logger.log(
                         ("[SERVER] IN: " + toHex(data)),
                             LoggingCategoryType.GENERAL,
-                            LoggingSeverity.INFO
+                            LoggingSeverity.INFO,
+                            true
                     );
 
                     byte[] response = handleQuery(data);
@@ -733,7 +734,7 @@ public class DNS_SERVER {
                         logger.log(
                             (DNSEvent.event(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
                                     resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null).toHumanReadable()),
-                            LoggingCategoryType.QUERIES,
+                            LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO
                         );
 
@@ -769,7 +770,7 @@ public class DNS_SERVER {
                         }
                         logger.log(
                                 (GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET),
-                                LoggingCategoryType.QUERIES,
+                                LoggingCategoryType.GENERAL,
                                 LoggingSeverity.INFO,
                                 true
                         );
@@ -796,7 +797,7 @@ public class DNS_SERVER {
                     logger.log(
                             (YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET),
                             LoggingCategoryType.QUERY_ERRORS,
-                            LoggingSeverity.ERROR,
+                            LoggingSeverity.WARNING,
                             true
                     );
                     break;
@@ -835,7 +836,7 @@ public class DNS_SERVER {
                 if (cacheResult.notResolved.contains(request)) {
                     logger.log(
                             (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
-                            LoggingCategoryType.QUERIES,
+                            LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
                             true
                     );
@@ -874,7 +875,8 @@ public class DNS_SERVER {
                     (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE, null, null, null, -1,
                                  "Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.ERROR
+                    LoggingSeverity.ERROR,
+                    true
             );
             // payload.notResolved already has the unresolved questions from zone lookup,
             // no need to add them again – just log them as misses for the stub resolver
@@ -882,8 +884,8 @@ public class DNS_SERVER {
             logger.log(
                     (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
                                       resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null).toHumanReadable()),
-                    LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.ERROR
+                    LoggingCategoryType.QUERIES,
+                    LoggingSeverity.NOTICE
             );
             }
         }
@@ -968,8 +970,8 @@ public class DNS_SERVER {
         ReferralAnalyzer.Classification classification=
                 ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
-                ("\u001B[35m[!!! Analyzer !!]" + classification + queryType),
-                LoggingCategoryType.QUERIES,
+                ("[ANALYZER]" + classification + queryType),
+                LoggingCategoryType.GENERAL,
                 LoggingSeverity.INFO,
                 true
         );
@@ -1003,7 +1005,7 @@ public class DNS_SERVER {
                 logger.log(
                         (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,
-                        LoggingSeverity.ERROR,
+                        LoggingSeverity.WARNING,
                         true
                 );
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
@@ -1011,7 +1013,7 @@ public class DNS_SERVER {
             case REFERRAL -> {
                 logger.log(
                         (YELLOW + "[RESOLVER] Referral received" + RESET),
-                        LoggingCategoryType.QUERIES,
+                        LoggingCategoryType.GENERAL,
                         LoggingSeverity.INFO,
                         true
                 );
@@ -1110,7 +1112,7 @@ public class DNS_SERVER {
             }
         } catch (SQLException e) {
             logger.log(
-                    ("Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?"),
+                    (RED + "[DATABASE-ERROR] Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?" + RESET),
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.ERROR,
                     true
@@ -1226,7 +1228,7 @@ public class DNS_SERVER {
             }
         } catch (Exception e) {
             logger.log(
-                    (RED + "Failed to insert zone files to the zone database, continuing without it" + RESET),
+                    (RED + "[DATABASE-ERROR] Failed to insert zone files to the zone database, continuing without it" + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
                     true
@@ -1239,7 +1241,7 @@ public class DNS_SERVER {
     private static void logCacheConnectionLost(long startTime) {
         logger.log(
                 (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                        "Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                        "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.ERROR
         );
@@ -1248,7 +1250,7 @@ public class DNS_SERVER {
     private static void logCacheInsertFailed(long startTime) {
         logger.log(
                 (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                        "Entries couldn't be inserted into Cache. Assume cache connection is lost", null).toHumanReadable()),
+                        "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost", null).toHumanReadable()),
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.ERROR
         );
