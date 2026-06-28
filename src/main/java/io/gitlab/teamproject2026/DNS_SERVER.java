@@ -138,7 +138,13 @@ public class DNS_SERVER {
                                 true
                             );
                         if (newLoadedZone.serial() != zoneSoa.getSerial()) {
-                            IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
+                            logger.log(
+                                    (YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET),
+                                    LoggingCategoryType.CONFIG,
+                                    LoggingSeverity.NOTICE,
+                                    true
+                            );
+                            //IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
                             zoneHandler.replaceZone(newLoadedZone);
                         } else {
                             logger.log(
@@ -343,7 +349,13 @@ public class DNS_SERVER {
      * Initializes the server state from configuration and command-line arguments.
      */
     private static void initializeServer(String[] args){
-        IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
+        logger.log(
+                ("\n--------------------------------[ DNSSERVER ]--------------------------------- "),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.NOTICE,
+                true
+        );
+        //IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // named.conf
         serverConfig = ConfigManager.loadConfig("named.conf");
@@ -760,7 +772,13 @@ public class DNS_SERVER {
                                 default -> payload.answer.add(record);
                             }
                         }
-                        IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
+                        logger.log(
+                                (GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET),
+                                LoggingCategoryType.QUERIES,
+                                LoggingSeverity.INFO,
+                                true
+                        );
+                        //IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
                         break; // records found -> done with this question
                     }
 
@@ -781,11 +799,23 @@ public class DNS_SERVER {
                     // No record and no CNAME -> NXDOMAIN.
                     // Question intentionally not added to notResolved; the caller detects
                     // NXDOMAIN via (notResolved.isEmpty && answer.isEmpty && authority.isEmpty).
-                    IO.println(YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET);
+                    logger.log(
+                            (YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET),
+                            LoggingCategoryType.QUERY_ERRORS,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
+                    //IO.println(YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET);
                     break;
 
                 } catch (SQLException e) {
-                    IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+                    logger.log(
+                            (RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
+                    //IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
                     payload.notResolved.add(questionSection); // fall back to cache/forward
                     logCacheConnectionLost(startTime);
                     break;
@@ -811,7 +841,13 @@ public class DNS_SERVER {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
                 if (cacheResult.notResolved.contains(request)) {
-                    IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
+                    logger.log(
+                            (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
+                            LoggingCategoryType.QUERIES,
+                            LoggingSeverity.INFO,
+                            true
+                    );
+                    //IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
 
 
 
@@ -957,7 +993,13 @@ public class DNS_SERVER {
         //stub response
         ReferralAnalyzer.Classification classification=
                 ReferralAnalyzer.classify(parsedResponse, queryType);
-        System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
+        logger.log(
+                ("\u001B[35m[!!! Analyzer !!]" + classification + queryType),
+                LoggingCategoryType.QUERIES,
+                LoggingSeverity.INFO,
+                true
+        );
+        //System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if testing mode is not enabled
@@ -985,16 +1027,34 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
+                logger.log(
+                        (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
+                //IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
-                IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
+                logger.log(
+                        (YELLOW + "[RESOLVER] Referral received" + RESET),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.INFO,
+                        true
+                );
+                //IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
-                IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
+                logger.log(
+                        (RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
+                //IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
             }
 
         }
