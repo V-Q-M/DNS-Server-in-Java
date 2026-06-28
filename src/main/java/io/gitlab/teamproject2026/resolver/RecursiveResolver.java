@@ -1,9 +1,13 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
+import io.gitlab.teamproject2026.logging.DNSEvent;
+import io.gitlab.teamproject2026.logging.ResponseSource;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
@@ -143,7 +147,12 @@ public class RecursiveResolver extends AbstractResolver{
                 cache.insertAll(response.getAdditionalSections());
             } catch (SQLException e) {
                 // caching is best-effort: keep resolving even if the insert fails
-                IO.println(RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET);
+                logger.log(
+                        (RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET),
+                        LoggingCategoryType.DEFAULT,
+                        LoggingSeverity.ERROR
+                );
+                //IO.println(RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET);
             }
 
             // which branch of the RCODE decision tree is this?
@@ -236,7 +245,12 @@ public class RecursiveResolver extends AbstractResolver{
             }
         } catch (SQLException e) {
             // cache unavailable: fall through to an iterative lookup
-            IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
+            logger.log(
+                    (RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.INFO
+            );
+            //IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
         }
         byte[] response = resolve(name, type, buildQuery(name, type), ctx.deeper());
         DNSPacket parsed = DNSPacket.fromBytes(response);
@@ -329,7 +343,12 @@ public class RecursiveResolver extends AbstractResolver{
             cached = cache.lookup(String.join(".", name), qtype);
         } catch (SQLException e) {
             // treat a cache error like a miss so the caller falls back to iterating
-            IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
+            logger.log(
+                    (RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.INFO
+            );
+            //IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
             return null;
         }
         if (cached.length == 0) {

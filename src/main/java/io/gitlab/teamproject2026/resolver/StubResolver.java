@@ -24,7 +24,7 @@ public class StubResolver extends AbstractResolver{
     private final int maxRetries;
     private final StubResolverStrategy strategy;
     private int RRIndex =0;
-    public static Logger logger;
+
 
 
     public StubResolver(List<NameServer> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){

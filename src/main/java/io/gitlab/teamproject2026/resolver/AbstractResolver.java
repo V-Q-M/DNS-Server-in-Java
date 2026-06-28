@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
 import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -25,6 +26,8 @@ public abstract class AbstractResolver {
     public int timeoutMs;
     public long retryDelay;
     public static final int MAX_UDP_SIZE = 4096;
+
+    public static Logger logger;
 
     public static final String RESET  = "\u001B[0m";
     public static final String RED    = "\u001B[31m";
