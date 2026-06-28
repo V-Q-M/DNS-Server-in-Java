@@ -1,5 +1,8 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.DNS_SERVER;
+import io.gitlab.teamproject2026.config.logging.LoggingSection;
+import io.gitlab.teamproject2026.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +19,7 @@ class StubResolverTest {
     private volatile boolean shouldRun = true;
     private volatile long serverDelayMs = 0;
     private final AtomicInteger requestCount= new AtomicInteger(0);
+    private final Logger logger = new Logger(LoggingSection.defaultLogger());
 
     @BeforeEach
     void setUp() throws Exception {
@@ -57,6 +61,8 @@ class StubResolverTest {
         NameServer server = new NameServer("127.0.0.1", mockServer.getLocalPort(),
                 "MockLocal");
         StubResolver resolver= new StubResolver(List.of(server),1000,2,50, StubResolverStrategy.FAILOVER);
+        StubResolver.logger = logger;
+
         byte[] query= new byte[]{0x12, 0x34, // id
         0x00, 0x01, // flags, qdcount=1
         0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 

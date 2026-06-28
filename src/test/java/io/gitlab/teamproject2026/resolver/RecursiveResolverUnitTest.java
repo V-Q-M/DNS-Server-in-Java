@@ -1,7 +1,9 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.config.logging.LoggingSection;
 import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
+import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.OpCode;
 import io.gitlab.teamproject2026.model.QuestionSection;
@@ -37,6 +39,8 @@ public class RecursiveResolverUnitTest {
             StubResolverStrategy strategy = StubResolverStrategy.ROUND_ROBIN;
             List<NameServer> forwarders = List.of(new NameServer("8.8.8.8", 53, "8.8.8.8")        );
             CacheHandler cacheHandler = new CacheHandler(new DatabaseConnectionProvider());
+            Logger logger = new Logger(LoggingSection.defaultLogger());
+            AbstractResolver.logger = logger;
             stubResolver = new StubResolver(forwarders, timeoutMs, maxRetries, retryDelayMs, strategy);
             recursiveResolver = new RecursiveResolver(cacheHandler, timeoutMs, retryDelayMs);
             cache = new CacheHandler(new DatabaseConnectionProvider());

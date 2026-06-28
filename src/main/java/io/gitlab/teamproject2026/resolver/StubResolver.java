@@ -11,9 +11,6 @@ import java.net.*;
 import java.util.List;
 
 
-
-
-
 public class StubResolver extends AbstractResolver{
 
     private final List<NameServer> forwarders;
