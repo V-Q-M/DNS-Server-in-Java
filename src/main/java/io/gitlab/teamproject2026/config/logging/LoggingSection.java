@@ -28,7 +28,7 @@ public record LoggingSection(
 
         LoggingChannel defaultLog = new LoggingChannel(
                 "default_log",
-                "log/named.log",
+                "log/default/default.log",
                 LoggingSeverity.INFO,
                 true,
                 true,
@@ -37,7 +37,7 @@ public record LoggingSection(
 
         LoggingChannel errorLog = new LoggingChannel(
                 "error_log",
-                "log/named-error.log",
+                "log/default/default-error.log",
                 LoggingSeverity.ERROR,
                 true,
                 true,
@@ -46,7 +46,7 @@ public record LoggingSection(
 
         LoggingChannel criticalLog = new LoggingChannel(
                 "critical_log",
-                "log/named-critical.log",
+                "log/default/default-critical.log",
                 LoggingSeverity.CRITICAL,
                 true,
                 true,
