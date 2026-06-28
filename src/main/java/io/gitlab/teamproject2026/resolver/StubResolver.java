@@ -1,21 +1,17 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.logging.DNSEvent;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.*;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.net.*;
-import java.util.Arrays;
 import java.util.List;
 
 
-import io.gitlab.teamproject2026.logging.DNSEvent;
+
 
 
 public class StubResolver extends AbstractResolver{
@@ -69,8 +65,6 @@ public class StubResolver extends AbstractResolver{
                     true
             );
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
-            //IO.println("[STUB] Attempt: " + (attempt + 1) + "/" + maxAttempts + ". Sending query to: " + server);
-
             QueryResult result = queryUDP(query, server, timeoutMs);//forward once over UDP
 
             //for all questions
@@ -93,7 +87,6 @@ public class StubResolver extends AbstractResolver{
                                 LoggingSeverity.NOTICE,
                                 true
                         );
-                        //IO.println(YELLOW + "[STUB] UDP response truncated. Retrying over TCP..." + RESET);
                         QueryResult tcpResult = queryTCP(query, server, timeoutMs); //forward once over TCP
 
                         if (tcpResult.status() != Status.SUCCESS){
@@ -107,11 +100,7 @@ public class StubResolver extends AbstractResolver{
                                     LoggingSeverity.NOTICE,
                                     true
                             );
-                            //IO.println(RED + "[STUB] TCP fallback failed: "
-                                 //   + tcpResult.status()
-                                  //  + " - "
-                                   // + tcpResult.errorMessage()
-                                   // + RESET);
+
 
                             logQuestionEvents(
                                     tcpResult.status() == Status.TIMEOUT ? DNSEventType.TIMEOUT : DNSEventType.IO_ERROR,
@@ -137,8 +126,7 @@ public class StubResolver extends AbstractResolver{
                                 LoggingSeverity.NOTICE,
                                 true
                         );
-                        //IO.println(RED + "[STUB] Invalid DNS response: " + e.getMessage() + RESET);
-                        
+
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                             result.latencyMs(), server, attempt,
                             "invalid DNS response", null);
@@ -153,7 +141,6 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.NOTICE,
                             true
                     );
-                    //IO.println(GREEN + "[STUB] Success! Reply from: " + server + " took " + result.latencyMs() + "ms" + RESET);
                     return result.response();
                 }
                 case TIMEOUT -> {
@@ -167,7 +154,6 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.NOTICE,
                             true
                     );
-                    //IO.println(YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms" + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             logger.log(
@@ -176,7 +162,6 @@ public class StubResolver extends AbstractResolver{
                                     LoggingSeverity.NOTICE,
                                     true
                             );
-                            //IO.println("[STUB] Switching to next available nameserver..");
                             startIndex = (startIndex + 1) % totalServers;
                         } else {
                             logger.log(
@@ -185,8 +170,7 @@ public class StubResolver extends AbstractResolver{
                                     LoggingSeverity.NOTICE,
                                     true
                             );
-                            //IO.println("[STUB] Retrying current configuration target..");
-                        }
+                            }
                         sleep(retryDelay);
                     }
                 }
@@ -201,7 +185,6 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.NOTICE,
                             true
                     );
-                    //IO.println(RED + "[STUB] I/O error from: " + server + " after: " + result.errorMessage() + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             startIndex = (startIndex + 1) % totalServers;
@@ -226,7 +209,6 @@ public class StubResolver extends AbstractResolver{
                 LoggingSeverity.NOTICE,
                 true
         );
-        //IO.println(RED + "[STUB] All "+maxAttempts+ " attempt(s) exhausted -> returning SERVFAIL" + RESET);
         return buildServFail(query);
     }
 
@@ -275,8 +257,7 @@ public class StubResolver extends AbstractResolver{
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.INFO
                 );
-             //   LoggingFeature.logInfo(DNSEventInfo.info(type, id, domain, qType, latency, ResponseSource.FORWARDER));
-            }
+             }
             //log debug
             else {
                 logger.log(
@@ -286,11 +267,6 @@ public class StubResolver extends AbstractResolver{
                         LoggingSeverity.ERROR
                 );
             }
-            //LoggingFeature.logDebug(DNSEventDebug.debug(
-            //        type, id, domain, qType, latency, ResponseSource.FORWARDER,
-             //       this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode
-            //));
-
         }
     }
 }

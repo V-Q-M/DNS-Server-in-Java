@@ -14,7 +14,7 @@ import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.resolver.*;
-import org.slf4j.LoggerFactory;
+
 
 import java.io.*;
 import java.net.*;
@@ -39,7 +39,6 @@ public class DNS_SERVER {
     private static final String YELLOW = "\u001B[33m";
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
-    private static final org.slf4j.Logger log = LoggerFactory.getLogger(DNS_SERVER.class);
 
     // probably obsolete?
     private static boolean testing = false;
@@ -109,8 +108,6 @@ public class DNS_SERVER {
                     RDataSOA zoneSoa = zoneHandler.lookupZoneSoa(zone);
                     long refreshMillis = zoneSoa.getRefresh() * 1000L;
                     long lastRefresh = lastRefreshZoneBy.getOrDefault(zone, startTime);
-
-                    //IO.println("Zone: " + zone + " " + (now - lastRefresh + ":" + refreshMillis));
                     if (now - lastRefresh < refreshMillis) {
                         continue;
                     }
@@ -144,7 +141,6 @@ public class DNS_SERVER {
                                     LoggingSeverity.NOTICE,
                                     true
                             );
-                            //IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
                             zoneHandler.replaceZone(newLoadedZone);
                         } else {
                             logger.log(
@@ -349,23 +345,25 @@ public class DNS_SERVER {
      * Initializes the server state from configuration and command-line arguments.
      */
     private static void initializeServer(String[] args){
-        logger.log(
-                ("\n--------------------------------[ DNSSERVER ]--------------------------------- "),
-                LoggingCategoryType.DEFAULT,
-                LoggingSeverity.NOTICE,
-                true
-        );
-        //IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
+
+        IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // named.conf
         serverConfig = ConfigManager.loadConfig("named.conf");
         logger = new Logger(serverConfig.logging());
+        logger.log(
+                ("Starting DNS Server..."),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.NOTICE,
+                true
+        );
 
         OptionSection options = serverConfig.options();
         resolverOptions = options.resolverSection();
 
         // establish Database Connection
         initializeDatabase();
+
 
         // load zones into the database and store the zone names for easy lookup
         if(zoneHandler != null){
@@ -399,7 +397,12 @@ public class DNS_SERVER {
         }
 
         recursionAllowed = options.recursionAllowed();
-        //IO.println("Recursion: " + recursionAllowed);
+        logger.log(
+                (GREEN + "Recursion: " + recursionAllowed),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.INFO,
+                true
+        );
         forwardMode = options.forwardMode();// Determines if we should only forward
         if (forwardMode == null){
             logger.log(
@@ -627,9 +630,6 @@ public class DNS_SERVER {
                     LoggingSeverity.NOTICE
                 );
 
-                //LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
-                //LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                      //  resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
             }
         }
         // Stub/RecursiveResolver should only be queried if there are queries not answered by the
@@ -730,8 +730,6 @@ public class DNS_SERVER {
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
 
-
-
                         logger.log(
                             (DNSEvent.event(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
                                     resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null).toHumanReadable()),
@@ -739,9 +737,6 @@ public class DNS_SERVER {
                             LoggingSeverity.INFO
                         );
 
-                            //LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
-                            //LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
-                                 //   resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
@@ -778,7 +773,6 @@ public class DNS_SERVER {
                                 LoggingSeverity.INFO,
                                 true
                         );
-                        //IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
                         break; // records found -> done with this question
                     }
 
@@ -805,7 +799,6 @@ public class DNS_SERVER {
                             LoggingSeverity.ERROR,
                             true
                     );
-                    //IO.println(YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET);
                     break;
 
                 } catch (SQLException e) {
@@ -815,7 +808,6 @@ public class DNS_SERVER {
                             LoggingSeverity.ERROR,
                             true
                     );
-                    //IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
                     payload.notResolved.add(questionSection); // fall back to cache/forward
                     logCacheConnectionLost(startTime);
                     break;
@@ -847,18 +839,11 @@ public class DNS_SERVER {
                             LoggingSeverity.INFO,
                             true
                     );
-                    //IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
-
-
-
                     logger.log(
                         (DNSEvent.event(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null).toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.NOTICE
                     );
-
-                    //LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                    //LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
 
                 } else {
                     logger.log(
@@ -891,14 +876,6 @@ public class DNS_SERVER {
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR
             );
-            //LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L,ResponseSource.CACHE)); //no query, so everything except DNSEventType null
-
-            //LoggingFeature.logDebug(DNSEvent.event(
-            //       DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
-            //      null, null, null, -1,
-            //      "Connection to cache Server has been lost, assume internal Server error",
-            //     null));//debug fields.
-
             // payload.notResolved already has the unresolved questions from zone lookup,
             // no need to add them again – just log them as misses for the stub resolver
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
@@ -908,9 +885,6 @@ public class DNS_SERVER {
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR
             );
-            //    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,ResponseSource.CACHE));
-             //   LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
-             //           resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
             }
         }
         return payload;
@@ -999,7 +973,6 @@ public class DNS_SERVER {
                 LoggingSeverity.INFO,
                 true
         );
-        //System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if testing mode is not enabled
@@ -1033,7 +1006,6 @@ public class DNS_SERVER {
                         LoggingSeverity.ERROR,
                         true
                 );
-                //IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
@@ -1043,7 +1015,6 @@ public class DNS_SERVER {
                         LoggingSeverity.INFO,
                         true
                 );
-                //IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
@@ -1054,7 +1025,6 @@ public class DNS_SERVER {
                         LoggingSeverity.ERROR,
                         true
                 );
-                //IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
             }
 
         }
@@ -1273,15 +1243,6 @@ public class DNS_SERVER {
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.ERROR
         );
-        //LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L, ResponseSource.CACHE));
-        //LoggingFeature.logDebug(DNSEventDebug.debug(
-        //        DNSEventType.CACHE_ERROR,
-          //      null, null, null,
-           //     System.currentTimeMillis() - startTime,ResponseSource.CACHE,
-        //    null, null, null, -1,
-            //    "Connection to cache Server has been lost, assume internal Server error",
-           //     null
-        //));
     }
 
     private static void logCacheInsertFailed(long startTime) {
@@ -1291,20 +1252,6 @@ public class DNS_SERVER {
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.ERROR
         );
-        //LoggingFeature.logInfo(DNSEventInfo.info(
-         //       DNSEventType.CACHE_ERROR,
-         //       null, null, null,
-         //       System.currentTimeMillis() - startTime,ResponseSource.CACHE
-        //));
-
-        //LoggingFeature.logDebug(DNSEventDebug.debug(
-         //       DNSEventType.CACHE_ERROR,
-          //      null, null, null,
-          //      System.currentTimeMillis() - startTime,ResponseSource.CACHE,
-           //     null, null, null, -1,
-         //       "Entries couldn't be inserted into Cache. Assume cache connection is lost",
-         //       null
-        //));
     }
 
 

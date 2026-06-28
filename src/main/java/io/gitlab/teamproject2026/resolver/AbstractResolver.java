@@ -2,18 +2,11 @@ package io.gitlab.teamproject2026.resolver;
 
 import java.io.*;
 import java.net.*;
-import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
-import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.logging.Logger;
-import io.gitlab.teamproject2026.model.DNSPacket;
-import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.ResourceRecord;
-import io.gitlab.teamproject2026.DNS_SERVER.DNSPayload;
-import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
 public abstract class AbstractResolver {
 
     public enum Status { SUCCESS, TIMEOUT, IO_ERROR }
@@ -27,7 +20,7 @@ public abstract class AbstractResolver {
     public long retryDelay;
     public static final int MAX_UDP_SIZE = 4096;
 
-    public static Logger logger;
+    public static Logger logger = DNS_SERVER.logger;
 
     public static final String RESET  = "\u001B[0m";
     public static final String RED    = "\u001B[31m";
