@@ -1,9 +1,12 @@
 package io.gitlab.teamproject2026.config;
 
 import io.gitlab.teamproject2026.DNSZone;
+import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSection;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.RRType;
@@ -40,6 +43,8 @@ public class ConfigManager {
         );
     }
 
+    public static Logger logger = new Logger(defaultConfig().logging());
+
     /**
      * Loads, parses, and interprets the server configuration file.
      * If the configuration cannot be read or contains errors, a default
@@ -55,26 +60,58 @@ public class ConfigManager {
         try {
             input = Files.readString(confPath);
         } catch (IOException e) {
-            System.err.println(RED + "[CONFIG-ERROR]: Failed to read config file: " + confPath + RESET);
-            IO.println(YELLOW + "[CONFIG] WARNING: using default config" + RESET );
+            logger.log(
+                (RED + "[CONFIG-ERROR]: Failed to read config file: " + confPath + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
+            logger.log(
+                (YELLOW + "[CONFIG] WARNING: using default config" + RESET ),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.WARNING,
+                true
+            );
             return defaultConfig();
         }
 
         ConfParser parser = new ConfParser(input);
         if (parser.hasParserError()) {
-            System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " Failed to parse config file: \"" + confPath.getFileName() + "\"" + RESET);
-            System.err.println(YELLOW + "[CONFIG] WARNING: Using default config" + RESET );
+            logger.log(
+                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " Failed to parse config file: \"" + confPath.getFileName() + "\"" + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
+            logger.log(
+                (YELLOW + "[CONFIG] WARNING: Using default config" + RESET ),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.WARNING,
+                true
+            );
             return defaultConfig();
         }
 
         ConfInterpreter interpreter = new ConfInterpreter();
         Config config = interpreter.fromAst(parser.getRootNodes());
         if (interpreter.hasInterpreterError()) {
-            System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " Failed to interpret config file: \"" + confPath.getFileName() +"\"" + RESET);
-            System.err.println(YELLOW + "[CONFIG] WARNING: Using default config" + RESET );
+            logger.log(
+                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " Failed to interpret config file: \"" + confPath.getFileName() +"\"" + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
+            logger.log(
+                (YELLOW + "[CONFIG] WARNING: Using default config" + RESET ),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
             return defaultConfig();
         }
 
+        // Update logger to use the configuration
+        logger = new Logger(config.logging());
         return config;
     }
 
@@ -94,18 +131,33 @@ public class ConfigManager {
         if (!f.isAbsolute()){
             f = Path.of(dir).resolve(filePath);
         }
-        IO.println("[ZONE] Parsing zone file: \"" + f.getFileName() + "\"");
+        logger.log(
+            ("[ZONE] Parsing zone file: \"" + f.getFileName() + "\""),
+            LoggingCategoryType.CONFIG,
+            LoggingSeverity.INFO,
+            true
+        );
 
         String content;
         try {
             content = Files.readString(f);
         } catch (IOException e) {
-            System.err.println(RED + "[ZONE-ERROR] Failed to read zone file: " + f + RESET);
+            logger.log(
+                (RED + "[ZONE-ERROR] Failed to read zone file: " + f + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
             return null;
         }
         ZoneParser parser = new ZoneParser(content, origin);
         if (parser.hasParserError()) {
-            System.err.println(RED + "[ZONE-ERROR] Failed to parse zone: " + f.getFileName() + RESET);
+            logger.log(
+                (RED + "[ZONE-ERROR] Failed to parse zone: " + f.getFileName() + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
             return null;
         }
 
@@ -115,16 +167,31 @@ public class ConfigManager {
         if (!parser.getOrigin().isEmpty()) {
             zoneOrigin = parser.getOrigin();
         } else {
-            System.err.println(RED + "[ZONE-ERROR] No origin found in zone: " + f.getFileName() + RESET);
+            logger.log(
+                (RED + "[ZONE-ERROR] No origin found in zone: " + f.getFileName() + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
             return null;
         }
         if (parser.getTTL() != 0) {
             defaultTtl = parser.getTTL();
         } else {
-            System.err.println(RED + "[ZONE-ERROR] No ttl found in zone: " + f.getFileName() + RESET);
+            logger.log(
+                (RED + "[ZONE-ERROR] No ttl found in zone: " + f.getFileName() + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+            );
             return null;
         }
-        IO.println(GREEN + "[ZONE] Found " + zoneRecords.size() + " Records in \"" + f.getFileName() + "\"" + RESET);
+        logger.log(
+            (GREEN + "[ZONE] Found " + zoneRecords.size() + " Records in \"" + f.getFileName() + "\"" + RESET),
+            LoggingCategoryType.CONFIG,
+            LoggingSeverity.NOTICE,
+            true
+        );
         long serial = 0;
         long refresh = 0;
         for (ResourceRecord record : zoneRecords){

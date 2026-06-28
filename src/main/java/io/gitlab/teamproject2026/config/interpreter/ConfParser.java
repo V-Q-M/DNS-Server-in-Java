@@ -1,5 +1,9 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
+import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -97,7 +101,12 @@ public class ConfParser {
      * Reports a fatal config parsing error and marks the parser as failed.
      */
     private void error(String message, int lineNumber) {
-        System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+        );
         parserError = true;
     }
 
@@ -105,7 +114,12 @@ public class ConfParser {
      * Reports a non-fatal zone parsing warning.
      */
     private void warning(String message, int lineNumber) {
-        System.err.println(YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.WARNING,
+                true
+        );
     }
     public boolean hasParserError(){
         return this.parserError;

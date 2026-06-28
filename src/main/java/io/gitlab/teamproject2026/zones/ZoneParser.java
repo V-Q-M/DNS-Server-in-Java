@@ -1,6 +1,8 @@
 package io.gitlab.teamproject2026.zones;
 
 import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
@@ -1241,8 +1243,12 @@ public class ZoneParser {
      * Reports a fatal zone parsing error and marks the parser as failed.
      */
     private void error(String message, int lineNumber) {
-        System.err.println(RED + BOLD + "[ZONE-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
-
+        ConfigManager.logger.log(
+                (RED + BOLD + "[ZONE-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+        );
         parserError = true;
     }
 
@@ -1250,7 +1256,12 @@ public class ZoneParser {
      * Reports a non-fatal zone parsing warning.
      */
     private void warning(String message, int lineNumber) {
-        System.err.println(YELLOW + BOLD + "[ZONE-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (YELLOW + BOLD + "[ZONE-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.WARNING,
+                true
+        );
     }
     /**
      * Indicates whether a fatal parsing error occurred.

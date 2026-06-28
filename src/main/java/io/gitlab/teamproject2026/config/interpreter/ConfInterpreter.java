@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
 import io.gitlab.teamproject2026.config.Config;
+import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.logging.*;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
@@ -390,7 +391,12 @@ public class ConfInterpreter {
      * Reports a fatal config interpreting error and marks the interpreter as failed.
      */
     private void error(String message, int lineNumber) {
-        System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+        );
         interpreterError = true;
     }
 
@@ -398,7 +404,12 @@ public class ConfInterpreter {
      * Reports a non-fatal config  warning.
      */
     private void warning(String message, int lineNumber) {
-        System.err.println(YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.WARNING,
+                true
+        );
     }
     public boolean hasInterpreterError(){
         return this.interpreterError;

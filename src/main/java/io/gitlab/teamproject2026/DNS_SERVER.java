@@ -351,7 +351,7 @@ public class DNS_SERVER {
 
         // named.conf
         serverConfig = ConfigManager.loadConfig("named.conf");
-        logger = new Logger(serverConfig.logging());
+        logger = ConfigManager.logger; // A pointer to the actual logger
         logger.log(
                 ("Starting DNS Server..."),
                 LoggingCategoryType.GENERAL,
@@ -399,7 +399,7 @@ public class DNS_SERVER {
 
         recursionAllowed = options.recursionAllowed();
         logger.log(
-                (GREEN + "Recursion: " + recursionAllowed),
+                (GREEN + "[SERVER] Recursion: " + recursionAllowed),
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.INFO,
                 true
