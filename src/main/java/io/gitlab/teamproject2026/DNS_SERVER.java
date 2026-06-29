@@ -571,12 +571,12 @@ public class DNS_SERVER {
 
         //first question for Trace-logs
         
-        logger.log(PINK + "[TRACE] Revieced query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype(), LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+        logger.logTrace(PINK + "[TRACE] Revieced query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype());
 
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
-            logger.log(PINK + "[TRACE] Try resolving query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones.", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+            logger.logTrace(PINK + "[TRACE] Try resolving query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones.");
             payload = zoneLookUp(oopPacket, id);
 
             // If recursion is disabled and something is outside our zones, REFUSE
@@ -597,7 +597,7 @@ public class DNS_SERVER {
                 response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
                 response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[0]));
 
-                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" not contained in Zones but no recursion allowed. Return " + RCode.REFUSED, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" not contained in Zones but no recursion allowed. Return " + RCode.REFUSED);
 
                 return serializeResponsePacket(response);
             }
@@ -620,7 +620,7 @@ public class DNS_SERVER {
                 response.setAuthoritySections(new ResourceRecord[0]);
                 response.setAdditionalSections(new ResourceRecord[0]);
 
-                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN);
             }
 
             if(payload.notResolved.isEmpty() && !payload.answer.isEmpty() 
@@ -637,7 +637,7 @@ public class DNS_SERVER {
             response.setAuthoritySections(new ResourceRecord[0]);
             response.setAdditionalSections(new ResourceRecord[0]);
 
-            logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no authoratative Answer could be supplied. Return " + RCode.NXDOMAIN, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+            logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones");
 
             return serializeResponsePacket(response);
         }
@@ -648,15 +648,15 @@ public class DNS_SERVER {
             }
 
             if(!payload.notResolved.isEmpty()){
-                logger.log(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.logTrace(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead");
             }
 
             payload = cacheLookUp(payload, oopPacket, id);
 
             if(payload.notResolved.isEmpty()){
-                logger.log(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.logTrace(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache");
             } else {
-                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " could not be resolved from Cache, try Resolver instead.");
             }
 
         } else {
@@ -664,7 +664,7 @@ public class DNS_SERVER {
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
 
-                logger.log(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache or Zone due to missing database connection, try Resolver instead.",LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.logTrace(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache or Zone due to missing database connection, try Resolver instead.");
 
 
                 logger.log(
@@ -682,8 +682,7 @@ public class DNS_SERVER {
             // if (testing){
             payload = queryResolver(payload, data);
         }
-
-        logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " resolved succesfully.", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+        
         return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
     }
 
@@ -949,6 +948,7 @@ public class DNS_SERVER {
         byte[] rawResponse=null;
         if (forwardMode == null) {
             try {
+                logger.logTrace(PINK + "[TRACE] Resolve query recursively");
                 rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
             } catch (RuntimeException e) {
                 logger.log(
@@ -963,6 +963,7 @@ public class DNS_SERVER {
         else {
             switch (forwardMode) {
                 case FORWARD_ONLY -> { // only stub
+                    logger.logTrace(PINK + "[TRACE] Forward query via Stubresolver");
                     try {
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
@@ -978,6 +979,7 @@ public class DNS_SERVER {
                 case FORWARD_FIRST -> {
                     try {
                         // try stub
+                        logger.logTrace(PINK + "[TRACE] Try forwarding query via Stubresolver");
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
                         logger.log(
@@ -990,6 +992,7 @@ public class DNS_SERVER {
                     // if stub resolver fails: fallback recursive resolver
                     if (rawResponse == null) {
                         try {
+                            logger.logTrace(PINK + "[TRACE] Stubresolver unsuccessful, try recursive Resolver instead");
                             rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                         } catch (RuntimeException e) {
                             logger.log(
@@ -1023,6 +1026,7 @@ public class DNS_SERVER {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if testing mode is not enabled
                 // caching
+                logger.logTrace(PINK + "[TRACE] Query resolved successfully");
                 if (!testing && cacheHandler != null) {
                     startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                     try {
@@ -1046,6 +1050,7 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
+                logger.logTrace(PINK + "[TRACE] NXDOMAIN recieved from upstream");
                 logger.log(
                         (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,
@@ -1055,6 +1060,13 @@ public class DNS_SERVER {
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
+
+                String referral = "";
+                for (ResourceRecord ns : parsedResponse.getAuthoritySections()){
+                    referral += String.join(".",((RDataNS)ns.getRdata()).getNsdname()) + ". , "; 
+                }
+                logger.logTrace(PINK + "[TRACE] Referal to: " + referral);
+
                 logger.log(
                         (YELLOW + "[RESOLVER] Referral received" + RESET),
                         LoggingCategoryType.GENERAL,
@@ -1065,6 +1077,7 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
+                logger.logTrace(PINK + "[TRACE] Resolving unsuccessful");
                 logger.log(
                         (RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,

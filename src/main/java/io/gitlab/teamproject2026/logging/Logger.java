@@ -141,4 +141,12 @@ public class Logger {
             System.err.println("Failed to write to log file: " + channel.fileName());
         }
     }
+
+    /**
+     * Logs a Trace log message
+     * @param message the log message
+     */
+    public void logTrace(String message){
+        log(message, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+    }
 }
