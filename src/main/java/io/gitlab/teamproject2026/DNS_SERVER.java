@@ -2,6 +2,8 @@ package io.gitlab.teamproject2026;
 
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.*;
 import io.gitlab.teamproject2026.config.zones.*;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
@@ -13,9 +15,9 @@ import io.gitlab.teamproject2026.logging.*;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.resolver.*;
 
+
 import java.io.*;
 import java.net.*;
-import java.sql.Ref;
 import java.util.*;
 import java.sql.SQLException;
 
@@ -44,9 +46,6 @@ public class DNS_SERVER {
 
     // If true, disable glue data to improve performance
     private static boolean minimalResponses = false;
-    // If true, disable a few success messages in the server to improve performance
-    private static boolean lessLog = false;
-
 
     private static Config serverConfig;
     private static ResolverSection resolverOptions;
@@ -55,6 +54,7 @@ public class DNS_SERVER {
     private static RecursiveResolver recursiveResolver;
     private static CacheHandler cacheHandler;
     private static ZoneHandler zoneHandler;
+    public static Logger logger;
 
     private static int portNumber;
     private static String bindIP;
@@ -108,14 +108,15 @@ public class DNS_SERVER {
                     RDataSOA zoneSoa = zoneHandler.lookupZoneSoa(zone);
                     long refreshMillis = zoneSoa.getRefresh() * 1000L;
                     long lastRefresh = lastRefreshZoneBy.getOrDefault(zone, startTime);
-
-                    //IO.println("Zone: " + zone + " " + (now - lastRefresh + ":" + refreshMillis));
                     if (now - lastRefresh < refreshMillis) {
                         continue;
                     }
-                    if (!lessLog) {
-                        IO.println(BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET);
-                    }
+                    logger.log(
+                        (BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET),
+                            LoggingCategoryType.CONFIG,
+                            LoggingSeverity.NOTICE,
+                            true
+                        );
 
                     lastRefreshZoneBy.put(zone, now);
 
@@ -127,16 +128,27 @@ public class DNS_SERVER {
                     DNSZone newLoadedZone = ConfigManager.loadZoneFile(dir, file, zone);
 
                     if (newLoadedZone != null) {
-                        if (!lessLog) {
-                            IO.println("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial());
-                        }
+                        logger.log(
+                            ("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial()),
+                                LoggingCategoryType.CONFIG,
+                                LoggingSeverity.INFO,
+                                true
+                            );
                         if (newLoadedZone.serial() != zoneSoa.getSerial()) {
-                            IO.println(YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET);
+                            logger.log(
+                                    (YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET),
+                                    LoggingCategoryType.CONFIG,
+                                    LoggingSeverity.NOTICE,
+                                    true
+                            );
                             zoneHandler.replaceZone(newLoadedZone);
                         } else {
-                            if (!lessLog) {
-                                IO.println(GREEN + "[ZONE] Serials match -> Nothing to do" + RESET);
-                            }
+                            logger.log(
+                                (GREEN + "[ZONE] Serials match -> Nothing to do" + RESET),
+                                    LoggingCategoryType.CONFIG,
+                                    LoggingSeverity.INFO,
+                                    true
+                                );
                         }
                     }
 
@@ -147,7 +159,13 @@ public class DNS_SERVER {
                         return;
                     }
                 } catch (SQLException e) {
-                    System.err.println(RED + "[DATABASE-ERROR] Couldn't query SOA record of: \"" + zone + "\"" + RESET);
+                    logger.log(
+                            (RED + "[DATABASE-ERROR] Couldn't query SOA record of: \"" + zone + "\"" + RESET),
+                            LoggingCategoryType.QUERY_ERRORS,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
+
                 }
             }
         }
@@ -165,7 +183,12 @@ public class DNS_SERVER {
     private static void handleUDP(){
         // Open UDP socket
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
-            IO.println(GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET);
+            logger.log(
+                    (GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.NOTICE,
+                    true
+            );
 
             // Buffer necessary to store the packet
             byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
@@ -182,11 +205,19 @@ public class DNS_SERVER {
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
 
-                if (!lessLog) {
-                    IO.println(BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET);
+                logger.log(
+                        (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.NOTICE,
+                        true
+                );
                     // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                    IO.println("[SERVER] IN: " + toHex(data));
-                }
+                logger.log(
+                        ("[SERVER] IN: " + toHex(data)),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.INFO,
+                        true
+                );
 
                 // Handle the query and receive a byte array as response
                 byte[] byteResponse = handleUDPQuery(data);
@@ -201,10 +232,18 @@ public class DNS_SERVER {
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
 
-                if (!lessLog) {
-                    IO.println(BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET);
-                    IO.println("[SERVER] OUT: " + toHex(byteResponse));
-                }
+                logger.log(
+                    (BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.NOTICE,
+                        true
+                    );
+                logger.log(
+                    ("[SERVER] OUT: " + toHex(byteResponse)),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.INFO,
+                        true
+                );
             }
         } catch (IOException e){
             throw new RuntimeException(e);
@@ -214,7 +253,12 @@ public class DNS_SERVER {
     private static void handleTCP(){
         // Open TCP socket
         try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress)) {
-            IO.println(GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET);
+            logger.log(
+                    (GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.NOTICE,
+                    true
+            );
 
             // Server loop
             while (true) {
@@ -230,19 +274,38 @@ public class DNS_SERVER {
                     byte[] data = input.readNBytes(length);
 
                     if (data.length != length) {
-                        System.err.println(RED + "[SERVER-ERROR] Incomplete DNS query" + RESET);
+                            logger.log(
+                                    (RED + "[SERVER-ERROR] Incomplete DNS query" + RESET),
+                                    LoggingCategoryType.QUERY_ERRORS,
+                                    LoggingSeverity.ERROR,
+                                    true
+                            );
                         continue;
                     }
-                    if (!lessLog) {
-                        IO.println(BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET);
 
-                        IO.println("[SERVER] IN: " + toHex(data));
-                    }
+                    logger.log(
+                        (BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                        );
+
+                    logger.log(
+                        ("[SERVER] IN: " + toHex(data)),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO,
+                            true
+                    );
 
                     byte[] response = handleQuery(data);
 
                     if (response.length > 65535) {
-                        System.err.println(RED + "[SERVER-ERROR] TCP DNS response too large" + RESET);
+                        logger.log(
+                                (RED + "[SERVER-ERROR] TCP DNS response too large" + RESET),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
                         continue;
                     }
 
@@ -250,14 +313,28 @@ public class DNS_SERVER {
                     output.write(response);
                     output.flush();
 
-                    if (!lessLog) {
-                        IO.println(BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET);
-                        IO.println("[SERVER] OUT: " + toHex(response));
-                    }
+                    logger.log(
+                        (BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                        );
+
+                    logger.log(
+                        ("[SERVER] OUT: " + toHex(response)),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO,
+                            true
+                    );
 
 
                 } catch (IOException e) {
-                    System.err.println(RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET);
+                    logger.log(
+                            (RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                 }
             }
         } catch (IOException e){
@@ -265,17 +342,22 @@ public class DNS_SERVER {
         }
     }
 
-
-
-
     /**
      * Initializes the server state from configuration and command-line arguments.
      */
     private static void initializeServer(String[] args){
+
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // named.conf
         serverConfig = ConfigManager.loadConfig("named.conf");
+        logger = ConfigManager.logger; // A pointer to the actual logger
+        logger.log(
+                ("Starting DNS Server..."),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.NOTICE,
+                true
+        );
 
         OptionSection options = serverConfig.options();
         resolverOptions = options.resolverSection();
@@ -283,11 +365,17 @@ public class DNS_SERVER {
         // establish Database Connection
         initializeDatabase();
 
+
         // load zones into the database and store the zone names for easy lookup
         if(zoneHandler != null){
             zoneCatalog = loadZonesFromConf(serverConfig);
         } else {
-            System.err.println(RED + "[DATABASE] No zone handler found, skipping zones" + RESET);
+            logger.log(
+                    (RED + "[DATABASE] No zone handler found, skipping zones" + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             zoneCatalog = new ArrayList<>();
         }
 
@@ -299,19 +387,39 @@ public class DNS_SERVER {
 
         // port check
         if (portNumber < 0 || portNumber > 65535) {
-            System.err.println(RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
-                    + DEFAULT_PORT + RESET);
+            logger.log(
+                    (RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
+                            + DEFAULT_PORT + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             portNumber = DEFAULT_PORT;
         }
 
         recursionAllowed = options.recursionAllowed();
-        //IO.println("Recursion: " + recursionAllowed);
+        logger.log(
+                (GREEN + "[SERVER] Recursion: " + recursionAllowed),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.INFO,
+                true
+        );
         forwardMode = options.forwardMode();// Determines if we should only forward
         if (forwardMode == null){
-            IO.println(GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)" );
+            logger.log(
+                    (GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)" ),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.INFO,
+                    true
+            );
         }
         else {
-            IO.println(GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode);
+            logger.log(
+                    (GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.INFO,
+                    true
+            );
         }
 
         List<NameServer> forwarders = options.forwarders().stream()
@@ -324,7 +432,12 @@ public class DNS_SERVER {
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
-            System.err.println(RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET);
+            logger.log(
+                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             bindIP = DEFAULT_IP;
             try {
                 bindAddress = InetAddress.getByName(DEFAULT_IP);
@@ -342,7 +455,12 @@ public class DNS_SERVER {
                 try {
                     portNumber = Integer.parseInt(args[i + 1]);
                 } catch (NumberFormatException e) {
-                    System.err.println(RED + "Invalid port: " + args[i + 1] + " — using default " + DEFAULT_PORT + RESET);
+                    logger.log(
+                            (RED + "[SERVER] Invalid port: " + args[i + 1] + " — using default " + DEFAULT_PORT + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                     portNumber = DEFAULT_PORT;
                 }
                 i++;
@@ -352,7 +470,17 @@ public class DNS_SERVER {
             } else if (args[i].equals("--testing")) {
                 testing = true;
             } else if (args[i].equals("--less-log")) {
-                lessLog = true;
+                if (logger != null){
+                    logger.overwriteSeverity(LoggingSeverity.NOTICE);
+                }
+            } else if (args[i].equals("--quiet")) {
+                if (logger != null){
+                    logger.overwriteSeverity(LoggingSeverity.ERROR);
+                }
+            } else if (args[i].equals("--silent")) {
+                if (logger != null){
+                    logger.overwriteSeverity(LoggingSeverity.CRITICAL);
+                }
             } else if (args[i].equals("--minimal-responses")) {
                 minimalResponses = true;
             }
@@ -368,12 +496,27 @@ public class DNS_SERVER {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
             cacheHandler = new CacheHandler(provider);
             zoneHandler = new ZoneHandler(provider);
-            System.err.println(GREEN + "[DATABASE] Connection to the database successful" + RESET);
+            logger.log(
+                    (GREEN + "[DATABASE] Connection to the database successful" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.INFO,
+                    true
+            );
         } catch (ClassNotFoundException e) {
-            System.err.println(RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET);
+            logger.log(
+                    (RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             testing = true;
         } catch (SQLException e) {
-            System.err.println(RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET);
+            logger.log(
+                    (RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             logCacheConnectionLost(startTime);
             testing = true;
         }
@@ -387,7 +530,12 @@ public class DNS_SERVER {
                 try {
                     cacheHandler.deleteExpired();
                 } catch (SQLException e) {
-                    IO.println(RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET);
+                    logger.log(
+                            (RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                     logCacheConnectionLost(cleanupStart);
                     testing = true;
                 }
@@ -426,7 +574,12 @@ public class DNS_SERVER {
 
             // If recursion is disabled and something is outside our zones, REFUSE
             if (!recursionAllowed && !payload.notResolved.isEmpty()) {
-                System.err.println(RED + "[SERVER] Received a foreign query but recursion is currently not allowed!");
+                logger.log(
+                        (RED + "[SERVER] Received a foreign query but recursion is currently not allowed!" ),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
                 DNSPacket response = buildResponsePacket(payload, oopPacket, false);
                 response.setRd(oopPacket.isRd());
                 response.setRa(false);
@@ -468,11 +621,15 @@ public class DNS_SERVER {
             // if testing is active, do not check cache
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
-                if (!lessLog) {
-                    LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE)); //since cache isn't checked latency is 0
-                    LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                            resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null));
-                }
+
+
+
+                logger.log(
+                    (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
+                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null).toHumanReadable()),
+                    LoggingCategoryType.QUERIES,
+                    LoggingSeverity.NOTICE
+                );
 
             }
         }
@@ -573,11 +730,14 @@ public class DNS_SERVER {
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
-                        if (!lessLog) {
-                            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE));
-                            LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
-                                    resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null));
-                        }
+
+                        logger.log(
+                            (DNSEvent.event(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
+                                    resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null).toHumanReadable()),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO
+                        );
+
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
@@ -608,7 +768,12 @@ public class DNS_SERVER {
                                 default -> payload.answer.add(record);
                             }
                         }
-                        IO.println(GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET);
+                        logger.log(
+                                (GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.INFO,
+                                true
+                        );
                         break; // records found -> done with this question
                     }
 
@@ -629,11 +794,21 @@ public class DNS_SERVER {
                     // No record and no CNAME -> NXDOMAIN.
                     // Question intentionally not added to notResolved; the caller detects
                     // NXDOMAIN via (notResolved.isEmpty && answer.isEmpty && authority.isEmpty).
-                    IO.println(YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET);
+                    logger.log(
+                            (YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET),
+                            LoggingCategoryType.QUERY_ERRORS,
+                            LoggingSeverity.WARNING,
+                            true
+                    );
                     break;
 
                 } catch (SQLException e) {
-                    IO.println(RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET);
+                    logger.log(
+                            (RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR,
+                            true
+                    );
                     payload.notResolved.add(questionSection); // fall back to cache/forward
                     logCacheConnectionLost(startTime);
                     break;
@@ -659,19 +834,32 @@ public class DNS_SERVER {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
                 if (cacheResult.notResolved.contains(request)) {
-                    IO.println(BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET);
-                    if (!lessLog) {
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null));
-                    }
+                    logger.log(
+                            (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO,
+                            true
+                    );
+                    logger.log(
+                        (DNSEvent.event(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.NOTICE
+                    );
 
                 } else {
-                    IO.println(GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET);
-                    if (!lessLog) {
-                        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_HIT, id, domain, qType, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE));
-                        LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
-                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null));
-                    }
+                    logger.log(
+                        (GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.NOTICE,
+                        true
+                    );
+
+                    logger.log(
+                        (DNSEvent.event(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
+                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.INFO
+                    );
                 }
 
             }
@@ -683,20 +871,22 @@ public class DNS_SERVER {
 
         } catch (SQLException e) {
             // log
-            LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L,ResponseSource.CACHE)); //no query, so everything except DNSEventType null
-
-            LoggingFeature.logDebug(DNSEventDebug.debug(
-                    DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
-                    null, null, null, -1,
-                    "Connection to cache Server has been lost, assume internal Server error",
-                    null));//debug fields.
-
+            logger.log(
+                    (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE, null, null, null, -1,
+                                 "Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             // payload.notResolved already has the unresolved questions from zone lookup,
             // no need to add them again – just log them as misses for the stub resolver
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
-                LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart,ResponseSource.CACHE));
-                LoggingFeature.logDebug(DNSEventDebug.debug(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
-                        resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null));
+            logger.log(
+                    (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
+                                      resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null).toHumanReadable()),
+                    LoggingCategoryType.QUERIES,
+                    LoggingSeverity.NOTICE
+            );
             }
         }
         return payload;
@@ -717,7 +907,12 @@ public class DNS_SERVER {
             try {
                 rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
             } catch (RuntimeException e) {
-                System.err.println(RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET);
+                logger.log(
+                        (RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
                 return payload;
             }
         }
@@ -727,7 +922,12 @@ public class DNS_SERVER {
                     try {
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
-                        System.err.println(RED + "[STUB-ERROR] Failed to resolve query" + RESET);
+                        logger.log(
+                                (RED + "[STUB-ERROR] Failed to resolve query" + RESET),
+                                LoggingCategoryType.QUERY_ERRORS,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
                         return payload;
                     }
                 }
@@ -736,16 +936,24 @@ public class DNS_SERVER {
                         // try stub
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
-                        if (!lessLog) {
-                            System.out.println(YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET);
-                        }
+                        logger.log(
+                            (YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.WARNING,
+                            true
+                        );
                     }
                     // if stub resolver fails: fallback recursive resolver
                     if (rawResponse == null) {
                         try {
                             rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                         } catch (RuntimeException e) {
-                            System.err.println(RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET);
+                            logger.log(
+                                    (RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET),
+                                    LoggingCategoryType.QUERY_ERRORS,
+                                    LoggingSeverity.ERROR,
+                                    true
+                            );
                             return payload;
                         }
                     }
@@ -761,7 +969,12 @@ public class DNS_SERVER {
         //stub response
         ReferralAnalyzer.Classification classification=
                 ReferralAnalyzer.classify(parsedResponse, queryType);
-        System.out.println("\u001B[35m[!!! Analyzer !!]" + classification + queryType);
+        logger.log(
+                ("[ANALYZER]" + classification + queryType),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.INFO,
+                true
+        );
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if testing mode is not enabled
@@ -773,7 +986,12 @@ public class DNS_SERVER {
                         cacheHandler.insertAll(parsedResponse.getAuthoritySections());
                         cacheHandler.insertAll(parsedResponse.getAdditionalSections());
                     } catch (SQLException e) {
-                        System.err.println("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost");
+                        logger.log(
+                                ("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost"),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
                         logCacheInsertFailed(startTime);
                     }
                 }
@@ -784,16 +1002,31 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                IO.println(YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET);
+                logger.log(
+                        (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.WARNING,
+                        true
+                );
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
-                IO.println(YELLOW + "[RESOLVER] Referral received" + RESET);
+                logger.log(
+                        (YELLOW + "[RESOLVER] Referral received" + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.INFO,
+                        true
+                );
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
-                IO.println(RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET);
+                logger.log(
+                        (RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
             }
 
         }
@@ -878,8 +1111,12 @@ public class DNS_SERVER {
                 }
             }
         } catch (SQLException e) {
-            System.err.println(
-                    "Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?");
+            logger.log(
+                    (RED + "[DATABASE-ERROR] Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
             throw e;
         }
 
@@ -990,40 +1227,33 @@ public class DNS_SERVER {
                 }
             }
         } catch (Exception e) {
-            System.err.println(RED + "Failed to insert zone files to the zone database, continuing without it" + RESET);
-            //e.printStackTrace();
+            logger.log(
+                    (RED + "[DATABASE-ERROR] Failed to insert zone files to the zone database, continuing without it" + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
         }
         return zoneCatalog;
     }
 
     // Log helpers
     private static void logCacheConnectionLost(long startTime) {
-        LoggingFeature.logInfo(DNSEventInfo.info(DNSEventType.CACHE_ERROR, null, null, null, 0L, ResponseSource.CACHE));
-        LoggingFeature.logDebug(DNSEventDebug.debug(
-                DNSEventType.CACHE_ERROR,
-                null, null, null,
-                System.currentTimeMillis() - startTime,ResponseSource.CACHE,
-                null, null, null, -1,
-                "Connection to cache Server has been lost, assume internal Server error",
-                null
-        ));
+        logger.log(
+                (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
+                        "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.ERROR
+        );
     }
 
     private static void logCacheInsertFailed(long startTime) {
-        LoggingFeature.logInfo(DNSEventInfo.info(
-                DNSEventType.CACHE_ERROR,
-                null, null, null,
-                System.currentTimeMillis() - startTime,ResponseSource.CACHE
-        ));
-
-        LoggingFeature.logDebug(DNSEventDebug.debug(
-                DNSEventType.CACHE_ERROR,
-                null, null, null,
-                System.currentTimeMillis() - startTime,ResponseSource.CACHE,
-                null, null, null, -1,
-                "Entries couldn't be inserted into Cache. Assume cache connection is lost",
-                null
-        ));
+        logger.log(
+                (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
+                        "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost", null).toHumanReadable()),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.ERROR
+        );
     }
 
 

@@ -1,6 +1,8 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
 import io.gitlab.teamproject2026.config.Config;
+import io.gitlab.teamproject2026.config.ConfigManager;
+import io.gitlab.teamproject2026.config.logging.*;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
@@ -9,7 +11,9 @@ import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Interprets the configuration AST represented by {@link ConfNode}s and
@@ -27,12 +31,20 @@ public class ConfInterpreter {
      * @return the interpreted {@link Config}, or {@code null} if interpretation fails
      */
     public Config fromAst(List<ConfNode> rootNodes){
+        LoggingSection logging = null;
         OptionSection option = null;
         List<ZoneSection> zones = new ArrayList<>();
 
         for (ConfNode node : rootNodes) {
             String name = node.name().toLowerCase();
             switch (name){
+                case "logging" ->{
+                    if (logging == null) {
+                        logging = parseLoggingConfig(node);
+                    } else {
+                        error("Only one logging section allowed", node.lineNumber());
+                    }
+                }
                 case "options" -> {
                     // Check first if option is already set
                     if (option == null) {
@@ -51,7 +63,142 @@ public class ConfInterpreter {
             }
         }
 
-        return interpreterError ? null : new Config(option, zones);
+        return interpreterError ? null : new Config(logging, option, zones);
+    }
+
+    /**
+     * Interprets the {@code logging} section of the configuration AST.
+     * <p>
+     * Parses all logging channels and categories, validates references between
+     * them, and constructs the resulting {@link LoggingSection}. Categories may
+     * reference one or more previously defined channels.
+     *
+     * @param root the root {@link ConfNode} representing the logging section
+     * @return the resulting {@link LoggingSection}
+     */
+    public LoggingSection parseLoggingConfig(ConfNode root) {
+        // All logging channels defined in the configuration.
+        List<LoggingChannel> channels = new ArrayList<>();
+        Map<LoggingCategoryType, LoggingCategory> categories = new HashMap<>();
+
+        // Lookup table so categories can reference channels by name.
+        Map<String, LoggingChannel> channelLookup = new HashMap<>();
+
+        for (ConfNode node : root.children()) {
+            if (node.name().equalsIgnoreCase("channel")) {
+                LoggingChannel channel = parseLoggingChannel(node);
+                if (channel != null) {
+                    channels.add(channel);
+                    channelLookup.put(channel.channelName(), channel);
+                }
+
+            } else if (node.name().equalsIgnoreCase("category")) {
+                if (node.args().isEmpty()) {
+                    error("logging.category requires a name", node.lineNumber());
+                    continue;
+                }
+                LoggingCategoryType type;
+                try {
+                    // Convert BIND syntax (e.g. "query-errors") into the enum name (QUERY_ERRORS).
+                    type = LoggingCategoryType.valueOf(
+                            node.args().getFirst()
+                                    .replace('-', '_')
+                                    .toUpperCase()
+                    );
+                } catch (IllegalArgumentException e) {
+                    error("Unknown logging category: " + node.args().getFirst(), node.lineNumber());
+                    continue;
+                }
+                List<LoggingChannel> categoryChannels = new ArrayList<>();
+                for (ConfNode child : node.children()) {
+                    LoggingChannel channel = channelLookup.get(child.name());
+                    if (channel == null) {
+                        error("Unknown logging channel: " + child.name(), child.lineNumber());
+                        continue;
+                    }
+                    categoryChannels.add(channel);
+                }
+                categories.put(type, new LoggingCategory(type, categoryChannels));
+            } else {
+                error("Unknown logging directive: \"" + node.name() + "\"", node.lineNumber());
+            }
+        }
+
+        return new LoggingSection(channels, categories);
+    }
+
+    /**
+     * Interprets a single {@code channel} declaration from the logging section.
+     * <p>
+     * Reads the channel name, output file, logging severity, and formatting
+     * options. Unknown directives or invalid values are reported as
+     * configuration errors.
+     *
+     * @param root the {@link ConfNode} representing the channel declaration
+     * @return the resulting {@link LoggingChannel}, or {@code null} if the
+     * channel declaration is invalid
+     */
+    public LoggingChannel parseLoggingChannel(ConfNode root) {
+        if (root.args().isEmpty()) {
+            error("logging.channel requires a name", root.lineNumber());
+            return null;
+        }
+        String channelName = root.args().getFirst();
+        String fileName = "";
+        LoggingSeverity severity = LoggingSeverity.INFO;
+        boolean printTime = false;
+        boolean printCategory = false;
+        boolean printSeverity = false;
+
+        for (ConfNode node : root.children()) {
+            switch (node.name().toLowerCase()) {
+                case "file" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.file requires a path", node.lineNumber());
+                        continue;
+                    }
+                    fileName = node.args().getFirst();
+                }
+                case "severity" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.severity requires a value", node.lineNumber());
+                        continue;
+                    }
+                    try {
+                        severity = LoggingSeverity.fromValue(node.args().getFirst());
+                    } catch (IllegalArgumentException e) {
+                        error("Invalid logging severity: " + node.args().getFirst(), node.lineNumber());
+                    }
+                }
+                case "print-time" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.print-time requires yes or no", node.lineNumber());
+                        continue;
+                    }
+
+                    printTime = node.args().getFirst().equalsIgnoreCase("yes");
+                }
+                case "print-category" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.print-category requires yes or no", node.lineNumber());
+                        continue;
+                    }
+
+                    printCategory = node.args().getFirst().equalsIgnoreCase("yes");
+                }
+                case "print-severity" -> {
+                    if (node.args().isEmpty()) {
+                        error("logging.channel.print-severity requires yes or no", node.lineNumber());
+                        continue;
+                    }
+                    printSeverity = node.args().getFirst().equalsIgnoreCase("yes");
+                }
+                default ->
+                        warning( "Unknown logging channel directive: \"" + node.name() + "\"", node.lineNumber() );
+            }
+        }
+
+        return new LoggingChannel(channelName, fileName, severity, printTime, printCategory, printSeverity);
     }
 
     /**
@@ -244,7 +391,12 @@ public class ConfInterpreter {
      * Reports a fatal config interpreting error and marks the interpreter as failed.
      */
     private void error(String message, int lineNumber) {
-        System.err.println(RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.ERROR,
+                true
+        );
         interpreterError = true;
     }
 
@@ -252,7 +404,12 @@ public class ConfInterpreter {
      * Reports a non-fatal config  warning.
      */
     private void warning(String message, int lineNumber) {
-        System.err.println(YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET);
+        ConfigManager.logger.log(
+                (YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET),
+                LoggingCategoryType.CONFIG,
+                LoggingSeverity.WARNING,
+                true
+        );
     }
     public boolean hasInterpreterError(){
         return this.interpreterError;
