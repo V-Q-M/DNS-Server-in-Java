@@ -3,11 +3,7 @@ package io.gitlab.teamproject2026.resolver;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.database.CacheHandler;
-import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.database.*;
-import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
-import io.gitlab.teamproject2026.logging.DNSEvent;
-import io.gitlab.teamproject2026.logging.ResponseSource;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
@@ -22,10 +18,8 @@ import io.gitlab.teamproject2026.resolver.SListWrapper.*;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 
-import java.lang.invoke.SerializedLambda;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.Set;
@@ -47,6 +41,7 @@ public class RecursiveResolver extends AbstractResolver{
 
     /** Depth limit so NS/glue resolution doesn't loop infinitely. */
     private static final int MAX_DEPTH = 16;
+    private static final int MAX_NS_ADDRESS_DEPTH = 3;
 
     public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
         this.cache = cache;
@@ -85,10 +80,16 @@ public class RecursiveResolver extends AbstractResolver{
 
         // fill slist
         SListWrapper slistWrap;
-        try {
-            slistWrap = new SListWrapper(sname, cache);
-        } catch (SQLException e) {
+        // Do not cache-seed nested lookups
+        // This way failed nested delegation don't poison the next ns lookup
+        if (ctx.depth() > 0) {
             slistWrap = new SListWrapper(sname);
+        } else {
+            try {
+                slistWrap = new SListWrapper(sname, cache);
+            } catch (SQLException e) {
+                slistWrap = new SListWrapper(sname);
+            }
         }
 
         while (true) {
@@ -162,6 +163,12 @@ public class RecursiveResolver extends AbstractResolver{
 
             // which branch of the RCODE decision tree is this?
             ReferralAnalyzer.Classification verdict = ReferralAnalyzer.classify(response, qtype);
+            if (verdict == ReferralAnalyzer.Classification.NODATA
+                    && !response.isAa()
+                    && response.getAnswerSections().length == 0
+                    && response.getAuthoritySections().length > 0) {
+                verdict = ReferralAnalyzer.Classification.REFERRAL;
+            }
 
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
@@ -175,14 +182,39 @@ public class RecursiveResolver extends AbstractResolver{
                 }
                 // Delegation: resolve any missing glue, add the servers, keep walking down.
                 case REFERRAL -> {
-                    for (Delegation d : extractDelegations(response)) {
-                        logger.logTrace(PINK + "[TRACE] Received Referral for: " + String.join(".",sname)+". from: " + currentServer.name() +" to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + "."+ RESET);
+                    boolean addedAny = false;
+
+                    List<Delegation> delegations = extractDelegations(response);
+                    // PASS 1: first add referrals that already have glue.
+                    for (Delegation d : delegations) {
                         if (!d.hasGlue()) {
-                            logger.logTrace(PINK + "[TRACE] No Address provided, resolving: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + "." + RESET);
-                            d = resolveNsAddress(d, ctx);
-                            logger.logTrace(PINK + "[TRACE] finished resolving: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + " continuing to resolve: " + String.join(".",sname) + "."+ RESET);
+                            continue;
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
+                        addedAny = true;
+                    }
+
+                    // PASS 2: only if no glueful referral was usable, resolve glue-less NS names.
+                    if (!addedAny) {
+                        for (Delegation d : delegations) {
+                            if (d.hasGlue()) {
+                                continue;
+                            }
+
+                            Delegation resolved = resolveNsAddress(d, ctx.deeper());
+                            if (!resolved.hasGlue()) {
+                                continue;
+                            }
+
+                            slistWrap.addSListEntry(resolved.ns(), resolved.ipv4(), resolved.ipv6());
+                            addedAny = true;
+
+                            // One usable NS is enough. Go back to resolving the original name.
+                            break;
+                        }
+                    }
+                    if (!addedAny) {
+                        return buildServFail(query);
                     }
                     continue;
                 }
@@ -224,6 +256,23 @@ public class RecursiveResolver extends AbstractResolver{
      * @param ctx the resolution context
      * @return the delegation with its address, or unchanged if it cannot be resolved
      */
+
+    Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
+        String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
+
+        if (ctx.depth() >= MAX_NS_ADDRESS_DEPTH) {
+            return d;
+        }
+
+        RData a = resolveAddress(nsName, RRType.A, ctx);
+        if (a != null) {
+            return new Delegation(d.ns(), (RDataA) a, new RDataAAAA(new byte[16]));
+        }
+        return d;
+    }
+
+
+    /*
     Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
         String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
 
@@ -238,6 +287,8 @@ public class RecursiveResolver extends AbstractResolver{
         }
         return d;
     }
+
+     */
 
     /**
      * Looks up an address record for a name, cache first then iterative.
@@ -268,6 +319,13 @@ public class RecursiveResolver extends AbstractResolver{
             for (ResourceRecord rr : parsed.getAnswerSections()) {
                 if (rr.getType() == type) {
                     return rr.getRdata();
+                }
+            }
+            // Add CNAME handling, might help?
+            for (ResourceRecord rr : parsed.getAnswerSections()) {
+                if (rr.getType() == RRType.CNAME) {
+                    String[] cname = ((RDataCNAME) rr.getRdata()).getCname();
+                    return resolveAddress(cname, type, ctx.deeper());
                 }
             }
         }
@@ -443,16 +501,58 @@ public class RecursiveResolver extends AbstractResolver{
                 continue;
             }
             String nsHost = String.join(".", ((RDataNS) rr.getRdata()).getNsdname());
-            RData a = findGlue(additional, nsHost, RRType.A);
-            RData  aaaa = findGlue(additional, nsHost, RRType.AAAA);
-            RDataA ipv4 = a != null ? (RDataA) a : new RDataA(new byte[4]);
-            RDataAAAA ipv6 = aaaa != null ? (RDataAAAA) aaaa : new RDataAAAA(new byte[16]);
-            delegations.add(new Delegation(rr, ipv4, ipv6));
+
+            List<RDataA> ipv4Glue = findAllGlueA(additional, nsHost);
+            List<RDataAAAA> ipv6Glue = findAllGlueAAAA(additional, nsHost);
+
+            if (!ipv4Glue.isEmpty()) {
+                for (RDataA a : ipv4Glue) {
+                    delegations.add(new Delegation(rr, a, new RDataAAAA(new byte[16]) ));
+                }
+                continue;
+            }
+
+            if (!ipv6Glue.isEmpty()) {
+                for (RDataAAAA aaaa : ipv6Glue) {
+                    delegations.add(new Delegation(rr, new RDataA(new byte[4]), aaaa ));
+                }
+                continue;
+            }
+
+            delegations.add(new Delegation(rr, new RDataA(new byte[4]), new RDataAAAA(new byte[16]) ));
         }
         return delegations;
     }
 
-    /**
+    private static List<RDataA> findAllGlueA(ResourceRecord[] additional, String nsHost) {
+        List<RDataA> out = new ArrayList<>();
+        if (additional == null) {
+            return out;
+        }
+        for (ResourceRecord rr : additional) {
+            if (rr.getType() == RRType.A
+                    && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
+                out.add((RDataA) rr.getRdata());
+            }
+        }
+        return out;
+    }
+
+    private static List<RDataAAAA> findAllGlueAAAA(ResourceRecord[] additional, String nsHost) {
+        List<RDataAAAA> out = new ArrayList<>();
+        if (additional == null) {
+            return out;
+        }
+        for (ResourceRecord rr : additional) {
+            if (rr.getType() == RRType.AAAA
+                    && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
+                out.add((RDataAAAA) rr.getRdata());
+            }
+        }
+        return out;
+    }
+
+    /** probably obsolete?
      * Finds the glue rdata of a given type for a name server in the additional section.
      *
      * @param additional the additional section of a response (may be null)
