@@ -11,6 +11,17 @@ doLookup() {
     verifyResult "${RESULT}" "${EXPECT}" "${TIME}" "${QUESTION}" "${TYPE}"
 }
 
+doLookupNoError() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec +noedns ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NOERROR" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER:" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
 verifyResult() {
     local RESULT=${1}
     local EXPECT=${2}
@@ -22,7 +33,7 @@ verifyResult() {
         if [ "${TIMEEXPECT}" -gt ${QUERYTIME} ]; then
             echo -e "${GREEN}Successfully queried ${QUESTION} ${TYPE} in ${QUERYTIME} ms!${NC}"
         else
-            echo -e "${ORANGE}Query for ${QUESTION} ${TYPE} took too long: ${QUERYTIME} ms!${NC}"
+            echo -e "${ORANGE}Query for ${QUESTION} ${TYPE} took longer then expected: ${QUERYTIME} ms!${NC}"
             #ERRCOUNT=$((ERRCOUNT + 1)) #causes pipeline fails only in ci, not when run locally
         fi
     else
@@ -155,24 +166,27 @@ testZone(){
     doLookup "example.com" "SOA" "ns0.example.com. admin.example.com." ${CACHETIME}
 }
 
-testZone(){
-    echo "Testing authoritative zones..."
-    doLookup "example.com" "A" "129.0.0.1" ${CACHETIME}
-    doLookup "www.example.com" "CNAME" "example.com" ${CACHETIME}
-    doLookup "www.example.com" "A" "example.com" ${CACHETIME}
-    doLookup "www.example.com" "A" "129.0.0.1" ${CACHETIME}
-    doLookup "mx1.example.com" "A" "129.0.0.4" ${CACHETIME}
-    doLookup "example.com" "MX" "mx1.example.com." ${CACHETIME}
-    doLookup "example.com" "MX" "mx2.example.com." ${CACHETIME}
-    doLookup "example.com" "NS" "ns0.example.com" ${CACHETIME}
-    doLookup "ns0.example.com" "A" "129.0.0.2" ${CACHETIME}
-    doLookup "example.com" "AAAA" "2001:db8::1" ${CACHETIME}
-    doLookup "example.com" "TXT" "Hello, world!" ${CACHETIME}
-    doLookup "1.0.0.129.in-addr.arpa." "PTR" "example.com." ${CACHETIME}
+testHardLookups(){
+    echo "Testing hard recursive lookups..."
+    # Basic github lookup
+    doLookupNoError "github.com" "A" ${NOCACHE}
 
-    doLookup "example.com" "SOA" "ns0.example.com. admin.example.com." ${CACHETIME}
+    # Cloudflare-owned domain / Cloudflare nameserver path
+    doLookupNoError "cloudflare.com" "A" ${NOCACHE}
+
+    # Glue-less and more complex delegation path
+    doLookupNoError "mastodon.social" "A" ${NOCACHE}
+
+    # Ipv6 should work aswell
+    doLookupNoError "mastodon.social" "AAAA" ${NOCACHE}
+
+    # Ebay used a different delegation strategy
+    doLookupNoError "ebay.com" "A" ${NOCACHE}
+
+    # Run one repeated query to make sure cache path also works
+    doLookupNoError "github.com" "A" ${CACHETIME}
+
 }
-
 
 
 trap cleanUpAndResult SIGINT
@@ -186,7 +200,8 @@ NC='\033[0m' # No Color
 ERRCOUNT=0
 CACHETIME=100
 NSCACHE=1000
-NOCACHE=100000
+HARDLOOKUP=15000
+NOCACHE=1000
 PORT="1337"
 RESOLVER="127.0.0.1"
 
@@ -199,5 +214,6 @@ verifyServerRunning
 # First query, as first quries always take much longer than later queries
 dig @127.0.0.1 -p ${PORT} +nodnssec +noedns uni-tuebingen.de A > /dev/null
 testResolver
+testHardLookups
 testCache
 testZone
