@@ -1061,7 +1061,7 @@ public class DNS_SERVER {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                logger.logTrace(PINK + "[TRACE] NXDOMAIN recieved from upstream"+ RESET);
+                logger.logTrace(PINK + "[TRACE] NXDOMAIN received from upstream"+ RESET);
                 logger.log(
                         (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,

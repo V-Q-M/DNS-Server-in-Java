@@ -75,7 +75,7 @@ public class StubResolver extends AbstractResolver{
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                                 result.latencyMs(), server, attempt,
                                 "invalid DNS response", null);
-                        logger.logTrace(PINK + "[TRACE] Recieved invalid DNS response, retry");
+                        logger.logTrace(PINK + "[TRACE] Received invalid DNS response, retry");
                         break; // retry
                     }
 
@@ -87,7 +87,7 @@ public class StubResolver extends AbstractResolver{
                                 true
                         );
 
-                        logger.logTrace(PINK + "[TRACE] Recieved truncated Message, retrying over TCP"+ RESET);
+                        logger.logTrace(PINK + "[TRACE] Received truncated Message, retrying over TCP"+ RESET);
 
                         QueryResult tcpResult = queryTCP(query, server, timeoutMs); //forward once over TCP
 
@@ -135,7 +135,7 @@ public class StubResolver extends AbstractResolver{
                             result.latencyMs(), server, attempt,
                             "invalid DNS response", null);
                         
-                        logger.logTrace(PINK + "[TRACE] Recieved invalid DNS response, retry"+ RESET);
+                        logger.logTrace(PINK + "[TRACE] Received invalid DNS response, retry"+ RESET);
                         break; // retry 
                     }
                     RCode rCode = responsePacket.getRcode();
