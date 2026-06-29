@@ -147,6 +147,6 @@ public class Logger {
      * @param message the log message
      */
     public void logTrace(String message){
-        log(message, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+        log(message, LoggingCategoryType.TRACE, LoggingSeverity.DEBUG);
     }
 }

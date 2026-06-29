@@ -17,4 +17,6 @@ public enum LoggingCategoryType {
     QUERIES,
     /** Failed DNS queries and lookup errors. */
     QUERY_ERRORS,
+    /** Packet Trace during resolving */
+    TRACE,
 }

@@ -166,16 +166,6 @@ public class RecursiveResolver extends AbstractResolver{
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
                 case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
-                    logger.logTrace(PINK+ "[TRACE] Query: " + String.join(".", sname) + ". was successfully resolved" + RESET);
-                    for (ResourceRecord answer: response.getAnswerSections()){
-                        logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
-                    }
-                    for (ResourceRecord authority: response.getAuthoritySections()){
-                        logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-                    }
-                    for (ResourceRecord additional: response.getAdditionalSections()){
-                        logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-                    }
                     return response.toBytes();
                 }
                 // This server could not answer: try the next one.
