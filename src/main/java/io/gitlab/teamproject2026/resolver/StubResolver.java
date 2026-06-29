@@ -264,7 +264,7 @@ public class StubResolver extends AbstractResolver{
             //log info
             if (type == DNSEventType.QUERY_SENT || type == DNSEventType.SUCCESS) {
                 logger.log(
-                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.RECURSIVE_RESOLVER,
+                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.FORWARDER,
                                 this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode).toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.INFO
@@ -273,7 +273,7 @@ public class StubResolver extends AbstractResolver{
             //log debug
             else {
                 logger.log(
-                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.RECURSIVE_RESOLVER,
+                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.FORWARDER,
                                 this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode).toHumanReadable()),
                         LoggingCategoryType.QUERY_ERRORS,
                         LoggingSeverity.ERROR
