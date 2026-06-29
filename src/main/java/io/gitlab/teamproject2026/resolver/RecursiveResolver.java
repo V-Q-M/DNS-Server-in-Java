@@ -22,6 +22,7 @@ import io.gitlab.teamproject2026.resolver.SListWrapper.*;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 
+import java.lang.invoke.SerializedLambda;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -115,20 +116,24 @@ public class RecursiveResolver extends AbstractResolver{
             //query UDP: try ipv4, if not available use ipv6
             if (!queriedServerIpv4.host().equals("0.0.0.0")) {
                 currentServer = queriedServerIpv4;
+                logger.logTrace(PINK + "[TRACE] Sending query: " + String.join(".",sname) + ". to " + currentServer.name());
                 result = queryUDP(query, queriedServerIpv4, timeoutMs);
             } else if (!queriedServerIpv6.host().equals("0000:0000:0000:0000:0000:0000:0000:0000")){
                 currentServer = queriedServerIpv6;
+                logger.logTrace(PINK + "[TRACE] Sending query: " + String.join(".",sname) + ". to " + currentServer.name());
                 result = queryUDP(query, queriedServerIpv6, timeoutMs);
             }
 
             //handle failures: new while iteration with new server
             if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
                 sleep(retryDelay);
+                logger.logTrace(PINK + "[TRACE] Query failure, retry");
                 continue;
             }
 
             //fallback to TCP in case of truncation
             if (isTruncated(result.response())) {
+                logger.logTrace(PINK + "[TRACE] Query truncated, retrying over TCP");
                 QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
                 //handle failures: new while iteration with new server
                 if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
@@ -165,13 +170,17 @@ public class RecursiveResolver extends AbstractResolver{
                 }
                 // This server could not answer: try the next one.
                 case SERVFAIL -> {
+                    logger.logTrace(PINK + "[TRACE] Server returned " + verdict.SERVFAIL + ", retry");
                     continue;
                 }
                 // Delegation: resolve any missing glue, add the servers, keep walking down.
                 case REFERRAL -> {
                     for (Delegation d : extractDelegations(response)) {
+                        logger.logTrace(PINK + "[TRACE] Recieved Referral for: " + String.join(".",sname)+". from: " + currentServer.name() +" to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ".");
                         if (!d.hasGlue()) {
+                            logger.logTrace(PINK + "[TRACE] No Address provided, resolving: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + "." );
                             d = resolveNsAddress(d, ctx);
+                            logger.logTrace(PINK + "[TRACE] finished resolving: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + " continuing to resolve: " + String.join(".",sname) + ".");
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                     }
@@ -184,6 +193,7 @@ public class RecursiveResolver extends AbstractResolver{
                         return buildServFail(query);
                     }
                     // loop guard: a target we have already followed means a CNAME loop
+                    logger.logTrace(PINK + "[TRACE] Recieved CNAME for: " + String.join(".", sname) + ". to: " + String.join(".",target) + ".");
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
                         return buildServFail(query);
                     }
