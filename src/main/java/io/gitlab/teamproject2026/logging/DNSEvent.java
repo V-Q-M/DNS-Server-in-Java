@@ -33,9 +33,9 @@ public record DNSEvent(
      */
     public String toHumanReadable() {
         return String.format(
-                "ID %s: %s ResourceRecord for '%s' needed %d ms (ResponseSource: %s)."+
+                "%s for ID %s: %s ResourceRecord for '%s' needed %d ms (ResponseSource: %s)."+
                 " Strategy: %s. Nameserver: %s. Upstream: %s. Attempt: %s. Error message: %s. RCODE: %s",
-                id, qType, domain, latencyMs, source,
+                eventType, id, qType, domain, latencyMs, source,
                  strategy, nameserver, upstream, attempt, error, rCode
         );
     }
