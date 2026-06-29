@@ -1,10 +1,8 @@
 package io.gitlab.teamproject2026.resolver;
 
-import io.gitlab.teamproject2026.logging.DNSEvent;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.logging.*;
-import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.*;
 
 import java.net.*;
@@ -61,6 +59,9 @@ public class StubResolver extends AbstractResolver{
                     LoggingSeverity.NOTICE,
                     true
             );
+
+            logger.logTrace(PINK + "[TRACE] Forward query: " + queryPacket.getQuestionSection(0).getNameString() + " to " + server.name());
+
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             QueryResult result = queryUDP(query, server, timeoutMs);//forward once over UDP
 
@@ -74,6 +75,7 @@ public class StubResolver extends AbstractResolver{
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                                 result.latencyMs(), server, attempt,
                                 "invalid DNS response", null);
+                        logger.logTrace(PINK + "[TRACE] Received invalid DNS response, retry");
                         break; // retry
                     }
 
@@ -84,6 +86,9 @@ public class StubResolver extends AbstractResolver{
                                 LoggingSeverity.NOTICE,
                                 true
                         );
+
+                        logger.logTrace(PINK + "[TRACE] Received truncated Message, retrying over TCP"+ RESET);
+
                         QueryResult tcpResult = queryTCP(query, server, timeoutMs); //forward once over TCP
 
                         if (tcpResult.status() != Status.SUCCESS){
@@ -97,6 +102,8 @@ public class StubResolver extends AbstractResolver{
                                     LoggingSeverity.ERROR,
                                     true
                             );
+
+                            logger.logTrace(PINK + "[TRACE] TCP fallback failed, retry"+ RESET);
 
 
                             logQuestionEvents(
@@ -127,6 +134,8 @@ public class StubResolver extends AbstractResolver{
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                             result.latencyMs(), server, attempt,
                             "invalid DNS response", null);
+                        
+                        logger.logTrace(PINK + "[TRACE] Received invalid DNS response, retry"+ RESET);
                         break; // retry 
                     }
                     RCode rCode = responsePacket.getRcode();
@@ -151,6 +160,7 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.WARNING,
                             true
                     );
+                    logger.logTrace(PINK + "[TRACE] Query timed out, retry" + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             logger.log(
@@ -159,6 +169,7 @@ public class StubResolver extends AbstractResolver{
                                     LoggingSeverity.NOTICE,
                                     true
                             );
+                            logger.logTrace(PINK + "[TRACE] Too many retries, failover to next Server"+ RESET);
                             startIndex = (startIndex + 1) % totalServers;
                         } else {
                             logger.log(
@@ -182,9 +193,11 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.ERROR,
                             true
                     );
+                    logger.logTrace(PINK + "[TRACE] IO-Error, retry"+ RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             startIndex = (startIndex + 1) % totalServers;
+                            logger.logTrace(PINK + "[TRACE] Too many retries, failover to next Server"+ RESET);
                         }
                         sleep(retryDelay);
                     }
@@ -206,6 +219,8 @@ public class StubResolver extends AbstractResolver{
                 LoggingSeverity.ERROR,
                 true
         );
+        logger.logTrace(PINK + "[TRACE] Forwarding unsuccessful"+ RESET);
+
         return buildServFail(query);
     }
 

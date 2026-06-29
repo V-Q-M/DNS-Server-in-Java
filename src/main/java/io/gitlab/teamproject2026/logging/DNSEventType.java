@@ -9,6 +9,13 @@ public enum DNSEventType {
     ATTEMPTS_EXHAUSTED,
     CACHE_ERROR,
     CACHE_HIT,
-    CACHE_MISS
+    CACHE_MISS,
+    //die neue werte
+    QUERY_RECEIVED,
+    ZONE_HIT,
+    ZONE_MISS,
+    NXDOMAIN,
+    REFUSED,
+    RESPONSE_SENT,
 }
 
