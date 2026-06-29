@@ -160,7 +160,7 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.WARNING,
                             true
                     );
-                    logger.log(PINK + "[TRCE] Query timed out, retry", null, null);
+                    logger.logTrace(PINK + "[TRACE] Query timed out, retry" + RESET);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             logger.log(
@@ -264,7 +264,7 @@ public class StubResolver extends AbstractResolver{
             //log info
             if (type == DNSEventType.QUERY_SENT || type == DNSEventType.SUCCESS) {
                 logger.log(
-                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.FORWARDER,
+                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.RECURSIVE_RESOLVER,
                                 this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode).toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.INFO
@@ -273,7 +273,7 @@ public class StubResolver extends AbstractResolver{
             //log debug
             else {
                 logger.log(
-                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.FORWARDER,
+                        (DNSEvent.event(type, id, domain, qType, latency, ResponseSource.RECURSIVE_RESOLVER,
                                 this.strategy.name(), server.name(), server.host(), attempt + 1, error, rCode).toHumanReadable()),
                         LoggingCategoryType.QUERY_ERRORS,
                         LoggingSeverity.ERROR
