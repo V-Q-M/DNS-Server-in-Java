@@ -571,7 +571,7 @@ public class DNS_SERVER {
 
         //first question for Trace-logs
         
-        logger.logTrace(PINK + "[TRACE] Revieced query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype()+ RESET);
+        logger.logTrace(PINK + "[TRACE] Received query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype()+ RESET);
 
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
@@ -637,7 +637,17 @@ public class DNS_SERVER {
             response.setAuthoritySections(new ResourceRecord[0]);
             response.setAdditionalSections(new ResourceRecord[0]);
 
-            logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones"+ RESET);
+            logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones"+ RESET
+            );
+            for (ResourceRecord answer: payload.answer){
+                logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
+            }
+            for (ResourceRecord authority: payload.authority){
+                logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
+            }
+            for (ResourceRecord additional: payload.additional){
+                logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
+            }
 
             return serializeResponsePacket(response);
         }
@@ -655,6 +665,15 @@ public class DNS_SERVER {
 
             if(payload.notResolved.isEmpty()){
                 logger.logTrace(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache"+ RESET);
+                for (ResourceRecord answer: payload.answer){
+                    logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
+                }
+                for (ResourceRecord authority: payload.authority){
+                    logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
+                }
+                for (ResourceRecord additional: payload.additional){
+                    logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
+                }
             } else {
                 logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " could not be resolved from Cache, try Resolver instead."+ RESET);
             }
