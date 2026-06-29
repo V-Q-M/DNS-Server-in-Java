@@ -571,7 +571,7 @@ public class DNS_SERVER {
 
         //first question for Trace-logs
         
-        logger.log(PINK + "[TRACE] Revieced query for: " + oopPacket.getQuestionSection(0).getName().toString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype(), LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+        logger.log(PINK + "[TRACE] Revieced query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype(), LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
 
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
@@ -617,7 +617,7 @@ public class DNS_SERVER {
                 response.setAuthoritySections(new ResourceRecord[0]);
                 response.setAdditionalSections(new ResourceRecord[0]);
 
-                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getName().toString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN, LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
             }
 
             if(payload.notResolved.isEmpty() && !payload.answer.isEmpty() 
@@ -634,7 +634,7 @@ public class DNS_SERVER {
             response.setAuthoritySections(new ResourceRecord[0]);
             response.setAdditionalSections(new ResourceRecord[0]);
 
-            logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getName().toString() +" contained in Zones but no authoratative Answer could be supplied. Return " + RCode.NXDOMAIN, LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+            logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no authoratative Answer could be supplied. Return " + RCode.NXDOMAIN, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
 
             return serializeResponsePacket(response);
         }
@@ -647,9 +647,9 @@ public class DNS_SERVER {
             payload = cacheLookUp(payload, oopPacket, id);
 
             if(payload.notResolved.isEmpty()){
-                logger.log(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + "resolved from Cache", LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+                logger.log(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
             } else {
-                logger.log(PINK + "[TRACE] Query: " + request.getName().toString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
             }
 
         } else {
@@ -657,7 +657,7 @@ public class DNS_SERVER {
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
 
-                logger.log(PINK + "[TRACE] Query: " + request.getName().toString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+                logger.log(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
 
 
                 logger.log(
@@ -676,7 +676,7 @@ public class DNS_SERVER {
             payload = queryResolver(payload, data);
         }
 
-        logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " resolved succesfully.", LoggingCategoryType.QUERIES, LoggingSeverity.INFO);
+        logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " resolved succesfully.", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
         return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
     }
 
