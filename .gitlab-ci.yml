@@ -57,7 +57,7 @@ tests:
     paths:
       - server.log
       - target/surefire-reports/*
-      - log/{named-error.log,named.log,queries.log}
+      - log/{named-error.log,named.log,queries.log,trace.log}
     reports:
       junit:
         - ./target/surefire-reports/*.xml

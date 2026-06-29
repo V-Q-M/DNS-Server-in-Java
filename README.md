@@ -171,7 +171,6 @@ The current project is tested using both black-box tests executed via a Bash scr
 ### Black-box testing
 
 The CI will run the script test_server.sh. This script contains some black-box tests for the DNS server. 
-- The `testCache` function is an unused artifact and should not be used in CI, as the cache can only be provided locally. It may therefore be used for local testing.
 
 > **Note**
 >
@@ -215,13 +214,6 @@ The parameter `-a` is used to specify a custom IP address.
 ```bash
 mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-a 0.0.0.0"
 ```
-
-
-OBSOLETE: The parameter `--testing` is used to enable test mode, which disables accessing of external resources which cause errors in the CI pipeline.
-```bash
-mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="--testing"
-``` 
-Internally, this sets a parameter in the `DNS_SERVER` class and can be accessed by calling the `getTestingStatus` function.
 
 The parameter `--less-log` is used to disable a few server messages. This increases the performance a bit. Useful for CI. 
 ```bash

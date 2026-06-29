@@ -53,8 +53,17 @@ public record LoggingSection(
                 true
         );
 
+        LoggingChannel traceLog = new LoggingChannel(
+                "trace_log",
+                "log/default/default-trace.log",
+                LoggingSeverity.INFO,
+                true,
+                false,
+                false
+        );
+
         return new LoggingSection(
-                List.of(defaultLog, errorLog, criticalLog),
+                List.of(defaultLog, errorLog, criticalLog,traceLog),
                 Map.of(
                         LoggingCategoryType.DEFAULT,
                         new LoggingCategory(
@@ -80,6 +89,10 @@ public record LoggingSection(
                         new LoggingCategory(
                                 LoggingCategoryType.QUERY_ERRORS,
                                 List.of(defaultLog, errorLog, criticalLog)
+                        ),
+                        LoggingCategoryType.TRACE,
+                        new LoggingCategory(LoggingCategoryType.TRACE,
+                                List.of(traceLog) 
                         )
                 )
         );
