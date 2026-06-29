@@ -576,6 +576,7 @@ public class DNS_SERVER {
         boolean authoritative = false;
         if (!testing && cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
+            logger.log(PINK + "[TRACE] Try resolving query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones.", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
             payload = zoneLookUp(oopPacket, id);
 
             // If recursion is disabled and something is outside our zones, REFUSE
@@ -595,6 +596,8 @@ public class DNS_SERVER {
                 response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
                 response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
                 response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[0]));
+
+                logger.log(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" not contained in Zones but no recursion allowed. Return " + RCode.REFUSED, LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
 
                 return serializeResponsePacket(response);
             }
@@ -644,6 +647,10 @@ public class DNS_SERVER {
                 authoritative = true;
             }
 
+            if(!payload.notResolved.isEmpty()){
+                logger.log(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead", LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+            }
+
             payload = cacheLookUp(payload, oopPacket, id);
 
             if(payload.notResolved.isEmpty()){
@@ -657,7 +664,7 @@ public class DNS_SERVER {
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
 
-                logger.log(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache, try Resolver instead.",LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
+                logger.log(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache or Zone due to missing database connection, try Resolver instead.",LoggingCategoryType.GENERAL, LoggingSeverity.INFO);
 
 
                 logger.log(
