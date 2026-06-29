@@ -8,8 +8,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// Run with: mvn test -DlocalDB=true
-@EnabledIfSystemProperty(named = "localDB", matches = "true")
+
 class QueryCacheCNAMETest {
 
     private CacheHandler cache;

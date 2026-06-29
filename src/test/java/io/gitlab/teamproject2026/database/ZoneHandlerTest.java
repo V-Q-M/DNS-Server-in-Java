@@ -11,9 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.sql.SQLException;
 import java.util.List;
 
-// This disables the Cache-Tests during normal Testrun 
-// manually run these tests via > mvn test -DlocalDB=true
-@EnabledIfSystemProperty(named = "localDB", matches = "true")
+
 class ZoneHandlerTest {
 
     private ZoneHandler handler;

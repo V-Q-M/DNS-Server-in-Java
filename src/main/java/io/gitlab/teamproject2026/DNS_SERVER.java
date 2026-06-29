@@ -40,8 +40,6 @@ public class DNS_SERVER {
     private static final String GREEN   = "\u001B[32m";
     private static final String BLUE   = "\u001B[34m";
 
-    // probably obsolete?
-    private static boolean testing = false;
 
 
     // If true, disable glue data to improve performance
@@ -467,8 +465,6 @@ public class DNS_SERVER {
             } else if (args[i].equals("-a") && i + 1 < args.length) {
                 bindIP = args[i + 1];
                 i++;
-            } else if (args[i].equals("--testing")) {
-                testing = true;
             } else if (args[i].equals("--less-log")) {
                 if (logger != null){
                     logger.overwriteSeverity(LoggingSeverity.NOTICE);
@@ -490,8 +486,6 @@ public class DNS_SERVER {
     private static void initializeDatabase() {
         startTime = System.currentTimeMillis();
 
-        if (testing) return;
-
         try {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
             cacheHandler = new CacheHandler(provider);
@@ -509,7 +503,6 @@ public class DNS_SERVER {
                     LoggingSeverity.ERROR,
                     true
             );
-            testing = true;
         } catch (SQLException e) {
             logger.log(
                     (RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET),
@@ -518,14 +511,13 @@ public class DNS_SERVER {
                     true
             );
             logCacheConnectionLost(startTime);
-            testing = true;
         }
     }
 
     // cache helper
     private static void handleCacheCleanUp() {
         while (!Thread.currentThread().isInterrupted()) {
-            if (!testing && cacheHandler != null) {
+            if (cacheHandler != null) {
                 long cleanupStart = System.currentTimeMillis();
                 try {
                     cacheHandler.deleteExpired();
@@ -537,7 +529,6 @@ public class DNS_SERVER {
                             true
                     );
                     logCacheConnectionLost(cleanupStart);
-                    testing = true;
                 }
             }
             try {
@@ -568,7 +559,7 @@ public class DNS_SERVER {
         byte[] idBytes = oopPacket.getId();
         String id = "0x" + HexFormat.of().formatHex(idBytes);
         boolean authoritative = false;
-        if (!testing && cacheHandler != null && zoneHandler != null) {
+        if (cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
             payload = zoneLookUp(oopPacket, id);
 
@@ -618,12 +609,9 @@ public class DNS_SERVER {
             }
             payload = cacheLookUp(payload, oopPacket, id);
         } else {
-            // if testing is active, do not check cache
+            // if Cache can't be reached
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved.add(request);
-
-
-
                 logger.log(
                     (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
                     resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null).toHumanReadable()),
@@ -636,7 +624,6 @@ public class DNS_SERVER {
         // Stub/RecursiveResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
         if (recursionAllowed && !payload.notResolved.isEmpty()) {
-            // if (testing){
             payload = queryResolver(payload, data);
         }
 
@@ -977,9 +964,9 @@ public class DNS_SERVER {
         );
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
-                // Extract RRs from Stub Response and cache them if testing mode is not enabled
+                // Extract RRs from Stub Response and cache them if cachHandler is available
                 // caching
-                if (!testing && cacheHandler != null) {
+                if (cacheHandler != null) {
                     startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                     try {
                         cacheHandler.insertAll(parsedResponse.getAnswerSections());
@@ -1268,9 +1255,5 @@ public class DNS_SERVER {
         }
 
         return stringBuilder.toString().trim();
-    }
-
-    public static boolean getTestingStatus() {
-        return testing;
     }
 }
