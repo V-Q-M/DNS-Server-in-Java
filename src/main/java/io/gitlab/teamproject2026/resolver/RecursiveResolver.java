@@ -166,6 +166,16 @@ public class RecursiveResolver extends AbstractResolver{
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
                 case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
+                    logger.logTrace(PINK+ "[TRACE] Query: " + String.join(".", sname) + ". was successfully resolved" + RESET);
+                    for (ResourceRecord answer: response.getAnswerSections()){
+                        logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
+                    }
+                    for (ResourceRecord authority: response.getAuthoritySections()){
+                        logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
+                    }
+                    for (ResourceRecord additional: response.getAdditionalSections()){
+                        logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
+                    }
                     return response.toBytes();
                 }
                 // This server could not answer: try the next one.
@@ -176,7 +186,7 @@ public class RecursiveResolver extends AbstractResolver{
                 // Delegation: resolve any missing glue, add the servers, keep walking down.
                 case REFERRAL -> {
                     for (Delegation d : extractDelegations(response)) {
-                        logger.logTrace(PINK + "[TRACE] Recieved Referral for: " + String.join(".",sname)+". from: " + currentServer.name() +" to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + "."+ RESET);
+                        logger.logTrace(PINK + "[TRACE] Received Referral for: " + String.join(".",sname)+". from: " + currentServer.name() +" to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + "."+ RESET);
                         if (!d.hasGlue()) {
                             logger.logTrace(PINK + "[TRACE] No Address provided, resolving: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + "." + RESET);
                             d = resolveNsAddress(d, ctx);
@@ -193,7 +203,7 @@ public class RecursiveResolver extends AbstractResolver{
                         return buildServFail(query);
                     }
                     // loop guard: a target we have already followed means a CNAME loop
-                    logger.logTrace(PINK + "[TRACE] Recieved CNAME for: " + String.join(".", sname) + ". to: " + String.join(".",target) + "."+ RESET);
+                    logger.logTrace(PINK + "[TRACE] Received CNAME for: " + String.join(".", sname) + ". to: " + String.join(".",target) + "."+ RESET);
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
                         return buildServFail(query);
                     }
