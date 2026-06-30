@@ -137,7 +137,6 @@ public class MockResponses {
             case DNSKEY      -> dnskey(requestPacket);
             case NSEC3       -> nsec3(requestPacket);
             case NSEC3PARAM  -> nsec3param(requestPacket);
-            case UNKNOWN     -> txt(requestPacket);
         };
     }
 

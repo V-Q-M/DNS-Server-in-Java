@@ -46,7 +46,6 @@ public interface RData {
             case NSEC3 -> new RDataNSEC3(bytes, byteIndex);
             case NSEC3PARAM -> new RDataNSEC3PARAM(bytes, byteIndex);
             case DNSKEY -> new RDataDNSKEY(bytes, byteIndex);
-            case UNKNOWN -> new UnknownRDataType(bytes, byteIndex);
         };
     }
 }
