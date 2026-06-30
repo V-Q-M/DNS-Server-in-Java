@@ -7,6 +7,7 @@ import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
+import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -495,14 +496,12 @@ public class ZoneParser {
             case TXT -> parseTXT(rdataStart);
             case SOA -> parseSOA(rdataStart);
             // DNSSEC
-            /* Not implemented yet
             case DNSKEY -> parseDNSKEY(rdataStart);
             case DS -> parseDS(rdataStart);
             case RRSIG -> parseRRSIG(rdataStart);
             case NSEC -> parseNSEC(rdataStart);
             case NSEC3 -> parseNSEC3(rdataStart);
             case NSEC3PARAM -> parseNSEC3PARAM(rdataStart);
-             */
 
             default -> {
                 error("Unknown record type: " + type, tokenBuffer.getLast().lineNumber());
@@ -732,7 +731,7 @@ public class ZoneParser {
         //IO.println(raw + ":"  + out);
         return out.toString();
     }
-    /*
+
     private RData parseDNSKEY(int start) {
         int requiredFields = 4;
         if (tokenBuffer.size() - start < requiredFields) {
@@ -770,9 +769,7 @@ public class ZoneParser {
 
         return new RDataDNSKEY(flags, protocol, algorithm, publicKey);
     }
-    */
 
-    /*
     private RData parseDS(int start) {
         int requiredFields = 4;
 
@@ -811,9 +808,7 @@ public class ZoneParser {
 
         return new RDataDS(keyTag, algorithm, digestType, digest);
     }
-     */
 
-    /*
     private byte[] hexToBytes(String hex) {
         byte[] bytes = new byte[hex.length() / 2];
 
@@ -824,9 +819,7 @@ public class ZoneParser {
 
         return bytes;
     }
-     */
 
-    /*
     private RData parseRRSIG(int start) {
         int requiredFields = 9;
         if (tokenBuffer.size() - start < requiredFields) {
@@ -883,9 +876,7 @@ public class ZoneParser {
 
         return new RDataRRSIG(typeCovered, algorithm, labels, originalTtl, expiration, inception, keyTag, signerName, signature);
     }
-     */
 
-    /*
     private long parseRRSIGTime(ZoneToken t, String fieldName) {
         String literal = t.literal();
 
@@ -914,9 +905,7 @@ public class ZoneParser {
             return 0;
         }
     }
-     */
 
-    /*
     private RData parseNSEC(int start) {
         int requiredFields = 2;
         if (tokenBuffer.size() - start < requiredFields) {
@@ -948,9 +937,7 @@ public class ZoneParser {
 
         return new RDataNSEC(nextDomain, typeBitMaps);
     }
-     */
 
-    /*
     private byte[] buildTypeBitMaps(List<RRType> types) {
         int maxType = 0;
         for (RRType type : types) {
@@ -967,11 +954,7 @@ public class ZoneParser {
         }
         return bitmap;
     }
-     */
 
-
-
-    /*
     private RData parseNSEC3(int start) {
         int requiredFields = 5;
         if (tokenBuffer.size() - start < requiredFields) {
@@ -1014,9 +997,7 @@ public class ZoneParser {
         byte[] typeBitMaps = buildTypeBitMaps(types);
         return new RDataNSEC3(hashAlgorithm, flags, iterations, salt, nextHashedOwnerName, typeBitMaps);
     }
-     */
 
-    /*
     private RData parseNSEC3PARAM(int start) {
         int requiredFields = 4;
         if (tokenBuffer.size() - start < requiredFields) {
@@ -1044,9 +1025,7 @@ public class ZoneParser {
 
         return new RDataNSEC3PARAM(hashAlgorithm, flags, iterations, salt);
     }
-     */
 
-    /*
     private byte[] parseHexOrDash(ZoneToken token, String fieldName) {
         String literal = token.literal();
         if (literal.equals("-")) {
@@ -1059,7 +1038,6 @@ public class ZoneParser {
         }
         return hexToBytes(literal);
     }
-     */
 
     private String normalizeDomainName(String name) {
         if (name.equals("@")){ return origin; }
@@ -1067,11 +1045,9 @@ public class ZoneParser {
         return name + "." + origin;
     }
 
-    /*
     private int parseUInt8(ZoneToken token, String fieldName) {
         return parseUnsignedInt(token, fieldName, 0, 255);
     }
-     */
 
     private int parseUInt16(ZoneToken token, String fieldName) {
         return parseUnsignedInt(token, fieldName, 0, 65535);

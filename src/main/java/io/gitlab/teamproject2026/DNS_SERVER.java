@@ -561,7 +561,7 @@ public class DNS_SERVER {
         String id = "0x" + HexFormat.of().formatHex(idBytes);
 
         //first question for Trace-logs
-        
+
         logger.logTrace(PINK + "[TRACE] Received query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype()+ RESET);
 
         boolean authoritative = false;
@@ -614,7 +614,7 @@ public class DNS_SERVER {
                 logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN+ RESET);
             }
 
-            if(payload.notResolved.isEmpty() && !payload.answer.isEmpty() 
+            if(payload.notResolved.isEmpty() && !payload.answer.isEmpty()
                 && payload.authority.isEmpty() ){
             DNSPacket response = new DNSPacket();
             response.setId(oopPacket.getId());
@@ -702,7 +702,7 @@ public class DNS_SERVER {
                     for (ResourceRecord additional: payload.additional){
                         logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + " of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
                     }
-                    
+
         return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
     }
 
@@ -1083,7 +1083,7 @@ public class DNS_SERVER {
 
                 String referral = "";
                 for (ResourceRecord ns : parsedResponse.getAuthoritySections()){
-                    referral += String.join(".",((RDataNS)ns.getRdata()).getNsdname()) + ". , "; 
+                    referral += String.join(".",((RDataNS)ns.getRdata()).getNsdname()) + ". , ";
                 }
                 logger.logTrace(PINK + "[TRACE] Referal to: " + referral + RESET);
 
@@ -1108,7 +1108,7 @@ public class DNS_SERVER {
 
         }
 
-        
+
 
         return  payload;
     }

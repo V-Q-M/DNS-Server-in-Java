@@ -36,6 +36,34 @@ public class DNSPacket {
     private ResourceRecord[] authoritySections;
     private ResourceRecord[] additionalSections;
 
+    public DNSPacket(){}
+
+    public DNSPacket( byte[] id, boolean qr, OpCode opcode, boolean aa, boolean tc, boolean rd, boolean ra, byte z, RCode rcode, QuestionSection[] questionSections, ResourceRecord[] answerSections, ResourceRecord[] authoritySections, ResourceRecord[] additionalSections ) {
+        this.id = id;
+        this.qr = qr;
+        this.opcode = opcode;
+        this.aa = aa;
+        this.tc = tc;
+        this.rd = rd;
+        this.ra = ra;
+        this.z = z;
+        this.rcode = rcode;
+
+        this.questionSections =
+                questionSections != null ? questionSections : new QuestionSection[0];
+        this.answerSections =
+                answerSections != null ? answerSections : new ResourceRecord[0];
+        this.authoritySections =
+                authoritySections != null ? authoritySections : new ResourceRecord[0];
+        this.additionalSections =
+                additionalSections != null ? additionalSections : new ResourceRecord[0];
+
+        this.qdcount = this.questionSections.length;
+        this.ancount = this.answerSections.length;
+        this.nscount = this.authoritySections.length;
+        this.arcount = this.additionalSections.length;
+    }
+
     public byte[] getId() {
         return id;
     }
