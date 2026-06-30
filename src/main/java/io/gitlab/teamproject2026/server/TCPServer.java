@@ -14,8 +14,8 @@ import java.net.Socket;
 
 public class TCPServer extends AbstractServer{
 
-    public TCPServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
-        super(cacheHandler, zoneHandler, responseBuilder, bindAddress, portNumber, logger);
+    public TCPServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResolutionPipeline resolutionPipeline, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
+        super(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger);
     }
 
     @Override

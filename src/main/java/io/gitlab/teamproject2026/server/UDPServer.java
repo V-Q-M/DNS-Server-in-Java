@@ -18,8 +18,8 @@ import java.util.Arrays;
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
 
-    public UDPServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
-        super(cacheHandler, zoneHandler, responseBuilder, bindAddress, portNumber, logger);
+    public UDPServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResolutionPipeline resolutionPipeline, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
+        super(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger);
     }
 
     @Override

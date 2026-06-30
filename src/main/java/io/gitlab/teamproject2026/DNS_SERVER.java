@@ -11,11 +11,8 @@ import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.logging.*;
-import io.gitlab.teamproject2026.server.DNSPayload;
-import io.gitlab.teamproject2026.server.DNSResponseBuilder;
+import io.gitlab.teamproject2026.server.*;
 import io.gitlab.teamproject2026.resolver.*;
-import io.gitlab.teamproject2026.server.TCPServer;
-import io.gitlab.teamproject2026.server.UDPServer;
 import io.gitlab.teamproject2026.zones.ZoneManager;
 
 import java.net.*;
@@ -40,12 +37,13 @@ public class DNS_SERVER {
     private static final String BLUE   = "\u001B[34m";
     private static final String PINK = "\u001B[95m";
 
+    private static CacheHandler cacheHandler;
+    private static ZoneHandler zoneHandler;
     public static Config serverConfig;
     public static ResolverSection resolverOptions;
     private static StubResolver stubResolver;
     private static RecursiveResolver recursiveResolver;
-    private static CacheHandler cacheHandler;
-    private static ZoneHandler zoneHandler;
+    private static DNSResolutionPipeline resolutionPipeline;
     private static DNSResponseBuilder responseBuilder;
     public static Logger logger;
     private static List<String> zoneCatalog;
@@ -160,6 +158,7 @@ public class DNS_SERVER {
         stubResolver = new StubResolver( forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
         recursiveResolver = new RecursiveResolver( cacheHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
         responseBuilder = new DNSResponseBuilder(recursionAllowed);
+        resolutionPipeline = new DNSResolutionPipeline(cacheHandler, zoneHandler, resolverOptions, stubResolver, recursiveResolver, logger, zoneCatalog, minimalResponses, forwardMode, startTime);
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
@@ -178,8 +177,8 @@ public class DNS_SERVER {
         }
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();
-        new Thread(new UDPServer(cacheHandler, zoneHandler, responseBuilder, bindAddress, portNumber, logger)).start();
-        new Thread(new TCPServer(cacheHandler, zoneHandler, responseBuilder, bindAddress, portNumber, logger)).start();
+        new Thread(new UDPServer(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger)).start();
+        new Thread(new TCPServer(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger)).start();
         new Thread(new ZoneManager(zoneHandler, serverConfig, zoneCatalog, startTime, logger)).start();
     }
 
@@ -277,135 +276,6 @@ public class DNS_SERVER {
         }
     }
 
-    public static DNSPayload zoneLookUp(DNSPacket oopPacket, String id) {
-        DNSPayload payload = new DNSPayload(
-                new LinkedList<>(),
-                new LinkedList<>(),
-                new LinkedList<>(),
-                new LinkedList<>()
-        );
-        for (QuestionSection questionSection : oopPacket.getQuestionSections()) {
-            String currentName = questionSection.getNameString().toLowerCase();
-            Set<String> visited = new HashSet<>();
-
-            // Per RFC1034 4.3.2 step 3a: loop to follow CNAME chains.
-            // Each iteration is one restart of the algorithm with a potentially new QNAME.
-            // MAX_CNAME_HOPS guards against excessively long chains.
-            while (visited.size() < MAX_CNAME_HOPS && visited.add(currentName)) {
-
-                // Step 2: find the most specific authoritative zone for currentName
-                final String lookupName = currentName;
-                String zone = zoneCatalog
-                        .stream()
-                        .filter(e -> lookupName.equals(e) || lookupName.endsWith("." + e))
-                        .max(Comparator.comparingInt(String::length))
-                        .orElse(null);
-
-                if (zone == null) {
-                    // No authoritative zone for this name → cache/forward handle it
-                    QuestionSection fwdQuestion = new QuestionSection();
-                    fwdQuestion.setName(currentName.split("\\."));
-                    fwdQuestion.setQtype(questionSection.getQtype());
-                    fwdQuestion.setQclass(questionSection.getQclass());
-                    payload.notResolved().add(fwdQuestion);
-                    break;
-                }
-
-                // Step 3: we are authoritative for this domain
-                try {
-                    List<ResourceRecord> directMatches = zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
-
-                    if (!directMatches.isEmpty()) {
-                        // Step 3a: records found -> route to correct section per RFC1034 4.3.2
-
-                        logger.log(
-                            (DNSEvent.event(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
-                                    resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null).toHumanReadable()),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.INFO
-                        );
-
-                        for (ResourceRecord record : directMatches) {
-                            switch (record.getType()) {
-                                case NS -> {
-                                    // NS records go to authority section, consistent with queryCache
-                                    payload.authority().add(record);
-                                    // Step 6: add glue A/AAAA for the nameserver to additional
-                                    if (!minimalResponses) {
-                                        String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
-                                        try {
-                                            payload.additional().addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
-                                            payload.additional().addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
-                                        } catch (SQLException ignored) { /* glue records are best-effort */ }
-                                    }
-                                }
-                                case MX -> {
-                                    // MX records go to answer section
-                                    payload.answer().add(record);
-                                    // Step 6: add A/AAAA of mail exchange to additional
-                                    if (!minimalResponses) {
-                                        String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
-                                        try {
-                                            payload.additional().addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
-                                            payload.additional().addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
-                                        } catch (SQLException ignored) { /* additional records are best-effort */ }
-                                    }
-                                }
-                                // A, AAAA, CNAME, TXT, SOA, PTR -> directly to answer
-                                default -> payload.answer().add(record);
-                            }
-                        }
-                        logger.log(
-                                (GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET),
-                                LoggingCategoryType.GENERAL,
-                                LoggingSeverity.INFO,
-                                true
-                        );
-                        break; // records found -> done with this question
-                    }
-
-                    // No direct match -> check for CNAME (skip if QTYPE=CNAME, that is already answered above)
-                    if (questionSection.getQtype() != RRType.CNAME) {
-                        List<ResourceRecord> cnameMatches = zoneHandler.lookup(currentName, RRType.CNAME, zone);
-
-                        if (!cnameMatches.isEmpty()) {
-                            // Per RFC1034 4.3.2 step 3a: copy CNAME to answer,
-                            // then go back to step 1 with the new QNAME (= restart the while loop)
-                            payload.answer().addAll(cnameMatches);
-                            currentName = String.join(".",
-                                    ((RDataCNAME) cnameMatches.getFirst().getRdata()).getCname()).toLowerCase();
-                            continue; //  restart = "go back to step 1" per RFC
-                        }
-                    }
-
-                    // No record and no CNAME -> NXDOMAIN.
-                    // Question intentionally not added to notResolved; the caller detects
-                    // NXDOMAIN via (notResolved.isEmpty && answer.isEmpty && authority.isEmpty).
-                    logger.log(
-                            (YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET),
-                            LoggingCategoryType.QUERY_ERRORS,
-                            LoggingSeverity.WARNING,
-                            true
-                    );
-                    break;
-
-                } catch (SQLException e) {
-                    logger.log(
-                            (RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET),
-                            LoggingCategoryType.DEFAULT,
-                            LoggingSeverity.ERROR,
-                            true
-                    );
-                    payload.notResolved().add(questionSection); // fall back to cache/forward
-                    logCacheConnectionLost(startTime);
-                    break;
-                }
-            }
-            // If loop exits because visited.add(currentName) = false -> CNAME loop detected.
-            // CNAMEs found so far remain in answer; stub resolver will handle the rest.
-        }
-        return payload;
-    }
     public static DNSPayload cacheLookUp(DNSPayload payload, DNSPacket oopPacket, String id){
         // query cache and safe results in payload
         long cacheStart = System.currentTimeMillis();

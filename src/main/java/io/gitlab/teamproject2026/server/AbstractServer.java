@@ -29,14 +29,16 @@ public abstract class AbstractServer implements Runnable {
 
     protected final CacheHandler cacheHandler;
     protected final ZoneHandler zoneHandler;
+    protected final DNSResolutionPipeline resolutionPipeline;
     protected final DNSResponseBuilder responseBuilder;
     protected final Logger logger;
     protected final int portNumber;
     protected final InetAddress bindAddress;
 
-    public AbstractServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
+    public AbstractServer(CacheHandler cacheHandler, ZoneHandler zoneHandler,DNSResolutionPipeline resolutionPipeline, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
         this.cacheHandler = cacheHandler;
         this.zoneHandler = zoneHandler;
+        this.resolutionPipeline = resolutionPipeline;
         this.responseBuilder = responseBuilder;
         this.bindAddress = bindAddress;
         this.portNumber = portNumber;
@@ -70,7 +72,7 @@ public abstract class AbstractServer implements Runnable {
         if (cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
             logger.logTrace(PINK + "[TRACE] Try resolving query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones."+ RESET);
-            payload = DNS_SERVER.zoneLookUp(oopPacket, id);
+            payload = resolutionPipeline.zoneLookUp(oopPacket, id);
 
             // If recursion is disabled and something is outside our zones, REFUSE
             if (!DNS_SERVER.recursionAllowed && !payload.notResolved().isEmpty()) {
