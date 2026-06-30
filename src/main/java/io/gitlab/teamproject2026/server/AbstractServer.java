@@ -148,7 +148,7 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead"+ RESET );
             }
 
-            payload = DNS_SERVER.cacheLookUp(payload, oopPacket, id);
+            payload = resolutionPipeline.cacheLookUp(payload, oopPacket, id);
 
             if(payload.notResolved().isEmpty()){
                 logger.logTrace(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache"+ RESET);

@@ -4,30 +4,21 @@ import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.logging.Logger;
-import io.gitlab.teamproject2026.model.DNSPacket;
-import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.StubResolver;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
-import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.logging.DNSEvent;
 import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.ResponseSource;
-import io.gitlab.teamproject2026.model.ResourceRecord;
-import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 
 import java.sql.SQLException;
-import java.util.Comparator;
-
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class DNSResolutionPipeline {
     private static final int MAX_CNAME_HOPS = 8;
@@ -205,12 +196,233 @@ public class DNSResolutionPipeline {
     }
 
     public DNSPayload cacheLookUp(DNSPayload payload, DNSPacket packet, String id) {
-        throw new UnsupportedOperationException("Move cacheLookUp body here");
+        // query cache and safe results in payload
+        long cacheStart = System.currentTimeMillis();
+
+        // Only query cache for questions not already answered by zone lokup
+        // This preserves zone answers and prevents forwardigns authoritative domains
+        DNSPacket unresolvedPacket = new DNSPacket();
+        unresolvedPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
+
+        try {
+            DNSPayload cacheResult = queryCache(unresolvedPacket, cacheHandler);
+            for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
+                String domain = request.nameToString();
+                RRType qType = request.getQtype();
+                if (cacheResult.notResolved().contains(request)) {
+                    logger.log(
+                            (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.INFO,
+                            true
+                    );
+                    logger.log(
+                            (DNSEvent.event(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null).toHumanReadable()),
+                            LoggingCategoryType.QUERIES,
+                            LoggingSeverity.NOTICE
+                    );
+
+                } else {
+                    logger.log(
+                            (GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true
+                    );
+
+                    logger.log(
+                            (DNSEvent.event(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
+                                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null).toHumanReadable()),
+                            LoggingCategoryType.QUERIES,
+                            LoggingSeverity.INFO
+                    );
+                }
+
+            }
+            // Merge cache results with existing zone answers
+            payload.answer().addAll(cacheResult.answer());
+            payload.authority().addAll(cacheResult.authority());
+            payload.additional().addAll(cacheResult.additional());
+            return new DNSPayload(payload.answer(), payload.authority(), payload.additional(), cacheResult.notResolved());
+
+        } catch (SQLException e) {
+            // log
+            logger.log(
+                    (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE, null, null, null, -1,
+                            "Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
+            // payload.notResolved already has the unresolved questions from zone lookup,
+            // no need to add them again – just log them as misses for the stub resolver
+            for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
+                logger.log(
+                        (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
+                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null).toHumanReadable()),
+                        LoggingCategoryType.QUERIES,
+                        LoggingSeverity.NOTICE
+                );
+            }
+        }
+        return payload;
     }
+
+
+    // Cache internal logic
+
+    /**
+     * Queries the Cache using a given cacheHandler and a dns query. If the Cache
+     * contains the requested records, it returns them in the corresponding section
+     * of the Record.
+     * Also Returns A and AAAA records for NS and MX records
+     * Packets that couldn't be resolved with the cache itself are stored in the
+     * notResolved part of the record
+     *
+     * @param query        the DNS query which is to be resolved
+     * @param cacheHandler the CacheHandler with which the function accesses the
+     *                     cache
+     * @return A DNSPayload record containing the resolved Records and the Records
+     *         that have yet to be resolved
+     * @throws SQLException if the cache cannot be accessed
+     */
+    public DNSPayload queryCache(DNSPacket query, CacheHandler cacheHandler) throws SQLException {
+
+        LinkedList<ResourceRecord> answer = new LinkedList<>();
+        LinkedList<ResourceRecord> authority = new LinkedList<>();
+        LinkedList<ResourceRecord> additional = new LinkedList<>();
+        LinkedList<QuestionSection> notCached = new LinkedList<>();
+
+        try {
+
+            // for each query, check if the requested RR is cached, if not add to the
+            // Queries sent to the StubResolver
+            for (QuestionSection request : query.getQuestionSections()) {
+                String qname = String.join(".", request.getName());
+                ResourceRecord[] cachedRecords = cacheHandler.lookup(qname, request.getQtype());
+
+                if (cachedRecords.length != 0) {
+                    for (ResourceRecord record : cachedRecords) {
+                        switch (record.getType()) {
+                            case NS: {
+                                if (request.getQtype() == RRType.NS) {
+                                    answer.add(record);
+                                } else {
+                                    authority.add(record);
+                                }
+                                if (!minimalResponses) {
+                                    String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
+                                    Collections.addAll(additional, cacheHandler.lookup(nsHost, RRType.A));
+                                    Collections.addAll(additional, cacheHandler.lookup(nsHost, RRType.AAAA));
+                                }
+                                break;
+                            }
+                            case MX: {
+                                answer.add(record);
+                                if (!minimalResponses) {
+                                    String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
+                                    Collections.addAll(additional, cacheHandler.lookup(mxHost, RRType.A));
+                                    Collections.addAll(additional, cacheHandler.lookup(mxHost, RRType.AAAA));
+                                }
+                                break;
+                            }
+                            case A, AAAA, TXT, SOA, PTR, CNAME:
+                                answer.add(record);
+                        }
+                    }
+                } else if (request.getQtype() != RRType.CNAME) {
+                    // CNAME-type queries are handled by the direct lookup above
+                    // this branch only follows an alias when a different record type was requested
+                    if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached,
+                            cacheHandler)) {
+                        notCached.add(request);
+                    }
+                } else {
+                    notCached.add(request);
+                }
+            }
+        } catch (SQLException e) {
+            logger.log(
+                    (RED + "[DATABASE-ERROR] Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?" + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true
+            );
+            throw e;
+        }
+
+        return new DNSPayload(answer, authority, additional, notCached);
+    }
+
+    // Follows a CNAME chain for "name" through the cache, hop by hop, until it reaches a
+    // record of the requested targetType (e.g. A). Three outcomes:
+    //
+    //   full hit    - the whole chain AND the final target records are cached:
+    //                 append them all to "answer" and return true.
+    //   partial hit - the alias(es) are cached but the final target is not:
+    //                 append the cached CNAME(s) to "answer" and add the still-missing name
+    //                 to "notResolved" so the stub only resolves the remaining tail; return true.
+    //   no help     - return false and change nothing, so the caller forwards the original
+    //                 query. Happens when "name" has no cached CNAME, the chain loops, or it
+    //                 is longer than MAX_CNAME_HOPS.
+    private static boolean resolveCnameFromCache(
+            String name, RRType targetType, RRClass targetClass,
+            LinkedList<ResourceRecord> answer,
+            LinkedList<QuestionSection> notCached,
+            CacheHandler cacheHandler) throws SQLException {
+        String current = name.toLowerCase();
+        LinkedList<ResourceRecord> chain = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+
+        for (int hop = 0; hop < MAX_CNAME_HOPS; hop++) {
+            // visited.add returns false if current was already seen -> CNAME loop,
+            // bail out (committing nothing) and let the StubResolver handle it
+            if (!visited.add(current)) return false;
+
+            ResourceRecord[] cnames = cacheHandler.lookup(current, RRType.CNAME);
+            if (cnames.length == 0) {
+                // Reached the end of the cached chain.
+                if (chain.isEmpty()) return false; // no alias at the queried name -> forward whole query
+                // Partial hit: the alias(es) are cached but the terminal record is not.
+                // Commit the cached CNAME(s) and forward only the unresolved tail, so the
+                // chain is always completed by the stub (never a dangling CNAME-only answer).
+                answer.addAll(chain);
+                QuestionSection tail = new QuestionSection();
+                tail.setName(current.split("\\."));
+                tail.setQtype(targetType);
+                tail.setQclass(targetClass);
+                notCached.add(tail);
+                return true;
+            }
+
+            chain.add(cnames[0]);
+            String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname()).toLowerCase();
+
+            ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
+            if (targetRecords.length > 0) {
+                // Full hit: the whole chain and its terminal records are cached.
+                answer.addAll(chain);
+                Collections.addAll(answer, targetRecords);
+                return true;
+            }
+
+            current = target;
+        }
+
+        // Chain longer than MAX_CNAME_HOPS without resolving
+        // forward the whole query to the stub
+        return false;
+    }
+
+
 
     public DNSPayload resolveUpstream(DNSPayload payload, byte[] data) {
         throw new UnsupportedOperationException("Move queryResolver body here");
     }
+
+
+
+
 
 
 
