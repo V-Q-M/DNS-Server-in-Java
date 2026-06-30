@@ -5,22 +5,22 @@ import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.*;
-import io.gitlab.teamproject2026.config.zones.*;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.database.*;
 import io.gitlab.teamproject2026.logging.*;
-import io.gitlab.teamproject2026.model.rdata.RDataSOA;
+import io.gitlab.teamproject2026.server.DNSPayload;
+import io.gitlab.teamproject2026.server.DNSResponseBuilder;
 import io.gitlab.teamproject2026.resolver.*;
+import io.gitlab.teamproject2026.server.TCPServer;
+import io.gitlab.teamproject2026.server.UDPServer;
+import io.gitlab.teamproject2026.zones.ZoneManager;
 
-
-import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.sql.SQLException;
-
 
 /**
  * Main entry point of the DNS server.
@@ -31,7 +31,6 @@ public class DNS_SERVER {
     private static final int DEFAULT_PORT = 4242;
     private static final String DEFAULT_IP = "0.0.0.0";
 
-    private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
     private static final int MAX_CNAME_HOPS = 8;
 
     private static final String RESET  = "\u001B[0m";
@@ -41,19 +40,15 @@ public class DNS_SERVER {
     private static final String BLUE   = "\u001B[34m";
     private static final String PINK = "\u001B[95m";
 
-
-
-    // If true, disable glue data to improve performance
-    private static boolean minimalResponses = false;
-
-    private static Config serverConfig;
-    private static ResolverSection resolverOptions;
-    private static List<String> zoneCatalog;
+    public static Config serverConfig;
+    public static ResolverSection resolverOptions;
     private static StubResolver stubResolver;
     private static RecursiveResolver recursiveResolver;
     private static CacheHandler cacheHandler;
     private static ZoneHandler zoneHandler;
+    private static DNSResponseBuilder responseBuilder;
     public static Logger logger;
+    private static List<String> zoneCatalog;
 
     private static int portNumber;
     private static String bindIP;
@@ -66,286 +61,24 @@ public class DNS_SERVER {
         recursion yes + FORWARD_FIRST -> Try forwarding first, then resolve everything yourself (plus answer local zones)
         recursion yes + FORWARD_ONLY  -> never resolve yourself, forward everything (plus answer local zones)
      */
-    private static boolean recursionAllowed;
+    public static boolean recursionAllowed;
     private static ForwardMode forwardMode;
+    // If true, disable glue data to improve performance
+    private static boolean minimalResponses = false;
 
     private static long startTime;
-
-    /**
-     * Intermediate result used while resolving a DNS query, separating
-     * resolved records from questions that still require further processing.
-     */
-    public record DNSPayload(
-            LinkedList<ResourceRecord> answer,
-            LinkedList<ResourceRecord> authority,
-            LinkedList<ResourceRecord> additional,
-            LinkedList<QuestionSection> notResolved) {
-    }
 
     /**
      * Initializes the server and starts the UDP, TCP, and zone refresh workers.
      */
     static void main(String[] args) {
         initializeServer(args);
-        new Thread(DNS_SERVER::handleCacheCleanUp).start();
-        new Thread(DNS_SERVER::handleUDP).start();
-        new Thread(DNS_SERVER::handleTCP).start();
-        new Thread(DNS_SERVER::handleZoneRefresh).start();
-    }
-
-    // Check if it's time to refresh the zones and perform the refresh if needed
-    private static void handleZoneRefresh() {
-        OptionSection options = serverConfig.options();
-        String dir = options.dir();
-        Map<String, Long> lastRefreshZoneBy = new HashMap<>();
-
-        while (!Thread.currentThread().isInterrupted()) {
-            long now = System.currentTimeMillis();
-
-            for (String zone : zoneCatalog) {
-                try {
-                    RDataSOA zoneSoa = zoneHandler.lookupZoneSoa(zone);
-                    long refreshMillis = zoneSoa.getRefresh() * 1000L;
-                    long lastRefresh = lastRefreshZoneBy.getOrDefault(zone, startTime);
-                    if (now - lastRefresh < refreshMillis) {
-                        continue;
-                    }
-                    logger.log(
-                        (BLUE + "[ZONE] Starting zone refresh for \"" + zone + "\"" + RESET),
-                            LoggingCategoryType.CONFIG,
-                            LoggingSeverity.NOTICE,
-                            true
-                        );
-
-                    lastRefreshZoneBy.put(zone, now);
-
-                    String file = findZoneFile(zone);
-                    if (file == null) {
-                        continue;
-                    }
-
-                    DNSZone newLoadedZone = ConfigManager.loadZoneFile(dir, file, zone);
-
-                    if (newLoadedZone != null) {
-                        logger.log(
-                            ("[ZONE] Comparing local serial: " + newLoadedZone.serial() + " to cached serial: " + zoneSoa.getSerial()),
-                                LoggingCategoryType.CONFIG,
-                                LoggingSeverity.INFO,
-                                true
-                            );
-                        if (newLoadedZone.serial() != zoneSoa.getSerial()) {
-                            logger.log(
-                                    (YELLOW + "[ZONE] File: \"" + file + "\" changed, reloading zone..." + RESET),
-                                    LoggingCategoryType.CONFIG,
-                                    LoggingSeverity.NOTICE,
-                                    true
-                            );
-                            zoneHandler.replaceZone(newLoadedZone);
-                        } else {
-                            logger.log(
-                                (GREEN + "[ZONE] Serials match -> Nothing to do" + RESET),
-                                    LoggingCategoryType.CONFIG,
-                                    LoggingSeverity.INFO,
-                                    true
-                                );
-                        }
-                    }
-
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        return;
-                    }
-                } catch (SQLException e) {
-                    logger.log(
-                            (RED + "[DATABASE-ERROR] Couldn't query SOA record of: \"" + zone + "\"" + RESET),
-                            LoggingCategoryType.QUERY_ERRORS,
-                            LoggingSeverity.ERROR,
-                            true
-                    );
-
-                }
-            }
-        }
-    }
-
-    private static String findZoneFile(String origin){
-        for (ZoneSection zoneSection : serverConfig.zones()){
-            if (zoneSection.name().equalsIgnoreCase(origin)){
-                return zoneSection.file();
-            }
-        }
-        return null;
-    }
-
-    private static void handleUDP(){
-        // Open UDP socket
-        try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
-            logger.log(
-                    (GREEN + "[SERVER] UDP server listening on " + bindIP + ":" + portNumber + RESET),
-                    LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.NOTICE,
-                    true
-            );
-
-            // Buffer necessary to store the packet
-            byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
-
-            // Server loop
-            while (true) {
-                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.receive(packet);
-
-                // Received DNS packet is stored here
-                byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
-
-                // Store the client IP and client Port for further use
-                InetAddress clientAddress = packet.getAddress();
-                int clientPort = packet.getPort();
-
-                logger.log(
-                        (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.NOTICE,
-                        true
-                );
-                    // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                logger.log(
-                        ("[SERVER] IN: " + toHex(data)),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.INFO,
-                        true
-                );
-
-                // Handle the query and receive a byte array as response
-                byte[] byteResponse = handleUDPQuery(data);
-
-                // Build UDP packet
-                DatagramPacket responsePacket = new DatagramPacket(
-                        byteResponse,
-                        byteResponse.length,
-                        clientAddress,
-                        clientPort);
-
-                // Actually send the packet over our socket
-                socket.send(responsePacket);
-
-                logger.log(
-                    (BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.NOTICE,
-                        true
-                    );
-                logger.log(
-                    ("[SERVER] OUT: " + toHex(byteResponse)),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.INFO,
-                        true
-                );
-            }
-        } catch (IOException e){
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static void handleTCP(){
-        // Open TCP socket
-        try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress)) {
-            logger.log(
-                    (GREEN + "[SERVER] TCP server listening on " + bindIP + ":" + portNumber + RESET),
-                    LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.NOTICE,
-                    true
-            );
-
-            // Server loop
-            while (true) {
-                try (Socket socket = serverSocket.accept()) {
-                    DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-                    DataOutputStream output = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-
-
-                    InetAddress clientAddress = socket.getInetAddress();
-                    int clientPort = socket.getPort();
-
-                    int length = input.readUnsignedShort();
-                    byte[] data = input.readNBytes(length);
-
-                    if (data.length != length) {
-                            logger.log(
-                                    (RED + "[SERVER-ERROR] Incomplete DNS query" + RESET),
-                                    LoggingCategoryType.QUERY_ERRORS,
-                                    LoggingSeverity.ERROR,
-                                    true
-                            );
-                        continue;
-                    }
-
-                    logger.log(
-                        (BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.NOTICE,
-                            true
-                        );
-
-                    logger.log(
-                        ("[SERVER] IN: " + toHex(data)),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.INFO,
-                            true
-                    );
-
-                    byte[] response = handleQuery(data);
-
-                    if (response.length > 65535) {
-                        logger.log(
-                                (RED + "[SERVER-ERROR] TCP DNS response too large" + RESET),
-                                LoggingCategoryType.DEFAULT,
-                                LoggingSeverity.ERROR,
-                                true
-                        );
-                        continue;
-                    }
-
-                    output.writeShort(response.length);
-                    output.write(response);
-                    output.flush();
-
-                    logger.log(
-                        (BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.NOTICE,
-                            true
-                        );
-
-                    logger.log(
-                        ("[SERVER] OUT: " + toHex(response)),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.INFO,
-                            true
-                    );
-
-
-                } catch (IOException e) {
-                    logger.log(
-                            (RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET),
-                            LoggingCategoryType.DEFAULT,
-                            LoggingSeverity.ERROR,
-                            true
-                    );
-                }
-            }
-        } catch (IOException e){
-            throw new RuntimeException(e);
-        }
     }
 
     /**
      * Initializes the server state from configuration and command-line arguments.
      */
     private static void initializeServer(String[] args){
-
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // named.conf
@@ -367,7 +100,7 @@ public class DNS_SERVER {
 
         // load zones into the database and store the zone names for easy lookup
         if(zoneHandler != null){
-            zoneCatalog = loadZonesFromConf(serverConfig);
+            zoneCatalog = ConfigManager.loadZonesFromConf(zoneHandler, serverConfig);
         } else {
             logger.log(
                     (RED + "[DATABASE] No zone handler found, skipping zones" + RESET),
@@ -424,10 +157,9 @@ public class DNS_SERVER {
         List<NameServer> forwarders = options.forwarders().stream()
                 .map(ip -> new NameServer(ip, 53, ip))
                 .toList();
-        stubResolver = new StubResolver(
-                forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
-        recursiveResolver = new RecursiveResolver(
-                cacheHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
+        stubResolver = new StubResolver( forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
+        recursiveResolver = new RecursiveResolver( cacheHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
+        responseBuilder = new DNSResponseBuilder(recursionAllowed);
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
@@ -445,6 +177,10 @@ public class DNS_SERVER {
             }
         }
 
+        new Thread(DNS_SERVER::handleCacheCleanUp).start();
+        new Thread(new UDPServer(cacheHandler, zoneHandler, responseBuilder, bindAddress, portNumber, logger)).start();
+        new Thread(new TCPServer(cacheHandler, zoneHandler, responseBuilder, bindAddress, portNumber, logger)).start();
+        new Thread(new ZoneManager(zoneHandler, serverConfig, zoneCatalog, startTime, logger)).start();
     }
 
     private static void applyCliArgs(String[] args) {
@@ -541,219 +277,7 @@ public class DNS_SERVER {
         }
     }
 
-    /**
-     * Handles an incoming DNS query and produces the corresponding response.
-     */
-    private static byte[] handleQuery(byte[] data){
-        // Map byteData to oop classes
-        DNSPacket oopPacket = DNSPacket.fromBytes(data);
-
-        // Uncomment this if you need to debug outgoing packets
-        //IO.println("[SERVER] Assembled Packet:\n" + oopPacket);
-
-        // Respond: If requested RR is cached, return RR else return stub Response
-
-        DNSPayload payload = new DNSPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(),
-                new LinkedList<>());
-
-        //needed for cache logging:
-        byte[] idBytes = oopPacket.getId();
-        String id = "0x" + HexFormat.of().formatHex(idBytes);
-
-        //first question for Trace-logs
-
-        logger.logTrace(PINK + "[TRACE] Received query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype()+ RESET);
-
-        boolean authoritative = false;
-        if (cacheHandler != null && zoneHandler != null) {
-            // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
-            logger.logTrace(PINK + "[TRACE] Try resolving query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones."+ RESET);
-            payload = zoneLookUp(oopPacket, id);
-
-            // If recursion is disabled and something is outside our zones, REFUSE
-            if (!recursionAllowed && !payload.notResolved.isEmpty()) {
-                logger.log(
-                        (RED + "[SERVER] Received a foreign query but recursion is currently not allowed!" ),
-                        LoggingCategoryType.QUERY_ERRORS,
-                        LoggingSeverity.ERROR,
-                        true
-                );
-                DNSPacket response = buildResponsePacket(payload, oopPacket, false);
-                response.setRd(oopPacket.isRd());
-                response.setRa(false);
-                response.setRcode(RCode.REFUSED);
-
-                // keep only authoritative data we already found, if any
-                response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
-                response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
-                response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[0]));
-
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" not contained in Zones but no recursion allowed. Return " + RCode.REFUSED+ RESET);
-
-                return serializeResponsePacket(response);
-            }
-
-
-            // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
-            // True NXDOMAIN only when ALL sections are empty:
-            // authority may contain NS records from an authoritative zone answer
-
-            if (payload.notResolved.isEmpty() && payload.answer.isEmpty() && payload.authority.isEmpty()) {
-                DNSPacket response = new DNSPacket();
-                response.setId(oopPacket.getId());
-                response.setOpcode(oopPacket.getOpcode());
-                response.setAa(true);
-                response.setRd(oopPacket.isRd());
-                response.setRa(recursionAllowed);
-                response.setRcode(RCode.NXDOMAIN);
-                response.setQuestionSections(oopPacket.getQuestionSections());
-                response.setAnswerSections(new ResourceRecord[0]);
-                response.setAuthoritySections(new ResourceRecord[0]);
-                response.setAdditionalSections(new ResourceRecord[0]);
-
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN+ RESET);
-            }
-
-            if(payload.notResolved.isEmpty() && !payload.answer.isEmpty()
-                && payload.authority.isEmpty() ){
-            DNSPacket response = new DNSPacket();
-            response.setId(oopPacket.getId());
-            response.setOpcode(oopPacket.getOpcode());
-            response.setAa(true);
-            response.setRd(oopPacket.isRd());
-            response.setRa(recursionAllowed);
-            response.setRcode(RCode.NXDOMAIN);
-            response.setQuestionSections(oopPacket.getQuestionSections());
-            response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
-            response.setAuthoritySections(new ResourceRecord[0]);
-            response.setAdditionalSections(new ResourceRecord[0]);
-
-            logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones"+ RESET
-            );
-            for (ResourceRecord answer: payload.answer){
-                logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
-            }
-            for (ResourceRecord authority: payload.authority){
-                logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-            }
-            for (ResourceRecord additional: payload.additional){
-                logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-            }
-
-            return serializeResponsePacket(response);
-        }
-
-            // Step 2: Cache lookup only for questions not resolved by zone
-            if(payload.notResolved.isEmpty()){
-                authoritative = true;
-            }
-
-            if(!payload.notResolved.isEmpty()){
-                logger.logTrace(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead"+ RESET );
-            }
-
-            payload = cacheLookUp(payload, oopPacket, id);
-
-            if(payload.notResolved.isEmpty()){
-                logger.logTrace(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache"+ RESET);
-                for (ResourceRecord answer: payload.answer){
-                    logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
-                }
-                for (ResourceRecord authority: payload.authority){
-                    logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-                }
-                for (ResourceRecord additional: payload.additional){
-                    logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-                }
-            } else {
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " could not be resolved from Cache, try Resolver instead."+ RESET);
-            }
-
-        } else {
-            // if Cache can't be reached
-            for (QuestionSection request : oopPacket.getQuestionSections()) {
-                payload.notResolved.add(request);
-
-                logger.logTrace(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache or Zone due to missing database connection, try Resolver instead."+ RESET);
-
-
-                logger.log(
-                    (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null).toHumanReadable()),
-                    LoggingCategoryType.QUERIES,
-                    LoggingSeverity.NOTICE
-                );
-
-            }
-        }
-        // Stub/RecursiveResolver should only be queried if there are queries not answered by the
-        // cache and recursion is allowed
-        if (recursionAllowed && !payload.notResolved.isEmpty()) {
-            payload = queryResolver(payload, data);
-        }
-
-        logger.logTrace(PINK+ "[TRACE] Query: " + String.join(".", String.join(".",oopPacket.getQuestionSection(0).getName())+"." + " was successfully resolved" + RESET));
-                    for (ResourceRecord answer: payload.answer){
-                        logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + " of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
-                    }
-                    for (ResourceRecord authority: payload.authority){
-                        logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + " of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-                    }
-                    for (ResourceRecord additional: payload.additional){
-                        logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + " of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-                    }
-
-        return serializeResponsePacket(buildResponsePacket(payload, oopPacket, authoritative));
-    }
-
-
-    /*
-    Specialized version of handleQuery which also checks for truncated response
-     */
-    private static byte[] handleUDPQuery(byte[] data) {
-        byte[] byteResponse = handleQuery(data);
-
-        if (byteResponse.length <= 512) {
-            return byteResponse;
-        }
-
-        DNSPacket query = DNSPacket.fromBytes(data);
-        DNSPacket response = DNSPacket.fromBytes(byteResponse);
-
-        // For now: return only header + original question.
-        // Client should retry over TCP.
-        response.setTc(true);
-        response.setAnswerSections(new ResourceRecord[0]);
-        response.setAuthoritySections(new ResourceRecord[0]);
-        response.setAdditionalSections(new ResourceRecord[0]);
-        response.setQuestionSections(query.getQuestionSections());
-
-        return response.toBytes();
-    }
-
-
-
-    private static byte[] serializeResponsePacket(DNSPacket response) {
-
-        // convert response packet to Bytes
-        byte[] byteResponse = response.toBytes();
-
-        /* obsolete?
-
-        // if DNS-Packet exceeds maximum UDP Payload size, truncate it and set the tc
-        // flag
-        if (byteResponse.length >= UDP_MAX_PAYLOAD_SIZE) {
-            byte[] byteResponseTruncated = new byte[UDP_MAX_PAYLOAD_SIZE];
-            response.setTc(true);
-            byte[] truncatedSource = response.toBytes();
-            System.arraycopy(truncatedSource, 0, byteResponseTruncated, 0, UDP_MAX_PAYLOAD_SIZE);
-            byteResponse = byteResponseTruncated;
-        }
-
-         */
-        return byteResponse;
-    }
-    private static DNSPayload zoneLookUp(DNSPacket oopPacket, String id) {
+    public static DNSPayload zoneLookUp(DNSPacket oopPacket, String id) {
         DNSPayload payload = new DNSPayload(
                 new LinkedList<>(),
                 new LinkedList<>(),
@@ -783,7 +307,7 @@ public class DNS_SERVER {
                     fwdQuestion.setName(currentName.split("\\."));
                     fwdQuestion.setQtype(questionSection.getQtype());
                     fwdQuestion.setQclass(questionSection.getQclass());
-                    payload.notResolved.add(fwdQuestion);
+                    payload.notResolved().add(fwdQuestion);
                     break;
                 }
 
@@ -805,30 +329,30 @@ public class DNS_SERVER {
                             switch (record.getType()) {
                                 case NS -> {
                                     // NS records go to authority section, consistent with queryCache
-                                    payload.authority.add(record);
+                                    payload.authority().add(record);
                                     // Step 6: add glue A/AAAA for the nameserver to additional
                                     if (!minimalResponses) {
                                         String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());
                                         try {
-                                            payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
-                                            payload.additional.addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
+                                            payload.additional().addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
+                                            payload.additional().addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
                                         } catch (SQLException ignored) { /* glue records are best-effort */ }
                                     }
                                 }
                                 case MX -> {
                                     // MX records go to answer section
-                                    payload.answer.add(record);
+                                    payload.answer().add(record);
                                     // Step 6: add A/AAAA of mail exchange to additional
                                     if (!minimalResponses) {
                                         String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
                                         try {
-                                            payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
-                                            payload.additional.addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
+                                            payload.additional().addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
+                                            payload.additional().addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
                                         } catch (SQLException ignored) { /* additional records are best-effort */ }
                                     }
                                 }
                                 // A, AAAA, CNAME, TXT, SOA, PTR -> directly to answer
-                                default -> payload.answer.add(record);
+                                default -> payload.answer().add(record);
                             }
                         }
                         logger.log(
@@ -847,7 +371,7 @@ public class DNS_SERVER {
                         if (!cnameMatches.isEmpty()) {
                             // Per RFC1034 4.3.2 step 3a: copy CNAME to answer,
                             // then go back to step 1 with the new QNAME (= restart the while loop)
-                            payload.answer.addAll(cnameMatches);
+                            payload.answer().addAll(cnameMatches);
                             currentName = String.join(".",
                                     ((RDataCNAME) cnameMatches.getFirst().getRdata()).getCname()).toLowerCase();
                             continue; //  restart = "go back to step 1" per RFC
@@ -872,7 +396,7 @@ public class DNS_SERVER {
                             LoggingSeverity.ERROR,
                             true
                     );
-                    payload.notResolved.add(questionSection); // fall back to cache/forward
+                    payload.notResolved().add(questionSection); // fall back to cache/forward
                     logCacheConnectionLost(startTime);
                     break;
                 }
@@ -882,21 +406,21 @@ public class DNS_SERVER {
         }
         return payload;
     }
-    private static DNSPayload cacheLookUp(DNSPayload payload, DNSPacket oopPacket, String id){
+    public static DNSPayload cacheLookUp(DNSPayload payload, DNSPacket oopPacket, String id){
         // query cache and safe results in payload
         long cacheStart = System.currentTimeMillis();
 
         // Only query cache for questions not already answered by zone lokup
         // This preserves zone answers and prevents forwardigns authoritative domains
         DNSPacket unresolvedPacket = new DNSPacket();
-        unresolvedPacket.setQuestionSections(payload.notResolved.toArray(new QuestionSection[0]));
+        unresolvedPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
 
         try {
             DNSPayload cacheResult = queryCache(unresolvedPacket, cacheHandler);
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
-                if (cacheResult.notResolved.contains(request)) {
+                if (cacheResult.notResolved().contains(request)) {
                     logger.log(
                             (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
                             LoggingCategoryType.GENERAL,
@@ -927,10 +451,10 @@ public class DNS_SERVER {
 
             }
             // Merge cache results with existing zone answers
-            payload.answer.addAll(cacheResult.answer);
-            payload.authority.addAll(cacheResult.authority);
-            payload.additional.addAll(cacheResult.additional);
-            return new DNSPayload(payload.answer, payload.authority, payload.additional, cacheResult.notResolved);
+            payload.answer().addAll(cacheResult.answer());
+            payload.authority().addAll(cacheResult.authority());
+            payload.additional().addAll(cacheResult.additional());
+            return new DNSPayload(payload.answer(), payload.authority(), payload.additional(), cacheResult.notResolved());
 
         } catch (SQLException e) {
             // log
@@ -955,14 +479,14 @@ public class DNS_SERVER {
         return payload;
     }
 
-    private static DNSPayload queryResolver(DNSPayload payload, byte[] data){
+    public static DNSPayload queryResolver(DNSPayload payload, byte[] data){
         // Build packet to be sent to Stub/recursive resolver
         // The ID should not have to be changed, as the Server should not receive any
         // other packages using this ID from the original sender
         DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
         uncachedOOPacket.setQuestionSections(
-                payload.notResolved.toArray(new QuestionSection[0]));
-        uncachedOOPacket.setQdcount(payload.notResolved.size());
+                payload.notResolved().toArray(new QuestionSection[0]));
+        uncachedOOPacket.setQdcount(payload.notResolved().size());
 
         // Get Stub/recursive response
         byte[] rawResponse=null;
@@ -1031,8 +555,8 @@ public class DNS_SERVER {
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         //----------------------------ReferralAnalyzer-------------------------------------------------
-        RRType queryType = payload.notResolved.isEmpty() ? RRType.A :
-                payload.notResolved.getFirst().getQtype();
+        RRType queryType = payload.notResolved().isEmpty() ? RRType.A :
+                payload.notResolved().getFirst().getQtype();
         //stub response
         ReferralAnalyzer.Classification classification=
                 ReferralAnalyzer.classify(parsedResponse, queryType);
@@ -1261,59 +785,6 @@ public class DNS_SERVER {
     }
 
 
-    /**
-     * Build a response packet given a Payload for a given query
-     *
-     * @param payload The Payload that is to be put into the response packet
-     * @param query   The Query that is to be answered
-     * @return a DNS-Packet in oop format
-     */
-    private static DNSPacket buildResponsePacket(DNSPayload payload, DNSPacket query, boolean authoritative) {
-        DNSPacket response = new DNSPacket();
-        response.setId(query.getId());
-        response.setOpcode(query.getOpcode());
-
-        response.setAa(authoritative); // AA=true only for answers served from our own zone
-        response.setRd(query.isRd());
-        response.setRa(recursionAllowed);
-        response.setRcode(RCode.NOERROR);
-        response.setQuestionSections(query.getQuestionSections());
-        response.setAnswerSections(payload.answer.toArray(new ResourceRecord[0]));
-        response.setAuthoritySections(payload.authority.toArray(new ResourceRecord[0]));
-        response.setAdditionalSections(payload.additional.toArray(new ResourceRecord[0]));
-        return response;
-    }
-
-
-
-    // Config helper
-    private static List<String> loadZonesFromConf(Config config) {
-        OptionSection options = config.options();
-        String dir = options.dir();
-        List<ZoneSection> declaredZones = config.zones();
-
-        List<String> zoneCatalog = new ArrayList<>();
-        try{
-            zoneHandler.clearAll();
-            for (ZoneSection zone : declaredZones) {
-                // Collect all zones specified in the config
-                DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
-                if (loadedZone != null) {
-                    zoneHandler.insertZone(loadedZone);
-                    zoneCatalog.add(zone.name());
-                }
-            }
-        } catch (Exception e) {
-            logger.log(
-                    (RED + "[DATABASE-ERROR] Failed to insert zone files to the zone database, continuing without it" + RESET),
-                    LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.ERROR,
-                    true
-            );
-        }
-        return zoneCatalog;
-    }
-
     // Log helpers
     private static void logCacheConnectionLost(long startTime) {
         logger.log(
@@ -1334,16 +805,4 @@ public class DNS_SERVER {
     }
 
 
-    // Utilities
-
-    // Small helper method to convert byte packets into hex
-    private static String toHex(byte[] bytes) {
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (byte b : bytes) {
-            stringBuilder.append(String.format("%02X ", b));
-        }
-
-        return stringBuilder.toString().trim();
-    }
 }

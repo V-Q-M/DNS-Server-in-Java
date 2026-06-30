@@ -8,6 +8,8 @@ import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSection;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.OptionSection;
+import io.gitlab.teamproject2026.config.zones.ZoneSection;
+import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
@@ -114,6 +116,35 @@ public class ConfigManager {
         logger = new Logger(config.logging());
         return config;
     }
+
+    // Config helper
+    public static List<String> loadZonesFromConf(ZoneHandler zoneHandler, Config config) {
+        OptionSection options = config.options();
+        String dir = options.dir();
+        List<ZoneSection> declaredZones = config.zones();
+
+        List<String> zoneCatalog = new ArrayList<>();
+        try{
+            zoneHandler.clearAll();
+            for (ZoneSection zone : declaredZones) {
+                // Collect all zones specified in the config
+                DNSZone loadedZone = ConfigManager.loadZoneFile(dir, zone.file(), zone.name());
+                if (loadedZone != null) {
+                    zoneHandler.insertZone(loadedZone);
+                    zoneCatalog.add(zone.name());
+                }
+            }
+        } catch (Exception e) {
+            logger.log(
+                    (RED + "[DATABASE-ERROR] Failed to insert zone files to the zone database, continuing without it" + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.ERROR,
+                    true
+            );
+        }
+        return zoneCatalog;
+    }
+
 
     /**
      * Loads and parses a DNS zone file into a {@link DNSZone}.
