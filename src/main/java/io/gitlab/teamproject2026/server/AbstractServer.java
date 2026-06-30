@@ -148,7 +148,7 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead"+ RESET );
             }
 
-            payload = resolutionPipeline.cacheLookUp(payload, oopPacket, id);
+            payload = resolutionPipeline.cacheLookUp(payload, id);
 
             if(payload.notResolved().isEmpty()){
                 logger.logTrace(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache"+ RESET);
@@ -175,7 +175,7 @@ public abstract class AbstractServer implements Runnable {
 
                 logger.log(
                         (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), 0L, ResponseSource.CACHE,
-                                DNS_SERVER.resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null).toHumanReadable()),
+                                resolutionPipeline.resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "testing is active, do not check cache", null).toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.NOTICE
                 );
@@ -185,7 +185,7 @@ public abstract class AbstractServer implements Runnable {
         // Stub/RecursiveResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
         if (DNS_SERVER.recursionAllowed && !payload.notResolved().isEmpty()) {
-            payload = DNS_SERVER.queryResolver(payload, data);
+            payload = resolutionPipeline.resolveUpstream(payload, data);
         }
 
         logger.logTrace(PINK+ "[TRACE] Query: " + String.join(".", String.join(".",oopPacket.getQuestionSection(0).getName())+"." + " was successfully resolved" + RESET));

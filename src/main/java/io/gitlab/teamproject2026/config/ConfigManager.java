@@ -1,7 +1,6 @@
 package io.gitlab.teamproject2026.config;
 
 import io.gitlab.teamproject2026.DNSZone;
-import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
@@ -12,9 +11,9 @@ import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
 import io.gitlab.teamproject2026.zones.ZoneParser;
-import io.gitlab.teamproject2026.model.ResourceRecord;
 
 import java.io.IOException;
 import java.nio.file.Files;

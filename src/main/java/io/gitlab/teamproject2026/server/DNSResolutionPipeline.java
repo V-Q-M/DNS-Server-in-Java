@@ -1,21 +1,22 @@
 package io.gitlab.teamproject2026.server;
 
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.database.ZoneHandler;
-import io.gitlab.teamproject2026.logging.Logger;
-import io.gitlab.teamproject2026.model.*;
-import io.gitlab.teamproject2026.resolver.ForwardMode;
-import io.gitlab.teamproject2026.resolver.RecursiveResolver;
-import io.gitlab.teamproject2026.resolver.StubResolver;
-import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
-import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.logging.DNSEvent;
 import io.gitlab.teamproject2026.logging.DNSEventType;
+import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.logging.ResponseSource;
+import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
+import io.gitlab.teamproject2026.resolver.ForwardMode;
+import io.gitlab.teamproject2026.resolver.RecursiveResolver;
+import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
+import io.gitlab.teamproject2026.resolver.StubResolver;
 
 import java.sql.SQLException;
 import java.util.*;
@@ -37,7 +38,7 @@ public class DNSResolutionPipeline {
     private final List<String> zoneCatalog;
     private final boolean minimalResponses;
     private final ForwardMode forwardMode;
-    private final ResolverSection resolverOptions;
+    final ResolverSection resolverOptions;
 
     private long startTime;
 
@@ -185,7 +186,12 @@ public class DNSResolutionPipeline {
                             true
                     );
                     payload.notResolved().add(questionSection); // fall back to cache/forward
-                    logCacheConnectionLost(startTime);
+                    logger.log(
+                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
+                                    "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                            LoggingCategoryType.DEFAULT,
+                            LoggingSeverity.ERROR
+                    );
                     break;
                 }
             }
@@ -195,7 +201,7 @@ public class DNSResolutionPipeline {
         return payload;
     }
 
-    public DNSPayload cacheLookUp(DNSPayload payload, DNSPacket packet, String id) {
+    public DNSPayload cacheLookUp(DNSPayload payload, String id) {
         // query cache and safe results in payload
         long cacheStart = System.currentTimeMillis();
 
@@ -205,7 +211,7 @@ public class DNSResolutionPipeline {
         unresolvedPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
 
         try {
-            DNSPayload cacheResult = queryCache(unresolvedPacket, cacheHandler);
+            DNSPayload cacheResult = queryCache(unresolvedPacket);
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 String domain = request.nameToString();
                 RRType qType = request.getQtype();
@@ -280,13 +286,12 @@ public class DNSResolutionPipeline {
      * notResolved part of the record
      *
      * @param query        the DNS query which is to be resolved
-     * @param cacheHandler the CacheHandler with which the function accesses the
      *                     cache
      * @return A DNSPayload record containing the resolved Records and the Records
      *         that have yet to be resolved
      * @throws SQLException if the cache cannot be accessed
      */
-    public DNSPayload queryCache(DNSPacket query, CacheHandler cacheHandler) throws SQLException {
+    public DNSPayload queryCache(DNSPacket query) throws SQLException {
 
         LinkedList<ResourceRecord> answer = new LinkedList<>();
         LinkedList<ResourceRecord> authority = new LinkedList<>();
@@ -333,8 +338,7 @@ public class DNSResolutionPipeline {
                 } else if (request.getQtype() != RRType.CNAME) {
                     // CNAME-type queries are handled by the direct lookup above
                     // this branch only follows an alias when a different record type was requested
-                    if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached,
-                            cacheHandler)) {
+                    if (!resolveCnameFromCache(qname, request.getQtype(), request.getQclass(), answer, notCached)) {
                         notCached.add(request);
                     }
                 } else {
@@ -365,11 +369,10 @@ public class DNSResolutionPipeline {
     //   no help     - return false and change nothing, so the caller forwards the original
     //                 query. Happens when "name" has no cached CNAME, the chain loops, or it
     //                 is longer than MAX_CNAME_HOPS.
-    private static boolean resolveCnameFromCache(
+    private boolean resolveCnameFromCache(
             String name, RRType targetType, RRClass targetClass,
             LinkedList<ResourceRecord> answer,
-            LinkedList<QuestionSection> notCached,
-            CacheHandler cacheHandler) throws SQLException {
+            LinkedList<QuestionSection> notCached) throws SQLException {
         String current = name.toLowerCase();
         LinkedList<ResourceRecord> chain = new LinkedList<>();
         Set<String> visited = new HashSet<>();
@@ -414,34 +417,161 @@ public class DNSResolutionPipeline {
         return false;
     }
 
-
-
     public DNSPayload resolveUpstream(DNSPayload payload, byte[] data) {
-        throw new UnsupportedOperationException("Move queryResolver body here");
-    }
+        if (payload.notResolved().isEmpty()) {
+            return payload;
+        }
+        // Build packet to be sent to Stub/recursive resolver
+        // The ID should not have to be changed, as the Server should not receive any
+        // other packages using this ID from the original sender
+        DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
+        uncachedOOPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
+        uncachedOOPacket.setQdcount(payload.notResolved().size());
 
+        // Get Stub/recursive response
+        byte[] rawResponse = null;
+        if (forwardMode == null) {
+            try {
+                logger.logTrace(PINK + "[TRACE] Resolve query recursively" + RESET);
+                rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+            } catch (RuntimeException e) {
+                logger.log(
+                        (RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
+                return payload;
+            }
+        } else {
+            switch (forwardMode) {
+                case FORWARD_ONLY -> { // only stub
+                    logger.logTrace(PINK + "[TRACE] Forward query via Stubresolver" + RESET);
+                    try {
+                        rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                    } catch (RuntimeException e) {
+                        logger.log(
+                                (RED + "[STUB-ERROR] Failed to resolve query" + RESET),
+                                LoggingCategoryType.QUERY_ERRORS,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
+                        return payload;
+                    }
+                }
+                case FORWARD_FIRST -> {
+                    try {
+                        // try stub
+                        logger.logTrace(PINK + "[TRACE] Try forwarding query via Stubresolver" + RESET);
+                        rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
+                    } catch (RuntimeException e) {
+                        logger.log(
+                                (YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.WARNING,
+                                true
+                        );
+                    }
+                    // if stub resolver fails: fallback recursive resolver
+                    if (rawResponse == null) {
+                        try {
+                            logger.logTrace(PINK + "[TRACE] Stubresolver unsuccessful, try recursive Resolver instead" + RESET);
+                            rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
+                        } catch (RuntimeException e) {
+                            logger.log(
+                                    (RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET),
+                                    LoggingCategoryType.QUERY_ERRORS,
+                                    LoggingSeverity.ERROR,
+                                    true
+                            );
+                            return payload;
+                        }
+                    }
+                }
+            }
+        }
 
-
-
-
-
-
-    // Log helpers
-    private void logCacheConnectionLost(long startTime) {
+        DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
+        //----------------------------ReferralAnalyzer-------------------------------------------------
+        RRType queryType = payload.notResolved().isEmpty() ? RRType.A :
+                payload.notResolved().getFirst().getQtype();
+        //stub response
+        ReferralAnalyzer.Classification classification =
+                ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
-                (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                        "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
-                LoggingCategoryType.DEFAULT,
-                LoggingSeverity.ERROR
+                ("[ANALYZER]" + classification + queryType),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.INFO,
+                true
         );
-    }
+        switch (classification) {
+            case ANSWER, CNAME_CHAIN, NODATA -> {
+                // Extract RRs from Stub Response and cache them if cachHandler is available
+                // caching
+                logger.logTrace(PINK + "[TRACE] Query resolved successfully" + RESET);
+                if (cacheHandler != null) {
+                    startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
+                    try {
+                        cacheHandler.insertAll(parsedResponse.getAnswerSections());
+                        cacheHandler.insertAll(parsedResponse.getAuthoritySections());
+                        cacheHandler.insertAll(parsedResponse.getAdditionalSections());
+                    } catch (SQLException e) {
+                        logger.log(
+                                ("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost"),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR,
+                                true
+                        );
+                        logger.log(
+                                (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
+                                        "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost", null).toHumanReadable()),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR
+                        );
+                    }
+                }
 
-    private void logCacheInsertFailed(long startTime) {
-        logger.log(
-                (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                        "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost", null).toHumanReadable()),
-                LoggingCategoryType.DEFAULT,
-                LoggingSeverity.ERROR
-        );
+                // extracting and adding to answers
+                Collections.addAll(payload.answer(), parsedResponse.getAnswerSections());
+                Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+                Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
+            }
+            case NXDOMAIN -> {
+                logger.logTrace(PINK + "[TRACE] NXDOMAIN received from upstream" + RESET);
+                logger.log(
+                        (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.WARNING,
+                        true
+                );
+                Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+            }
+            case REFERRAL -> {
+                String referral = "";
+                for (ResourceRecord ns : parsedResponse.getAuthoritySections()) {
+                    referral += String.join(".", ((RDataNS) ns.getRdata()).getNsdname()) + ". , ";
+                }
+                logger.logTrace(PINK + "[TRACE] Referal to: " + referral + RESET);
+
+                logger.log(
+                        (YELLOW + "[RESOLVER] Referral received" + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.INFO,
+                        true
+                );
+                Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+                Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
+            }
+            case SERVFAIL, FORMERR -> {
+                logger.logTrace(PINK + "[TRACE] Resolving unsuccessful" + RESET);
+                logger.log(
+                        (RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET),
+                        LoggingCategoryType.QUERY_ERRORS,
+                        LoggingSeverity.ERROR,
+                        true
+                );
+            }
+        }
+        return payload;
     }
 }

@@ -1,6 +1,8 @@
 package io.gitlab.teamproject2026.server;
 
-import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.model.DNSPacket;
+import io.gitlab.teamproject2026.model.RCode;
+import io.gitlab.teamproject2026.model.ResourceRecord;
 
 public class DNSResponseBuilder {
     private final boolean recursionAllowed;
