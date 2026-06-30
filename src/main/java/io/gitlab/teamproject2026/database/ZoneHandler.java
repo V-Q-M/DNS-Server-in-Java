@@ -57,20 +57,45 @@ public class ZoneHandler {
             "zone_dnskey_rdata", "zone_ds_rdata", "zone_rrsig_rdata", "zone_nsec_rdata", "zone_nsec3_rdata", "zone_nsec3param_rdata"
     };
 
+    /**
+     * Maps a database row to a concrete RData implementation.
+     */
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
     }
 
+    /**
+     * Fills a prepared statement with record-specific parameters.
+     */
     @FunctionalInterface
     private interface StatementFiller {
         void fill(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException;
     }
 
+
+    /**
+     * Creates a handler using the shared database connection.
+     *
+     * @param provider database connection provider
+     */
     public ZoneHandler(DatabaseConnectionProvider provider){
         this.conn = provider.getConnection();
     }
 
+
+    /**
+     * Executes a type-specific lookup query and reconstructs
+     * the resulting resource records using the supplied mapper.
+     *
+     * @param name queried owner name
+     * @param sql SQL statement used for the lookup
+     * @param type expected RR type
+     * @param zone authoritative zone
+     * @param mapper converts ResultSet rows into RData objects
+     * @return matching resource records
+     * @throws SQLException if the database query fails
+     */
     private List<ResourceRecord> lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper) throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -90,15 +115,35 @@ public class ZoneHandler {
         return records;
     }
 
+    /**
+     * Returns the SOA record associated with the specified zone.
+     *
+     * @param zone authoritative zone name
+     * @return the zone's SOA RDATA
+     * @throws SQLException if the database query fails
+     * @throws NoSuchElementException if the zone does not contain an SOA record
+     */
     public RDataSOA lookupZoneSoa(String zone) throws SQLException {
         return (RDataSOA) lookup(zone, RRType.SOA, zone).getFirst().getRdata();
     }
 
+    /**
+     * Atomically replaces all records belonging to a zone.
+     *
+     * @param zone zone to replace
+     * @throws SQLException if the database update fails
+     */
     public void replaceZone(DNSZone zone) throws SQLException {
         clearZone(zone.origin());
         insertZone(zone);
     }
 
+    /**
+     * Removes all records belonging to the specified zone.
+     *
+     * @param zone zone to clear
+     * @throws SQLException if the database update fails
+     */
     public void clearZone(String zone) throws SQLException {
         Statement stmt = conn.createStatement();
         for(String table : ALL_RDATA_TABLES){
@@ -107,6 +152,16 @@ public class ZoneHandler {
         stmt.executeBatch();
     }
 
+
+    /**
+     * Returns the full ResourceRecord from the Database, given a name and type
+     * Looks for entries that end in name
+     * @param name of the RREntry (check = LIKE %.{name})
+     * @param type of the RREntry
+     * @param zone the RREntry is under
+     * @return RR Array of all matching RRs
+     * @throws SQLException
+     */
     public List<ResourceRecord> lookup(String name, RRType type, String zone) throws SQLException {
         name = name.toLowerCase();
         switch (type) {
@@ -273,6 +328,9 @@ public class ZoneHandler {
         }
     }
 
+    /*
+     * Helper functions to fill in Record statements
+     */
     private void fillCommon(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
         stmt.setString(1, zone);
         stmt.setString(2, String.join(".", r.getName()));
@@ -280,6 +338,16 @@ public class ZoneHandler {
         stmt.setInt(4, r.getRdlength());
     }
 
+
+    /**
+     * Executes a type-specific INSERT for a single resource record.
+     *
+     * @param insertSql INSERT statement to execute
+     * @param r record to insert
+     * @param zone target zone
+     * @param filler fills the prepared statement parameters
+     * @throws SQLException if insertion fails
+     */
     private void fillA(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
         fillCommon(stmt, r, zone);
         stmt.setBytes(5, ((RDataA) r.getRdata()).getAddress());
@@ -395,6 +463,13 @@ public class ZoneHandler {
         }
     }
 
+    /**
+     * Inserts a given ResourceRecord into the Database
+     *
+     * @param record
+     * @param zone
+     * @throws SQLException
+     */
     void insert(ResourceRecord record, String zone) throws SQLException {
         delete(String.join(".", record.getName()).toLowerCase(), record.getType(), zone);
         switch (record.getType()) {
@@ -443,6 +518,14 @@ public class ZoneHandler {
         }
     }
 
+    /**
+     * Deletes a ResourceRecord of given name, type from a zone
+     *
+     * @param name
+     * @param type
+     * @param zone
+     * @throws SQLException
+     */
     public void delete(String name, RRType type, String zone) throws SQLException {
         name = name.toLowerCase();
         String sql;
@@ -499,6 +582,11 @@ public class ZoneHandler {
         }
     }
 
+    /**
+     * Clears the database tables of all entries
+     *
+     * @throws SQLException
+     */
     public void clearAll() throws SQLException {
         Statement stmt = conn.createStatement();
         for(String table : ALL_RDATA_TABLES){
@@ -507,6 +595,15 @@ public class ZoneHandler {
         stmt.executeBatch();
     }
 
+    /**
+     * batch-inserts RRs.
+     *
+     * @param group the records to insert
+     * @param zone the zon to insert to
+     * @param insertSql the type-specific INSERT SQL
+     * @param filler fills the INSERT statement parameters for a given record
+     * @throws SQLException
+     */
     private void batchInsert(List<ResourceRecord> group, String zone, String insertSql, StatementFiller filler)
             throws SQLException {
         if (group.isEmpty())
@@ -520,6 +617,13 @@ public class ZoneHandler {
         }
     }
 
+    /**
+     * Inserts a given array of ResourceRecords into the database using per-type
+     * batching.
+     *
+     * @param dnsZone the zone to insert
+     * @throws SQLException
+     */
     public void insertZone(DNSZone dnsZone) throws SQLException {
         ResourceRecord[] records = dnsZone.getRecords().toArray(new ResourceRecord[0]);
         String zone  = dnsZone.origin();
