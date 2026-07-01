@@ -4,16 +4,14 @@ import io.gitlab.teamproject2026.data.MockResponses;
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
 import org.junit.jupiter.api.Test;
-
-import java.util.Arrays;
-import java.util.HexFormat;
-
-//for parameterized tests (testing decompression):
-import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.HexFormat;
 import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class DNSParserTest {
     @Test
