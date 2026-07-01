@@ -168,6 +168,7 @@ public class RecursiveResolver extends AbstractResolver{
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
                 case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
+                    logger.logTrace("Query successfully resolved via recursive resolver", queryPacket);
                     return response.toBytes();
                 }
                 // This server could not answer: try the next one.
@@ -187,20 +188,24 @@ public class RecursiveResolver extends AbstractResolver{
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                         addedAny = true;
+                        logger.logTrace("Recieved glueful referral from: " + currentServer.name() + " to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ". with address: IPv4: " + d.ipv4.toString() + " IPv6: " + d.ipv6.toString(), queryPacket);
                     }
 
                     // PASS 2: only if no glueful referral was usable, resolve glue-less NS names.
                     if (!addedAny) {
+                        logger.logTrace("No glueful referrals recieved, try glueless referalls: ", queryPacket);
                         for (Delegation d : delegations) {
                             if (d.hasGlue()) {
                                 continue;
                             }
-
+                            logger.logTrace("Recieved glueless referral from: " + currentServer.name() + " to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ". resolving:", queryPacket);
                             Delegation resolved = resolveNsAddress(d, ctx.deeper());
                             if (!resolved.hasGlue()) {
+                                logger.logTrace("No gluerecord found for: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ". continue to next referral", queryPacket);
                                 continue;
                             }
 
+                            logger.logTrace("Recieved gluerecord for: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ". with address: IPv4: " + resolved.ipv4.toString() + " IPv6: " + resolved.ipv6.toString(), queryPacket);
                             slistWrap.addSListEntry(resolved.ns(), resolved.ipv4(), resolved.ipv6());
                             addedAny = true;
 

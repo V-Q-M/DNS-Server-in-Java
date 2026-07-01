@@ -153,6 +153,7 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.NOTICE,
                             true
                     );
+                    logger.logTrace("Query successfully resolved via stub resolver", queryPacket);
                     return result.response();
                 }
                 case TIMEOUT -> {
