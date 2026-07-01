@@ -74,6 +74,7 @@ public class DNSResolutionPipeline {
                 new LinkedList<>()
         );
         for (QuestionSection questionSection : packet.getQuestionSections()) {
+            // Relevant for CNAME resolution
             String currentName = questionSection.getNameString().toLowerCase();
             Set<String> visited = new HashSet<>();
 
@@ -93,7 +94,7 @@ public class DNSResolutionPipeline {
                 if (zone == null) {
                     // No authoritative zone for this name → cache/forward handle it
                     QuestionSection fwdQuestion = new QuestionSection();
-                    fwdQuestion.setName(currentName.split("\\."));
+                    fwdQuestion.setName(currentName.split("\\.")); // This must use CurrentName, to account for CNAME resolution
                     fwdQuestion.setQtype(questionSection.getQtype());
                     fwdQuestion.setQclass(questionSection.getQclass());
                     payload.notResolved().add(fwdQuestion);

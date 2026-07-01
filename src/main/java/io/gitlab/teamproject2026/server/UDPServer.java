@@ -97,30 +97,20 @@ public class UDPServer extends AbstractServer {
         }
     }
 
+    int udpResponseSizeLimit = 512;
     /*
     Specialized version of handleQuery which also checks for truncated response
      */
     public byte[] handleUDPQuery(byte[] data) {
-        byte[] byteResponse = handleQuery(data);
+        byte[] result = handleQuery(data);
 
-        if (byteResponse.length <= 512) {
-            return byteResponse;
+        if (result.length <= udpResponseSizeLimit) {
+            return result;
         }
 
         DNSPacket query = DNSPacket.fromBytes(data);
-        DNSPacket response = DNSPacket.fromBytes(byteResponse);
+        DNSPacket response = DNSPacket.fromBytes(result);
 
-        // For now: return only header + original question.
-        // Client should retry over TCP.
-        response.setTc(true);
-        response.setAnswerSections(new ResourceRecord[0]);
-        response.setAuthoritySections(new ResourceRecord[0]);
-        response.setAdditionalSections(new ResourceRecord[0]);
-        response.setQuestionSections(query.getQuestionSections());
-
-        return response.toBytes();
+        return responseBuilder.truncatedUDPResponse(query, response.isAa()).toBytes();
     }
-
-
-
 }

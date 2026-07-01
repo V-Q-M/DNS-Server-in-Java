@@ -42,12 +42,14 @@ public class DNSResponseBuilder {
         return response;
     }
 
-    public DNSPacket truncatedUdpResponse(DNSPacket query, DNSPacket response) {
+    public DNSPacket truncatedUDPResponse(DNSPacket query, boolean authoritative) {
+        DNSPacket response = baseResponse(query);
+        response.setAa(authoritative);
         response.setTc(true);
+        response.setRcode(RCode.NOERROR);
         response.setAnswerSections(new ResourceRecord[0]);
         response.setAuthoritySections(new ResourceRecord[0]);
         response.setAdditionalSections(new ResourceRecord[0]);
-        response.setQuestionSections(query.getQuestionSections());
         return response;
     }
 
