@@ -1,17 +1,18 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
-
 import java.util.Arrays;
 
 public class RDataOPTOption implements RData {
     private int optionCode;
     private byte[] optionData;
+
     public RDataOPTOption(byte[] bytes, int byteIndex) {
         this.optionCode = bytes[byteIndex++];
         int optionLength = bytes[byteIndex++];
         this.optionData = Arrays.copyOfRange(bytes, byteIndex, byteIndex + optionLength);
     }
+
     @Override
     public RRType getType() {
         return RRType.OPT;

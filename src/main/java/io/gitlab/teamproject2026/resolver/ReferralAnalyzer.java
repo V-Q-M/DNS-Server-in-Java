@@ -17,40 +17,30 @@ public class ReferralAnalyzer {
     }
 
     public static Classification classify(DNSPacket packet, RRType querytype) {
-        RCode rcode= packet.getRcode();
+        RCode rcode = packet.getRcode();
 
-        if (rcode== RCode.SERVFAIL)
-            return Classification.SERVFAIL;
-        if (rcode== RCode.FORMERR)
-            return Classification.FORMERR;
-        if (rcode==RCode.NXDOMAIN)
-            return Classification.NXDOMAIN;
+        if (rcode == RCode.SERVFAIL) return Classification.SERVFAIL;
+        if (rcode == RCode.FORMERR) return Classification.FORMERR;
+        if (rcode == RCode.NXDOMAIN) return Classification.NXDOMAIN;
 
-        ResourceRecord[] answers= packet.getAnswerSections();
+        ResourceRecord[] answers = packet.getAnswerSections();
         ResourceRecord[] authorities = packet.getAuthoritySections();
 
-        boolean hasAnswer= answers!=null && answers.length>0;
-        boolean hasAuthority = authorities != null && authorities.length>0;
+        boolean hasAnswer = answers != null && answers.length > 0;
+        boolean hasAuthority = authorities != null && authorities.length > 0;
 
-
-        if (hasAnswer){
-            for (ResourceRecord rr : answers)
-                if(rr.getType() == querytype)
-            return Classification.ANSWER;
+        if (hasAnswer) {
+            for (ResourceRecord rr : answers) if (rr.getType() == querytype) return Classification.ANSWER;
             if (querytype != RRType.CNAME)
-                for(ResourceRecord rr : answers)
-                    if(rr.getType() == RRType.CNAME)
-                        return Classification.CNAME_CHAIN;
-            return Classification.SERVFAIL;}
-        if (hasAuthority){
-            for (ResourceRecord rr: authorities){
-                if (rr.getType()==RRType.NS)
-                    return Classification.REFERRAL;
+                for (ResourceRecord rr : answers) if (rr.getType() == RRType.CNAME) return Classification.CNAME_CHAIN;
+            return Classification.SERVFAIL;
+        }
+        if (hasAuthority) {
+            for (ResourceRecord rr : authorities) {
+                if (rr.getType() == RRType.NS) return Classification.REFERRAL;
             }
         }
-        if(rcode== RCode.NOERROR)
-            return Classification.NODATA;
+        if (rcode == RCode.NOERROR) return Classification.NODATA;
         return Classification.FORMERR;
-
     }
 }

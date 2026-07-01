@@ -2,11 +2,10 @@ package io.gitlab.teamproject2026.config.logging;
 
 /**
  * Represents a logging channel defined in the {@code logging} section.
- * <p>
- * A logging channel defines where log messages are written, the minimum
- * severity required for a message to be recorded, and which metadata should
- * be included in each log entry. Multiple logging categories may reference
- * the same channel.
+ *
+ * <p>A logging channel defines where log messages are written, the minimum severity required for a message to be
+ * recorded, and which metadata should be included in each log entry. Multiple logging categories may reference the same
+ * channel.
  *
  * @param channelName the unique name of the logging channel
  * @param fileName the path of the log file associated with the channel
@@ -21,6 +20,4 @@ public record LoggingChannel(
         LoggingSeverity severity,
         boolean printTime,
         boolean printCategory,
-        boolean printSeverity
-) {
-}
+        boolean printSeverity) {}

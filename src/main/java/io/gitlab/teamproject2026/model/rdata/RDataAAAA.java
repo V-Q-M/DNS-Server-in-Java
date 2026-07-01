@@ -1,19 +1,18 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
-
 import java.util.Arrays;
 import java.util.HexFormat;
 
-/**
- * Represents a DNS AAAA record.
- * Maps a domain name to an IPv6 address (128-bit).
- */
+/** Represents a DNS AAAA record. Maps a domain name to an IPv6 address (128-bit). */
 public class RDataAAAA implements RData {
     private byte[] address;
 
-    public RDataAAAA(){this.address = new byte[16];}
-    public RDataAAAA(byte[] address){
+    public RDataAAAA() {
+        this.address = new byte[16];
+    }
+
+    public RDataAAAA(byte[] address) {
         this.address = address;
     }
 
@@ -22,18 +21,21 @@ public class RDataAAAA implements RData {
         return RRType.AAAA;
     }
 
-    public byte[] getAddress() { return address; }
-    public void setAddress(byte[] address) { this.address = address; }
+    public byte[] getAddress() {
+        return address;
+    }
 
-    /**
-     * @return UNCOMPRESSED IPv6 address 
-     * seperated by ":" e.g. 2001:07c0:300c:30f0:0000:0000:8602:0501
-     * 
-     */
+    public void setAddress(byte[] address) {
+        this.address = address;
+    }
+
+    /** @return UNCOMPRESSED IPv6 address seperated by ":" e.g. 2001:07c0:300c:30f0:0000:0000:8602:0501 */
     @Override
-    public String toString(){
+    public String toString() {
         if (address.length != 16) {
-            throw new IllegalArgumentException("IPv6 address must be exactly 16 bytes long, no compression allowed, (found " + address.length + " bytes)");
+            throw new IllegalArgumentException(
+                    "IPv6 address must be exactly 16 bytes long, no compression allowed, (found " + address.length
+                            + " bytes)");
         }
         String[] twoBytesBlocks = new String[8];
         for (int i = 0; i < 8; i++) {

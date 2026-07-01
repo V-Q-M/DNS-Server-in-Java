@@ -3,15 +3,13 @@ package io.gitlab.teamproject2026.model.rdata;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
-/**
- * Interface for all DNS RDATA types.
- * Each implementing class defines its own type-specific fields.
- */
+/** Interface for all DNS RDATA types. Each implementing class defines its own type-specific fields. */
 public interface RData {
 
     /**
-     * Predefined type of the rdata and thus of the ResourceRecord
-     * logically identical to testing the instance of the RData
+     * Predefined type of the rdata and thus of the ResourceRecord logically identical to testing the instance of the
+     * RData
+     *
      * @return rrtype of the RData and thus of the ResourceRecord
      */
     RRType getType();

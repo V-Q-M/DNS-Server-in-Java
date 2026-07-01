@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
@@ -19,47 +21,34 @@ import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.StubResolver;
 import io.gitlab.teamproject2026.server.*;
 import io.gitlab.teamproject2026.zones.ZoneManager;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.gitlab.teamproject2026.AnsiColors.*;
-
 /**
- * Main entry point of the DNS server.
- * Coordinates configuration loading, zone management, caching,
- * query resolution, and UDP/TCP request handling.
+ * Main entry point of the DNS server. Coordinates configuration loading, zone management, caching, query resolution,
+ * and UDP/TCP request handling.
  */
 public class DNS_SERVER {
-    //private static final String DEFAULT_IP = "0.0.0.0";
+    // private static final String DEFAULT_IP = "0.0.0.0";
     private static ServerContext context;
-    //public static Logger logger;
+    // public static Logger logger;
 
-    /**
-     * Initializes the server and starts the UDP, TCP, and zone refresh workers.
-     */
+    /** Initializes the server and starts the UDP, TCP, and zone refresh workers. */
     static void main(String[] args) {
         initializeServer(args);
     }
 
-    /**
-     * Initializes the server state from configuration and command-line arguments.
-     */
-    private static void initializeServer(String[] args){
+    /** Initializes the server state from configuration and command-line arguments. */
+    private static void initializeServer(String[] args) {
         IO.println("\n--------------------------------[ DNSSERVER ]--------------------------------- ");
 
         // named.conf
         Config serverConfig = ConfigManager.loadConfig("named.conf");
         Logger logger = ConfigManager.logger; // A pointer to the actual logger
-        logger.log(
-                ("Starting DNS Server..."),
-                LoggingCategoryType.GENERAL,
-                LoggingSeverity.NOTICE,
-                true
-        );
+        logger.log(("Starting DNS Server..."), LoggingCategoryType.GENERAL, LoggingSeverity.NOTICE, true);
 
         OptionSection options = serverConfig.options();
         ResolverSection resolverOptions = options.resolverSection();
@@ -72,24 +61,18 @@ public class DNS_SERVER {
 
         // load zones into the database and store the zone names for easy lookup
         List<String> zoneCatalog;
-        if(zoneHandler != null){
+        if (zoneHandler != null) {
             zoneCatalog = ConfigManager.loadZonesFromConf(zoneHandler, serverConfig);
         } else {
             logger.log(
                     (RED + "[DATABASE] No zone handler found, skipping zones" + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
             zoneCatalog = new ArrayList<>();
         }
 
-        ServerCliOptions cliOptions = applyCliArgs(
-                args,
-                options.port(),
-                options.ipAddress(),
-                logger
-        );
+        ServerCliOptions cliOptions = applyCliArgs(args, options.port(), options.ipAddress(), logger);
 
         int portNumber = cliOptions.portNumber();
         String bindIP = cliOptions.bindIP();
@@ -98,12 +81,12 @@ public class DNS_SERVER {
         // port check
         if (portNumber < 0 || portNumber > 65535) {
             logger.log(
-                    (RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
+                    (RED + "[SERVER] Invalid port: " + portNumber
+                            + " — port must be between 0 and 65535, using default "
                             + OptionSection.defaultOptions().port() + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
             portNumber = OptionSection.defaultOptions().port();
         }
 
@@ -112,52 +95,67 @@ public class DNS_SERVER {
                 (GREEN + "[SERVER] Recursion: " + recursionAllowed),
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.INFO,
-                true
-        );
-        ForwardMode forwardMode = options.forwardMode();// Determines if we should only forward
-        if (forwardMode == null){
+                true);
+        ForwardMode forwardMode = options.forwardMode(); // Determines if we should only forward
+        if (forwardMode == null) {
             logger.log(
-                    (GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)" ),
+                    (GREEN + "[RESOLVER] Configured ForwardMode is: NULL (don't forward)"),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.INFO,
-                    true
-            );
-        }
-        else {
+                    true);
+        } else {
             logger.log(
                     (GREEN + "[RESOLVER] Configured ForwardMode is:" + forwardMode),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.INFO,
-                    true
-            );
+                    true);
         }
 
         List<NameServer> forwarders = options.forwarders().stream()
                 .map(ip -> new NameServer(ip, 53, ip))
                 .toList();
 
-        StubResolver stubResolver = new StubResolver(logger, forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
-        RecursiveResolver recursiveResolver = new RecursiveResolver(cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay());
+        StubResolver stubResolver = new StubResolver(
+                logger,
+                forwarders,
+                resolverOptions.timeout(),
+                resolverOptions.maxRetries(),
+                resolverOptions.retryDelay(),
+                resolverOptions.strategy());
+        RecursiveResolver recursiveResolver =
+                new RecursiveResolver(cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay());
         DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed);
-        DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(cacheHandler, zoneHandler, resolverOptions, stubResolver, recursiveResolver, logger, zoneCatalog, minimalResponses, forwardMode, startTime);
+        DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(
+                cacheHandler,
+                zoneHandler,
+                resolverOptions,
+                stubResolver,
+                recursiveResolver,
+                logger,
+                zoneCatalog,
+                minimalResponses,
+                forwardMode,
+                startTime);
 
         InetAddress bindAddress;
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
             logger.log(
-                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + OptionSection.defaultOptions().ipAddress() + RESET),
+                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default "
+                            + OptionSection.defaultOptions().ipAddress() + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
             try {
-                bindAddress = InetAddress.getByName(OptionSection.defaultOptions().ipAddress());
+                bindAddress =
+                        InetAddress.getByName(OptionSection.defaultOptions().ipAddress());
             } catch (UnknownHostException ex) {
                 throw new RuntimeException(ex);
             }
         }
-        context = new ServerContext(cacheHandler,
+        context = new ServerContext(
+                cacheHandler,
                 zoneHandler,
                 logger,
                 resolutionPipeline,
@@ -166,8 +164,7 @@ public class DNS_SERVER {
                 zoneCatalog,
                 portNumber,
                 bindAddress,
-                startTime
-        );
+                startTime);
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();
         new Thread(new UDPServer(context), "udp-server").start();
@@ -175,11 +172,8 @@ public class DNS_SERVER {
         new Thread(new ZoneManager(context)).start();
     }
 
-    private record ServerCliOptions(
-            int portNumber,
-            String bindIP,
-            boolean minimalResponses
-    ) {}
+    private record ServerCliOptions(int portNumber, String bindIP, boolean minimalResponses) {}
+
     private static ServerCliOptions applyCliArgs(String[] args, int portNumber, String bindIP, Logger logger) {
         boolean minimalResponses = false;
         // Overwrite default values
@@ -190,11 +184,11 @@ public class DNS_SERVER {
                 } catch (NumberFormatException e) {
                     assert logger != null;
                     logger.log(
-                            (RED + "[SERVER] Invalid port: " + args[i + 1] + " — using default " + OptionSection.defaultOptions().port() + RESET),
+                            (RED + "[SERVER] Invalid port: " + args[i + 1] + " — using default "
+                                    + OptionSection.defaultOptions().port() + RESET),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR,
-                            true
-                    );
+                            true);
                     portNumber = OptionSection.defaultOptions().port();
                 }
                 i++;
@@ -202,15 +196,15 @@ public class DNS_SERVER {
                 bindIP = args[i + 1];
                 i++;
             } else if (args[i].equals("--less-log")) {
-                if (logger != null){
+                if (logger != null) {
                     logger.overwriteSeverity(LoggingSeverity.NOTICE);
                 }
             } else if (args[i].equals("--quiet")) {
-                if (logger != null){
+                if (logger != null) {
                     logger.overwriteSeverity(LoggingSeverity.ERROR);
                 }
             } else if (args[i].equals("--silent")) {
-                if (logger != null){
+                if (logger != null) {
                     logger.overwriteSeverity(LoggingSeverity.CRITICAL);
                 }
             } else if (args[i].equals("--minimal-responses")) {
@@ -220,10 +214,8 @@ public class DNS_SERVER {
         return new ServerCliOptions(portNumber, bindIP, minimalResponses);
     }
 
-    private record DatabaseHandlers(
-            CacheHandler cacheHandler,
-            ZoneHandler zoneHandler
-    ) {}
+    private record DatabaseHandlers(CacheHandler cacheHandler, ZoneHandler zoneHandler) {}
+
     private static DatabaseHandlers initializeDatabase(Logger logger, long startTime) {
         try {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
@@ -231,29 +223,39 @@ public class DNS_SERVER {
                     (GREEN + "[DATABASE] Connection to the database successful" + RESET),
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.INFO,
-                    true
-            );
+                    true);
             return new DatabaseHandlers(new CacheHandler(provider), new ZoneHandler(provider));
         } catch (ClassNotFoundException e) {
             logger.log(
-                    (RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET),
+                    (RED
+                            + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?"
+                            + RESET),
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
         } catch (SQLException e) {
             logger.log(
                     (RED + "[DATABASE-ERROR] Connection to the database couldn't be established" + RESET),
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
             logger.log(
-                    (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                            "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                    (DNSEvent.event(
+                                    DNSEventType.CACHE_ERROR,
+                                    null,
+                                    null,
+                                    null,
+                                    System.currentTimeMillis() - startTime,
+                                    ResponseSource.CACHE,
+                                    null,
+                                    null,
+                                    null,
+                                    -1,
+                                    "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
+                                    null)
+                            .toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.ERROR
-            );
+                    LoggingSeverity.ERROR);
         }
         return new DatabaseHandlers(null, null);
     }
@@ -267,18 +269,30 @@ public class DNS_SERVER {
                 try {
                     cacheHandler.deleteExpired();
                 } catch (SQLException e) {
-                    context.logger().log(
-                            (RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET),
-                            LoggingCategoryType.DEFAULT,
-                            LoggingSeverity.ERROR,
-                            true
-                    );
-                    context.logger().log(
-                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cleanUpStarTime,ResponseSource.CACHE, null, null, null, -1,
-                                    "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
-                            LoggingCategoryType.DEFAULT,
-                            LoggingSeverity.ERROR
-                    );
+                    context.logger()
+                            .log(
+                                    (RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET),
+                                    LoggingCategoryType.DEFAULT,
+                                    LoggingSeverity.ERROR,
+                                    true);
+                    context.logger()
+                            .log(
+                                    (DNSEvent.event(
+                                                    DNSEventType.CACHE_ERROR,
+                                                    null,
+                                                    null,
+                                                    null,
+                                                    System.currentTimeMillis() - cleanUpStarTime,
+                                                    ResponseSource.CACHE,
+                                                    null,
+                                                    null,
+                                                    null,
+                                                    -1,
+                                                    "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
+                                                    null)
+                                            .toHumanReadable()),
+                                    LoggingCategoryType.DEFAULT,
+                                    LoggingSeverity.ERROR);
                 }
             }
             try {

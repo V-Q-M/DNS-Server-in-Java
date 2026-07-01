@@ -4,21 +4,28 @@ import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
-
 import java.sql.*;
 import java.util.*;
 
 public class CacheHandler {
     private final Connection conn;
 
-    private static final String SQL_A = "INSERT INTO a_rdata    (name, rrtype, rrclass, ttl, rdlength, ipv4,     expires_at) VALUES (?, 'A',    'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_AAAA = "INSERT INTO aaaa_rdata  (name, rrtype, rrclass, ttl, rdlength, ipv6,     expires_at) VALUES (?, 'AAAA', 'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_CNAME = "INSERT INTO cname_rdata (name, rrtype, rrclass, ttl, rdlength, cname,    expires_at) VALUES (?, 'CNAME','IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_MX = "INSERT INTO mx_rdata    (name, rrtype, rrclass, ttl, rdlength, pref, exchange, expires_at) VALUES (?, 'MX',   'IN', ?, ?, ?, ?,       now() + (? * interval '1 second'))";
-    private static final String SQL_NS = "INSERT INTO ns_rdata    (name, rrtype, rrclass, ttl, rdlength, nsdname,  expires_at) VALUES (?, 'NS',   'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_PTR = "INSERT INTO ptr_rdata   (name, rrtype, rrclass, ttl, rdlength, ptrdname, expires_at) VALUES (?, 'PTR',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
-    private static final String SQL_SOA = "INSERT INTO soa_rdata   (name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum, expires_at) VALUES (?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
-    private static final String SQL_TXT = "INSERT INTO txt_rdata   (name, rrtype, rrclass, ttl, rdlength, txtdata,  expires_at) VALUES (?, 'TXT',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_A =
+            "INSERT INTO a_rdata    (name, rrtype, rrclass, ttl, rdlength, ipv4,     expires_at) VALUES (?, 'A',    'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_AAAA =
+            "INSERT INTO aaaa_rdata  (name, rrtype, rrclass, ttl, rdlength, ipv6,     expires_at) VALUES (?, 'AAAA', 'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_CNAME =
+            "INSERT INTO cname_rdata (name, rrtype, rrclass, ttl, rdlength, cname,    expires_at) VALUES (?, 'CNAME','IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_MX =
+            "INSERT INTO mx_rdata    (name, rrtype, rrclass, ttl, rdlength, pref, exchange, expires_at) VALUES (?, 'MX',   'IN', ?, ?, ?, ?,       now() + (? * interval '1 second'))";
+    private static final String SQL_NS =
+            "INSERT INTO ns_rdata    (name, rrtype, rrclass, ttl, rdlength, nsdname,  expires_at) VALUES (?, 'NS',   'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_PTR =
+            "INSERT INTO ptr_rdata   (name, rrtype, rrclass, ttl, rdlength, ptrdname, expires_at) VALUES (?, 'PTR',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_SOA =
+            "INSERT INTO soa_rdata   (name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum, expires_at) VALUES (?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
+    private static final String SQL_TXT =
+            "INSERT INTO txt_rdata   (name, rrtype, rrclass, ttl, rdlength, txtdata,  expires_at) VALUES (?, 'TXT',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
 
     private static final String DEL_A = "DELETE FROM a_rdata WHERE LOWER(name) = ?";
     private static final String DEL_AAAA = "DELETE FROM aaaa_rdata WHERE LOWER(name) = ?";
@@ -30,8 +37,9 @@ public class CacheHandler {
     private static final String DEL_TXT = "DELETE FROM txt_rdata WHERE LOWER(name) = ?";
 
     private static final String[] ALL_RDATA_TABLES = {
-            "a_rdata", "aaaa_rdata", "cname_rdata", "mx_rdata", "ns_rdata", "ptr_rdata", "soa_rdata", "txt_rdata"
+        "a_rdata", "aaaa_rdata", "cname_rdata", "mx_rdata", "ns_rdata", "ptr_rdata", "soa_rdata", "txt_rdata"
     };
+
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
@@ -42,7 +50,7 @@ public class CacheHandler {
         void fill(PreparedStatement stmt, ResourceRecord r) throws SQLException;
     }
 
-    public CacheHandler(DatabaseConnectionProvider provider){
+    public CacheHandler(DatabaseConnectionProvider provider) {
         this.conn = provider.getConnection();
     }
 
@@ -60,10 +68,10 @@ public class CacheHandler {
                 while (rs.next()) {
                     ResourceRecord rr = new ResourceRecord();
                     rr.setName(rs.getString("name").split("\\."));
-                    //rr.setType(type);
+                    // rr.setType(type);
                     rr.setRrclass(RRClass.IN);
                     rr.setTtl(remainingTtlSeconds(rs.getTimestamp("expires_at")));
-                    //rr.setRdlength(rs.getInt("rdlength"));
+                    // rr.setRdlength(rs.getInt("rdlength"));
                     rr.setRdata(mapper.map(rs));
                     records.add(rr);
                 }
@@ -84,58 +92,63 @@ public class CacheHandler {
         name = name.toLowerCase();
         switch (type) {
             case A:
-                return lookupType(name,
-                        "SELECT * FROM a_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.A, rs -> {
+                return lookupType(
+                        name, "SELECT * FROM a_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.A, rs -> {
                             RDataA rdata = new RDataA();
                             rdata.setAddress(rs.getBytes("ipv4"));
                             return rdata;
                         });
             case AAAA:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM aaaa_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.AAAA, rs -> {
+                        RRType.AAAA,
+                        rs -> {
                             RDataAAAA rdata = new RDataAAAA();
                             rdata.setAddress(rs.getBytes("ipv6"));
                             return rdata;
                         });
             case CNAME:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM cname_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.CNAME, rs -> {
+                        RRType.CNAME,
+                        rs -> {
                             RDataCNAME rdata = new RDataCNAME();
                             rdata.setCname(rs.getString("cname").split("\\."));
                             return rdata;
                         });
             case MX:
-                return lookupType(name,
-                        "SELECT * FROM mx_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.MX, rs -> {
+                return lookupType(
+                        name, "SELECT * FROM mx_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.MX, rs -> {
                             RDataMX rdata = new RDataMX();
                             rdata.setPreference(rs.getInt("pref"));
                             rdata.setExchange(rs.getString("exchange").split("\\."));
                             return rdata;
                         });
             case NS:
-                return lookupType(name,
-                        "SELECT * FROM ns_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.NS, rs -> {
+                return lookupType(
+                        name, "SELECT * FROM ns_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.NS, rs -> {
                             RDataNS rdata = new RDataNS();
                             rdata.setNsdname(rs.getString("nsdname").split("\\."));
                             return rdata;
                         });
             case PTR:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM ptr_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.PTR, rs -> {
+                        RRType.PTR,
+                        rs -> {
                             RDataPTR rdata = new RDataPTR();
                             rdata.setPtrdname(rs.getString("ptrdname").split("\\."));
                             return rdata;
                         });
             case SOA:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM soa_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.SOA, rs -> {
+                        RRType.SOA,
+                        rs -> {
                             RDataSOA rdata = new RDataSOA();
                             rdata.setMname(rs.getString("mname").split("\\."));
                             rdata.setRname(rs.getString("rname").split("\\."));
@@ -147,9 +160,11 @@ public class CacheHandler {
                             return rdata;
                         });
             case TXT:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM txt_rdata WHERE LOWER(name) = ? AND now() < expires_at",
-                        RRType.TXT, rs -> {
+                        RRType.TXT,
+                        rs -> {
                             RDataTXT rdata = new RDataTXT();
                             rdata.setTxtdata((String[]) rs.getArray("txtdata").getArray());
                             return rdata;
@@ -271,7 +286,7 @@ public class CacheHandler {
 
     /**
      * Deletes a ResourceRecord of given name and type
-     * 
+     *
      * @param name
      * @param type
      * @throws SQLException
@@ -315,7 +330,7 @@ public class CacheHandler {
 
     /**
      * Clears the database tables of all entries
-     * 
+     *
      * @throws SQLException
      */
     public void clearAll() throws SQLException {
@@ -327,13 +342,13 @@ public class CacheHandler {
 
     /**
      * Checks the Database tables for expired entries and deletes them
-     * 
+     *
      * @throws SQLException
      */
     public void deleteExpired() throws SQLException {
         for (String table : ALL_RDATA_TABLES) {
-            try (PreparedStatement stmt = conn.prepareStatement(
-                    "DELETE FROM " + table + " WHERE now() >= expires_at")) {
+            try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM " + table + " WHERE now() >= expires_at")) {
                 stmt.executeUpdate();
             }
         }
@@ -348,8 +363,7 @@ public class CacheHandler {
      */
     private void deleteGroupNames(String deleteSql, List<ResourceRecord> group) throws SQLException {
         Set<String> names = new HashSet<>();
-        for (ResourceRecord r : group)
-            names.add(String.join(".", r.getName()).toLowerCase());
+        for (ResourceRecord r : group) names.add(String.join(".", r.getName()).toLowerCase());
         try (PreparedStatement stmt = conn.prepareStatement(deleteSql)) {
             for (String name : names) {
                 stmt.setString(1, name);
@@ -369,8 +383,7 @@ public class CacheHandler {
      */
     private void batchInsert(List<ResourceRecord> group, String deleteSql, String insertSql, StatementFiller filler)
             throws SQLException {
-        if (group.isEmpty())
-            return;
+        if (group.isEmpty()) return;
         deleteGroupNames(deleteSql, group);
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
             for (ResourceRecord r : group) {
@@ -382,9 +395,8 @@ public class CacheHandler {
     }
 
     /**
-     * Inserts a given array of ResourceRecords into the database using per-type
-     * batching.
-     * 
+     * Inserts a given array of ResourceRecords into the database using per-type batching.
+     *
      * @param records
      * @throws SQLException
      */
@@ -413,5 +425,4 @@ public class CacheHandler {
             conn.setAutoCommit(true);
         }
     }
-
 }

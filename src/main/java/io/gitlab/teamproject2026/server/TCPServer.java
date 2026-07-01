@@ -1,20 +1,18 @@
 package io.gitlab.teamproject2026.server;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
-
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import static io.gitlab.teamproject2026.AnsiColors.*;
+public class TCPServer extends AbstractServer {
 
-
-public class TCPServer extends AbstractServer{
-
-    public TCPServer(ServerContext context){
+    public TCPServer(ServerContext context) {
         super(context);
     }
 
@@ -23,22 +21,20 @@ public class TCPServer extends AbstractServer{
         handleTCP();
     }
 
-    private void handleTCP(){
+    private void handleTCP() {
         // Open TCP socket
         try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress)) {
             logger.log(
                     (GREEN + "[SERVER] TCP server listening on " + bindAddress.toString() + ":" + portNumber + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.NOTICE,
-                    true
-            );
+                    true);
 
             // Server loop
             while (true) {
                 try (Socket socket = serverSocket.accept()) {
                     DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
                     DataOutputStream output = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-
 
                     InetAddress clientAddress = socket.getInetAddress();
                     int clientPort = socket.getPort();
@@ -51,8 +47,7 @@ public class TCPServer extends AbstractServer{
                                 (RED + "[SERVER-ERROR] Incomplete DNS query" + RESET),
                                 LoggingCategoryType.QUERY_ERRORS,
                                 LoggingSeverity.ERROR,
-                                true
-                        );
+                                true);
                         continue;
                     }
 
@@ -60,15 +55,13 @@ public class TCPServer extends AbstractServer{
                             (BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.NOTICE,
-                            true
-                    );
+                            true);
 
                     logger.log(
                             ("[SERVER] IN: " + DNSParser.toHex(data)),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
-                            true
-                    );
+                            true);
 
                     byte[] response = handleQuery(data);
 
@@ -77,8 +70,7 @@ public class TCPServer extends AbstractServer{
                                 (RED + "[SERVER-ERROR] TCP DNS response too large" + RESET),
                                 LoggingCategoryType.DEFAULT,
                                 LoggingSeverity.ERROR,
-                                true
-                        );
+                                true);
                         continue;
                     }
 
@@ -90,29 +82,24 @@ public class TCPServer extends AbstractServer{
                             (BLUE + "[SERVER] Sent TCP response to " + clientAddress + ":" + clientPort + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.NOTICE,
-                            true
-                    );
+                            true);
 
                     logger.log(
                             ("[SERVER] OUT: " + DNSParser.toHex(response)),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
-                            true
-                    );
-
+                            true);
 
                 } catch (IOException e) {
                     logger.log(
                             (RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR,
-                            true
-                    );
+                            true);
                 }
             }
-        } catch (IOException e){
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-
 }

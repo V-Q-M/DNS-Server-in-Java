@@ -1,13 +1,12 @@
 package io.gitlab.teamproject2026.zones;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
 import io.gitlab.teamproject2026.model.rdata.dnssec.*;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -15,8 +14,8 @@ import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 public class ZoneParserDnssecTest {
 
@@ -55,29 +54,27 @@ public class ZoneParserDnssecTest {
             assertEquals(6, records.size());
 
             ResourceRecord dnskeyRecord = records.get(0);
-            assertArrayEquals(new String[]{"example", "com"}, dnskeyRecord.getName());
+            assertArrayEquals(new String[] {"example", "com"}, dnskeyRecord.getName());
             assertEquals(RRType.DNSKEY, dnskeyRecord.getType());
 
             RDataDNSKEY dnskey = (RDataDNSKEY) dnskeyRecord.getRdata();
             assertEquals(256, dnskey.getFlags());
             assertEquals(3, dnskey.getProtocol());
             assertEquals(8, dnskey.getAlgorithm());
-            assertArrayEquals(new byte[]{1, 2, 3, 4}, dnskey.getPublickey());
+            assertArrayEquals(new byte[] {1, 2, 3, 4}, dnskey.getPublickey());
 
             ResourceRecord dsRecord = records.get(1);
-            assertArrayEquals(new String[]{"example", "com"}, dsRecord.getName());
+            assertArrayEquals(new String[] {"example", "com"}, dsRecord.getName());
             assertEquals(RRType.DS, dsRecord.getType());
 
             RDataDS ds = (RDataDS) dsRecord.getRdata();
             assertEquals(12345, ds.getKeyTag());
             assertEquals(8, ds.getAlgorithm());
             assertEquals(2, ds.getDigestType());
-            assertArrayEquals(new byte[]{
-                    (byte) 0xA1, (byte) 0xB2, (byte) 0xC3, (byte) 0xD4
-            }, ds.getDigest());
+            assertArrayEquals(new byte[] {(byte) 0xA1, (byte) 0xB2, (byte) 0xC3, (byte) 0xD4}, ds.getDigest());
 
             ResourceRecord rrsigRecord = records.get(2);
-            assertArrayEquals(new String[]{"example", "com"}, rrsigRecord.getName());
+            assertArrayEquals(new String[] {"example", "com"}, rrsigRecord.getName());
             assertEquals(RRType.RRSIG, rrsigRecord.getType());
 
             RDataRRSIG rrsig = (RDataRRSIG) rrsigRecord.getRdata();
@@ -86,20 +83,20 @@ public class ZoneParserDnssecTest {
             assertEquals(2, rrsig.getLabels());
             assertEquals(3600, rrsig.getOriginalTtl());
             assertEquals(12345, rrsig.getKeyTag());
-            assertArrayEquals(new String[]{"example", "com"}, rrsig.getSignerName());
-            assertArrayEquals(new byte[]{1, 2, 3, 4}, rrsig.getSignature());
+            assertArrayEquals(new String[] {"example", "com"}, rrsig.getSignerName());
+            assertArrayEquals(new byte[] {1, 2, 3, 4}, rrsig.getSignature());
 
             ResourceRecord nsecRecord = records.get(3);
-            assertArrayEquals(new String[]{"example", "com"}, nsecRecord.getName());
+            assertArrayEquals(new String[] {"example", "com"}, nsecRecord.getName());
             assertEquals(RRType.NSEC, nsecRecord.getType());
 
             RDataNSEC nsec = (RDataNSEC) nsecRecord.getRdata();
-            assertArrayEquals(new String[]{"next", "example", "com"}, nsec.getNextDomainName());
+            assertArrayEquals(new String[] {"next", "example", "com"}, nsec.getNextDomainName());
             assertNotNull(nsec.getTypeBitMaps());
             assertTrue(nsec.getTypeBitMaps().length > 0);
 
             ResourceRecord nsec3Record = records.get(4);
-            assertArrayEquals(new String[]{"abcde", "example", "com"}, nsec3Record.getName());
+            assertArrayEquals(new String[] {"abcde", "example", "com"}, nsec3Record.getName());
             assertEquals(RRType.NSEC3, nsec3Record.getType());
 
             RDataNSEC3 nsec3 = (RDataNSEC3) nsec3Record.getRdata();
@@ -112,7 +109,7 @@ public class ZoneParserDnssecTest {
             assertTrue(nsec3.getTypeBitMaps().length > 0);
 
             ResourceRecord nsec3paramRecord = records.get(5);
-            assertArrayEquals(new String[]{"example", "com"}, nsec3paramRecord.getName());
+            assertArrayEquals(new String[] {"example", "com"}, nsec3paramRecord.getName());
             assertEquals(RRType.NSEC3PARAM, nsec3paramRecord.getType());
 
             RDataNSEC3PARAM nsec3param = (RDataNSEC3PARAM) nsec3paramRecord.getRdata();
@@ -146,11 +143,11 @@ public class ZoneParserDnssecTest {
             assertFalse(parser.hasParserError());
 
             RDataDNSKEY dnskey = (RDataDNSKEY) parser.getZoneRecords().get(0).getRdata();
-            assertArrayEquals(new byte[]{1, 2, 3, 4}, dnskey.getPublickey());
+            assertArrayEquals(new byte[] {1, 2, 3, 4}, dnskey.getPublickey());
 
             RDataRRSIG rrsig = (RDataRRSIG) parser.getZoneRecords().get(1).getRdata();
             assertEquals(RRType.DNSKEY, rrsig.getTypeCovered());
-            assertArrayEquals(new byte[]{1, 2, 3, 4}, rrsig.getSignature());
+            assertArrayEquals(new byte[] {1, 2, 3, 4}, rrsig.getSignature());
         }
 
         @Test
@@ -169,9 +166,7 @@ public class ZoneParserDnssecTest {
             assertEquals(1, nsec3param.getHashAlgorithm());
             assertEquals(0, nsec3param.getFlags());
             assertEquals(12, nsec3param.getIterations());
-            assertArrayEquals(new byte[]{
-                    (byte) 0xA1, (byte) 0xB2, (byte) 0xC3, (byte) 0xD4
-            }, nsec3param.getSalt());
+            assertArrayEquals(new byte[] {(byte) 0xA1, (byte) 0xB2, (byte) 0xC3, (byte) 0xD4}, nsec3param.getSalt());
         }
     }
 
@@ -318,16 +313,16 @@ public class ZoneParserDnssecTest {
             assertTrue(err.contains("Invalid NSEC3PARAM salt hex"));
         }
     }
+
     @Nested
-    class IntegrationTest{
+    class IntegrationTest {
         @Test
         void parsesSignedExampleZoneFileFromDisk() {
             try {
                 ConfigManager.setZoneDir("src/test/java/io/gitlab/teamproject2026/zones/");
 
                 ZoneParser parser = new ZoneParser(
-                        Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.dnssec.com"))
-                );
+                        Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.dnssec.com")));
 
                 List<ResourceRecord> records = parser.getZoneRecords();
 
@@ -335,10 +330,12 @@ public class ZoneParserDnssecTest {
                 assertEquals(22, records.size());
 
                 assertEquals(RRType.SOA, records.get(0).getType());
-                assertArrayEquals(new String[]{"example", "com"}, records.get(0).getName());
+                assertArrayEquals(
+                        new String[] {"example", "com"}, records.get(0).getName());
 
                 assertEquals(RRType.RRSIG, records.get(1).getType());
-                assertArrayEquals(new String[]{"example", "com"}, records.get(1).getName());
+                assertArrayEquals(
+                        new String[] {"example", "com"}, records.get(1).getName());
                 RDataRRSIG soaSig = (RDataRRSIG) records.get(1).getRdata();
                 assertEquals(RRType.SOA, soaSig.getTypeCovered());
                 assertEquals(13, soaSig.getAlgorithm());
@@ -347,11 +344,12 @@ public class ZoneParserDnssecTest {
                 assertEquals(59077, soaSig.getKeyTag());
 
                 assertEquals(RRType.NS, records.get(2).getType());
-                assertArrayEquals(new String[]{"example", "com"}, records.get(2).getName());
+                assertArrayEquals(
+                        new String[] {"example", "com"}, records.get(2).getName());
 
                 assertEquals(RRType.NSEC, records.get(4).getType());
                 RDataNSEC apexNsec = (RDataNSEC) records.get(4).getRdata();
-                assertArrayEquals(new String[]{"blog", "example", "com"}, apexNsec.getNextDomainName());
+                assertArrayEquals(new String[] {"blog", "example", "com"}, apexNsec.getNextDomainName());
                 assertTrue(apexNsec.getTypeBitMaps().length > 0);
 
                 assertEquals(RRType.DNSKEY, records.get(6).getType());
@@ -369,23 +367,26 @@ public class ZoneParserDnssecTest {
                 assertTrue(ksk.getPublickey().length > 0);
 
                 assertEquals(RRType.CNAME, records.get(10).getType());
-                assertArrayEquals(new String[]{"blog", "example", "com"}, records.get(10).getName());
+                assertArrayEquals(
+                        new String[] {"blog", "example", "com"}, records.get(10).getName());
                 RDataCNAME blogCname = (RDataCNAME) records.get(10).getRdata();
-                assertArrayEquals(new String[]{"www", "example", "com"}, blogCname.getCname());
+                assertArrayEquals(new String[] {"www", "example", "com"}, blogCname.getCname());
 
                 assertEquals(RRType.A, records.get(14).getType());
-                assertArrayEquals(new String[]{"ns1", "example", "com"}, records.get(14).getName());
+                assertArrayEquals(
+                        new String[] {"ns1", "example", "com"}, records.get(14).getName());
                 RDataA ns1A = (RDataA) records.get(14).getRdata();
                 assertArrayEquals(InetAddress.getByName("192.0.2.10").getAddress(), ns1A.getAddress());
 
                 assertEquals(RRType.A, records.get(18).getType());
-                assertArrayEquals(new String[]{"www", "example", "com"}, records.get(18).getName());
+                assertArrayEquals(
+                        new String[] {"www", "example", "com"}, records.get(18).getName());
                 RDataA wwwA = (RDataA) records.get(18).getRdata();
                 assertArrayEquals(InetAddress.getByName("192.0.2.20").getAddress(), wwwA.getAddress());
 
                 assertEquals(RRType.NSEC, records.get(20).getType());
                 RDataNSEC wwwNsec = (RDataNSEC) records.get(20).getRdata();
-                assertArrayEquals(new String[]{"example", "com"}, wwwNsec.getNextDomainName());
+                assertArrayEquals(new String[] {"example", "com"}, wwwNsec.getNextDomainName());
 
             } catch (IOException e) {
                 System.err.println("ERROR: File not found");

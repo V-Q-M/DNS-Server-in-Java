@@ -1,20 +1,17 @@
 package io.gitlab.teamproject2026.model.rdata;
 
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
+
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
-import java.util.Arrays;
-
-import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
-/**
- * Represents a DNS CNAME (Canonical Name) record.
- * Aliases one domain name to another.
- */
+/** Represents a DNS CNAME (Canonical Name) record. Aliases one domain name to another. */
 public class RDataCNAME implements RData {
     private String[] cname;
 
-    public RDataCNAME(){}
-    public RDataCNAME(String[] cname){
+    public RDataCNAME() {}
+
+    public RDataCNAME(String[] cname) {
         this.cname = cname;
     }
 
@@ -23,11 +20,16 @@ public class RDataCNAME implements RData {
         return RRType.CNAME;
     }
 
-    public String[] getCname() { return cname; }
-    public void setCname(String[] cname) { this.cname = cname; }
+    public String[] getCname() {
+        return cname;
+    }
+
+    public void setCname(String[] cname) {
+        this.cname = cname;
+    }
 
     @Override
-    public String toString(){
+    public String toString() {
         return String.join(".", cname) + ".";
     }
 

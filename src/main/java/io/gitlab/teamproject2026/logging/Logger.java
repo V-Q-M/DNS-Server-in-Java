@@ -1,9 +1,9 @@
 package io.gitlab.teamproject2026.logging;
 
-import io.gitlab.teamproject2026.config.logging.*;
-import io.gitlab.teamproject2026.model.DNSPacket;
 import static io.gitlab.teamproject2026.AnsiColors.*;
 
+import io.gitlab.teamproject2026.config.logging.*;
+import io.gitlab.teamproject2026.model.DNSPacket;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,9 +15,8 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Routes log messages to the configured logging channels based on their
- * category and severity. Log output is formatted according to the channel
- * configuration and written to the associated log files.
+ * Routes log messages to the configured logging channels based on their category and severity. Log output is formatted
+ * according to the channel configuration and written to the associated log files.
  */
 public class Logger {
 
@@ -32,9 +31,9 @@ public class Logger {
 
     /**
      * Creates a logger using the provided logging configuration.
-     * <p>
-     * Opens all configured log files and keeps their writers open for the
-     * lifetime of the logger to avoid repeatedly opening and closing files.
+     *
+     * <p>Opens all configured log files and keeps their writers open for the lifetime of the logger to avoid repeatedly
+     * opening and closing files.
      *
      * @param logging the parsed logging configuration
      */
@@ -46,13 +45,12 @@ public class Logger {
                 if (path.getParent() != null) {
                     Files.createDirectories(path.getParent());
                 }
-                writers.put( channel.channelName(),
+                writers.put(
+                        channel.channelName(),
                         Files.newBufferedWriter(
                                 path,
                                 java.nio.file.StandardOpenOption.CREATE,
-                                java.nio.file.StandardOpenOption.APPEND
-                        )
-                );
+                                java.nio.file.StandardOpenOption.APPEND));
             } catch (IOException e) {
                 System.err.println("Failed to open log file: " + channel.fileName());
             }
@@ -61,32 +59,31 @@ public class Logger {
 
     /**
      * Overrides the configured logging severity for all channels.
-     * <p>
-     * When set, this threshold is used instead of each channel's configured
-     * severity. Passing {@code null} disables the override.
      *
-     * @param severity the global logging threshold, or {@code null} to disable
-     *                 the override
+     * <p>When set, this threshold is used instead of each channel's configured severity. Passing {@code null} disables
+     * the override.
+     *
+     * @param severity the global logging threshold, or {@code null} to disable the override
      */
     public void overwriteSeverity(LoggingSeverity severity) {
         this.overwriteSeverity = severity;
     }
 
-    /**
-     * Logs a message without echoing it to the console.
-     */
-    public void log(String message, LoggingCategoryType categoryType, LoggingSeverity severity){
+    /** Logs a message without echoing it to the console. */
+    public void log(String message, LoggingCategoryType categoryType, LoggingSeverity severity) {
         log(message, categoryType, severity, false);
     }
 
     /**
-     * Logs a message to every channel associated with the given category whose
-     * configured severity allows it. Optionally echoes the original message to
-     * the console.
+     * Logs a message to every channel associated with the given category whose configured severity allows it.
+     * Optionally echoes the original message to the console.
      */
-    public void log(String message, LoggingCategoryType categoryType, LoggingSeverity severity, boolean alsoPrintToConsole) {
+    public void log(
+            String message, LoggingCategoryType categoryType, LoggingSeverity severity, boolean alsoPrintToConsole) {
         LoggingCategory category = logging.categories().get(categoryType);
-        if (category == null) { return; }
+        if (category == null) {
+            return;
+        }
 
         // Use the global severity override if one has been configured.
         LoggingSeverity effectiveSeverity = overwriteSeverity != null ? overwriteSeverity : severity;
@@ -99,29 +96,29 @@ public class Logger {
     }
 
     /**
-     * Formats and writes a single log entry to the specified logging channel.
-     * ANSI escape sequences are removed before writing to the log file, while
-     * console output retains the original formatting.
+     * Formats and writes a single log entry to the specified logging channel. ANSI escape sequences are removed before
+     * writing to the log file, while console output retains the original formatting.
      */
-    private void write(LoggingChannel channel, String message, LoggingCategoryType categoryType, LoggingSeverity severity, boolean alsoPrintToConsole) {
+    private void write(
+            LoggingChannel channel,
+            String message,
+            LoggingCategoryType categoryType,
+            LoggingSeverity severity,
+            boolean alsoPrintToConsole) {
         BufferedWriter writer = writers.get(channel.channelName());
-        if (writer == null) { return; }
+        if (writer == null) {
+            return;
+        }
         try {
             StringBuilder line = new StringBuilder();
             if (channel.printTime()) {
-                line.append('[')
-                        .append(LocalDateTime.now().format(LOG_TIME))
-                        .append("] ");
+                line.append('[').append(LocalDateTime.now().format(LOG_TIME)).append("] ");
             }
             if (channel.printCategory()) {
-                line.append('[')
-                        .append(categoryType)
-                        .append("] ");
+                line.append('[').append(categoryType).append("] ");
             }
             if (channel.printSeverity()) {
-                line.append('[')
-                        .append(severity)
-                        .append("] ");
+                line.append('[').append(severity).append("] ");
             }
 
             // Strip ANSI escape sequences before writing to the log file.
@@ -132,7 +129,7 @@ public class Logger {
             writer.flush();
 
             // Optionally echo the original (ANSI-colored) message to the console.
-            if (alsoPrintToConsole){
+            if (alsoPrintToConsole) {
                 if (severity.level() <= LoggingSeverity.WARNING.level()) {
                     System.err.println(message);
                 } else {
@@ -145,12 +142,16 @@ public class Logger {
     }
 
     /**
-     * Builds and logs a Tracelog message by prepending the qName, ID of a given query, and the log type [TRACE] . Also adds colour definition 
+     * Builds and logs a Tracelog message by prepending the qName, ID of a given query, and the log type [TRACE] . Also
+     * adds colour definition
+     *
      * @param message the log message
-     * @param query the query that is to be logged 
+     * @param query the query that is to be logged
      */
-    public void logTrace(String message, DNSPacket query){
-        String loggedMessage = PINK + "[TRACE] query: " + query.getQuestionSection(0).getNameString()+  " id: " + query.getIdString()+" type: " + query.getQuestionSection(0).getQtype() +": " +  message + RESET;
+    public void logTrace(String message, DNSPacket query) {
+        String loggedMessage =
+                PINK + "[TRACE] query: " + query.getQuestionSection(0).getNameString() + " id: " + query.getIdString()
+                        + " type: " + query.getQuestionSection(0).getQtype() + ": " + message + RESET;
         log(loggedMessage, LoggingCategoryType.TRACE, LoggingSeverity.INFO);
     }
 }

@@ -4,13 +4,12 @@ import java.util.List;
 import java.util.StringJoiner;
 
 /**
- * Immutable node in the configuration abstract syntax tree (AST),
- * representing a statement with its arguments, nested child statements,
- * and source line number.
+ * Immutable node in the configuration abstract syntax tree (AST), representing a statement with its arguments, nested
+ * child statements, and source line number.
  */
-public record ConfNode(String name, List<String> args, List<ConfNode> children, int lineNumber ) {
+public record ConfNode(String name, List<String> args, List<ConfNode> children, int lineNumber) {
     public ConfNode {
-        args =  List.copyOf(args);
+        args = List.copyOf(args);
         children = List.copyOf(children);
     }
 
@@ -37,7 +36,7 @@ public record ConfNode(String name, List<String> args, List<ConfNode> children, 
         sb.append('\n');
         for (int i = 0; i < children.size(); i++) {
             boolean childIsLast = (i == children.size() - 1);
-            children.get(i).buildString( sb, prefix + (isLast ? "    " : "│   "), childIsLast );
+            children.get(i).buildString(sb, prefix + (isLast ? "    " : "│   "), childIsLast);
         }
     }
 }

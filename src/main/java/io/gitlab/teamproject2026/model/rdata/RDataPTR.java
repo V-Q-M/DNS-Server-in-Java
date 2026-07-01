@@ -1,21 +1,17 @@
 package io.gitlab.teamproject2026.model.rdata;
 
+import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
+
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
-import java.util.Arrays;
-
-import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
-
-/**
- * Represents a DNS PTR (Pointer) record.
- * Used for reverse DNS lookups, mapping an IP address back to a domain name.
- */
+/** Represents a DNS PTR (Pointer) record. Used for reverse DNS lookups, mapping an IP address back to a domain name. */
 public class RDataPTR implements RData {
     private String[] ptrdname;
 
-    public RDataPTR(){}
-    public RDataPTR(String[] ptrdname){
+    public RDataPTR() {}
+
+    public RDataPTR(String[] ptrdname) {
         this.ptrdname = ptrdname;
     }
 
@@ -24,17 +20,24 @@ public class RDataPTR implements RData {
         return RRType.PTR;
     }
 
-    public String[] getPtrdname() { return ptrdname; }
-    public void setPtrdname(String[] ptrdname) { this.ptrdname = ptrdname; }
+    public String[] getPtrdname() {
+        return ptrdname;
+    }
+
+    public void setPtrdname(String[] ptrdname) {
+        this.ptrdname = ptrdname;
+    }
 
     @Override
-    public String toString(){
+    public String toString() {
         return String.join(".", ptrdname) + ".";
     }
 
     @Override
     public byte[] toBytes() {
-        return encodeName(ptrdname); // Used to end with empty byte Text ( + "."), but encodeName already appends a 0 length byte. Appeared redundant, removed
+        return encodeName(
+                ptrdname); // Used to end with empty byte Text ( + "."), but encodeName already appends a 0 length byte.
+        // Appeared redundant, removed
     }
 
     public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {

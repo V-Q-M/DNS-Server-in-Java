@@ -6,34 +6,46 @@ import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
 import io.gitlab.teamproject2026.model.rdata.dnssec.*;
-
 import java.sql.*;
 import java.util.*;
 
 /**
- * Provides persistence operations for authoritative DNS zone data.
- * Handles insertion, deletion, replacement, and lookup of resource
- * records stored in the database.
+ * Provides persistence operations for authoritative DNS zone data. Handles insertion, deletion, replacement, and lookup
+ * of resource records stored in the database.
  */
 public class ZoneHandler {
     private final Connection conn;
 
-    private static final String SQL_A = "INSERT INTO zone_a_rdata    (zone, name, rrtype, rrclass, ttl, rdlength, ipv4) VALUES (?, ?, 'A',    'IN', ?, ?, ?)";
-    private static final String SQL_AAAA = "INSERT INTO zone_aaaa_rdata  (zone, name, rrtype, rrclass, ttl, rdlength, ipv6) VALUES (?, ?, 'AAAA', 'IN', ?, ?, ?)";
-    private static final String SQL_CNAME = "INSERT INTO zone_cname_rdata (zone, name, rrtype, rrclass, ttl, rdlength, cname) VALUES (?, ?, 'CNAME','IN', ?, ?, ?)";
-    private static final String SQL_MX = "INSERT INTO zone_mx_rdata    (zone, name, rrtype, rrclass, ttl, rdlength, pref, exchange) VALUES (?, ?, 'MX',   'IN', ?, ?, ?, ?)";
-    private static final String SQL_NS = "INSERT INTO zone_ns_rdata    (zone, name, rrtype, rrclass, ttl, rdlength, nsdname) VALUES (?, ?, 'NS',   'IN', ?, ?, ?)";
-    private static final String SQL_PTR = "INSERT INTO zone_ptr_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, ptrdname) VALUES (?, ?, 'PTR',  'IN', ?, ?, ?)";
-    private static final String SQL_SOA = "INSERT INTO zone_soa_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum) VALUES (?, ?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String SQL_TXT = "INSERT INTO zone_txt_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, txtdata) VALUES (?, ?, 'TXT',  'IN', ?, ?, ?)";
+    private static final String SQL_A =
+            "INSERT INTO zone_a_rdata    (zone, name, rrtype, rrclass, ttl, rdlength, ipv4) VALUES (?, ?, 'A',    'IN', ?, ?, ?)";
+    private static final String SQL_AAAA =
+            "INSERT INTO zone_aaaa_rdata  (zone, name, rrtype, rrclass, ttl, rdlength, ipv6) VALUES (?, ?, 'AAAA', 'IN', ?, ?, ?)";
+    private static final String SQL_CNAME =
+            "INSERT INTO zone_cname_rdata (zone, name, rrtype, rrclass, ttl, rdlength, cname) VALUES (?, ?, 'CNAME','IN', ?, ?, ?)";
+    private static final String SQL_MX =
+            "INSERT INTO zone_mx_rdata    (zone, name, rrtype, rrclass, ttl, rdlength, pref, exchange) VALUES (?, ?, 'MX',   'IN', ?, ?, ?, ?)";
+    private static final String SQL_NS =
+            "INSERT INTO zone_ns_rdata    (zone, name, rrtype, rrclass, ttl, rdlength, nsdname) VALUES (?, ?, 'NS',   'IN', ?, ?, ?)";
+    private static final String SQL_PTR =
+            "INSERT INTO zone_ptr_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, ptrdname) VALUES (?, ?, 'PTR',  'IN', ?, ?, ?)";
+    private static final String SQL_SOA =
+            "INSERT INTO zone_soa_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum) VALUES (?, ?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_TXT =
+            "INSERT INTO zone_txt_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, txtdata) VALUES (?, ?, 'TXT',  'IN', ?, ?, ?)";
 
     // DNSSEC
-    private static final String SQL_DS = "INSERT INTO zone_ds_rdata (zone, name, rrtype, rrclass, ttl, rdlength, key_tag, algorithm, digest_type, digest) VALUES (?, ?, 'DS', 'IN', ?, ?, ?, ?, ?, ?)";
-    private static final String SQL_DNSKEY = "INSERT INTO zone_dnskey_rdata (zone, name, rrtype, rrclass, ttl, rdlength, flags, protocol, algorithm, publickey) VALUES (?, ?, 'DNSKEY', 'IN', ?, ?, ?, ?, ?, ?)";
-    private static final String SQL_RRSIG = "INSERT INTO zone_rrsig_rdata (zone, name, rrtype, rrclass, ttl, rdlength, type_covered, algorithm, labels, original_ttl, expiration, inception, key_tag, signer_name, signature) VALUES (?, ?, 'RRSIG', 'IN', ?, ?, ?::RRTypeEnum, ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String SQL_NSEC = "INSERT INTO zone_nsec_rdata (zone, name, rrtype, rrclass, ttl, rdlength, next_domain_name, type_bit_maps) VALUES (?, ?, 'NSEC', 'IN', ?, ?, ?, ?)";
-    private static final String SQL_NSEC3 = "INSERT INTO zone_nsec3_rdata (zone, name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt, next_hashed_owner_name, type_bit_maps) VALUES (?, ?, 'NSEC3', 'IN', ?, ?, ?, ?, ?, ?, ?, ?)";
-    private static final String SQL_NSEC3PARAM = "INSERT INTO zone_nsec3param_rdata (zone, name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt) VALUES (?, ?, 'NSEC3PARAM', 'IN', ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_DS =
+            "INSERT INTO zone_ds_rdata (zone, name, rrtype, rrclass, ttl, rdlength, key_tag, algorithm, digest_type, digest) VALUES (?, ?, 'DS', 'IN', ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_DNSKEY =
+            "INSERT INTO zone_dnskey_rdata (zone, name, rrtype, rrclass, ttl, rdlength, flags, protocol, algorithm, publickey) VALUES (?, ?, 'DNSKEY', 'IN', ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_RRSIG =
+            "INSERT INTO zone_rrsig_rdata (zone, name, rrtype, rrclass, ttl, rdlength, type_covered, algorithm, labels, original_ttl, expiration, inception, key_tag, signer_name, signature) VALUES (?, ?, 'RRSIG', 'IN', ?, ?, ?::RRTypeEnum, ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_NSEC =
+            "INSERT INTO zone_nsec_rdata (zone, name, rrtype, rrclass, ttl, rdlength, next_domain_name, type_bit_maps) VALUES (?, ?, 'NSEC', 'IN', ?, ?, ?, ?)";
+    private static final String SQL_NSEC3 =
+            "INSERT INTO zone_nsec3_rdata (zone, name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt, next_hashed_owner_name, type_bit_maps) VALUES (?, ?, 'NSEC3', 'IN', ?, ?, ?, ?, ?, ?, ?, ?)";
+    private static final String SQL_NSEC3PARAM =
+            "INSERT INTO zone_nsec3param_rdata (zone, name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt) VALUES (?, ?, 'NSEC3PARAM', 'IN', ?, ?, ?, ?, ?, ?)";
 
     private static final String DEL_A = "DELETE FROM zone_a_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_AAAA = "DELETE FROM zone_aaaa_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
@@ -50,43 +62,49 @@ public class ZoneHandler {
     private static final String DEL_RRSIG = "DELETE FROM zone_rrsig_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_NSEC = "DELETE FROM zone_nsec_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_NSEC3 = "DELETE FROM zone_nsec3_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
-    private static final String DEL_NSEC3PARAM = "DELETE FROM zone_nsec3param_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_NSEC3PARAM =
+            "DELETE FROM zone_nsec3param_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
 
     private static final String[] ALL_RDATA_TABLES = {
-            "zone_a_rdata", "zone_aaaa_rdata", "zone_cname_rdata", "zone_mx_rdata", "zone_ns_rdata", "zone_ptr_rdata", "zone_soa_rdata", "zone_txt_rdata",
-            "zone_dnskey_rdata", "zone_ds_rdata", "zone_rrsig_rdata", "zone_nsec_rdata", "zone_nsec3_rdata", "zone_nsec3param_rdata"
+        "zone_a_rdata",
+        "zone_aaaa_rdata",
+        "zone_cname_rdata",
+        "zone_mx_rdata",
+        "zone_ns_rdata",
+        "zone_ptr_rdata",
+        "zone_soa_rdata",
+        "zone_txt_rdata",
+        "zone_dnskey_rdata",
+        "zone_ds_rdata",
+        "zone_rrsig_rdata",
+        "zone_nsec_rdata",
+        "zone_nsec3_rdata",
+        "zone_nsec3param_rdata"
     };
 
-    /**
-     * Maps a database row to a concrete RData implementation.
-     */
+    /** Maps a database row to a concrete RData implementation. */
     @FunctionalInterface
     private interface RDataRowMapper {
         RData map(ResultSet rs) throws SQLException;
     }
 
-    /**
-     * Fills a prepared statement with record-specific parameters.
-     */
+    /** Fills a prepared statement with record-specific parameters. */
     @FunctionalInterface
     private interface StatementFiller {
         void fill(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException;
     }
-
 
     /**
      * Creates a handler using the shared database connection.
      *
      * @param provider database connection provider
      */
-    public ZoneHandler(DatabaseConnectionProvider provider){
+    public ZoneHandler(DatabaseConnectionProvider provider) {
         this.conn = provider.getConnection();
     }
 
-
     /**
-     * Executes a type-specific lookup query and reconstructs
-     * the resulting resource records using the supplied mapper.
+     * Executes a type-specific lookup query and reconstructs the resulting resource records using the supplied mapper.
      *
      * @param name queried owner name
      * @param sql SQL statement used for the lookup
@@ -96,7 +114,8 @@ public class ZoneHandler {
      * @return matching resource records
      * @throws SQLException if the database query fails
      */
-    private List<ResourceRecord> lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper) throws SQLException {
+    private List<ResourceRecord> lookupType(String name, String sql, RRType type, String zone, RDataRowMapper mapper)
+            throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, name);
@@ -146,16 +165,15 @@ public class ZoneHandler {
      */
     public void clearZone(String zone) throws SQLException {
         Statement stmt = conn.createStatement();
-        for(String table : ALL_RDATA_TABLES){
+        for (String table : ALL_RDATA_TABLES) {
             stmt.addBatch("DELETE FROM " + table + " WHERE zone = '" + zone + "'");
         }
         stmt.executeBatch();
     }
 
-
     /**
-     * Returns the full ResourceRecord from the Database, given a name and type
-     * Looks for entries that end in name
+     * Returns the full ResourceRecord from the Database, given a name and type Looks for entries that end in name
+     *
      * @param name of the RREntry (check = LIKE %.{name})
      * @param type of the RREntry
      * @param zone the RREntry is under
@@ -166,7 +184,8 @@ public class ZoneHandler {
         name = name.toLowerCase();
         switch (type) {
             case A:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_a_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.A,
                         zone,
@@ -176,7 +195,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case AAAA:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_aaaa_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.AAAA,
                         zone,
@@ -186,7 +206,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case CNAME:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_cname_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.CNAME,
                         zone,
@@ -196,7 +217,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case MX:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_mx_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.MX,
                         zone,
@@ -207,7 +229,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case NS:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_ns_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.NS,
                         zone,
@@ -217,7 +240,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case PTR:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_ptr_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.PTR,
                         zone,
@@ -227,7 +251,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case SOA:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_soa_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.SOA,
                         zone,
@@ -243,7 +268,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case TXT:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_txt_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.TXT,
                         zone,
@@ -253,7 +279,8 @@ public class ZoneHandler {
                             return rdata;
                         });
             case DS:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_ds_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.DS,
                         zone,
@@ -261,10 +288,10 @@ public class ZoneHandler {
                                 rs.getInt("key_tag"),
                                 rs.getInt("algorithm"),
                                 rs.getInt("digest_type"),
-                                rs.getBytes("digest")
-                        ));
+                                rs.getBytes("digest")));
             case DNSKEY:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_dnskey_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.DNSKEY,
                         zone,
@@ -272,10 +299,10 @@ public class ZoneHandler {
                                 rs.getInt("flags"),
                                 rs.getInt("protocol"),
                                 rs.getInt("algorithm"),
-                                rs.getBytes("publickey")
-                        ));
+                                rs.getBytes("publickey")));
             case RRSIG:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_rrsig_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.RRSIG,
                         zone,
@@ -288,19 +315,18 @@ public class ZoneHandler {
                                 rs.getLong("inception"),
                                 rs.getInt("key_tag"),
                                 rs.getString("signer_name").split("\\."),
-                                rs.getBytes("signature")
-                        ));
+                                rs.getBytes("signature")));
             case NSEC:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_nsec_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.NSEC,
                         zone,
                         rs -> new RDataNSEC(
-                                rs.getString("next_domain_name").split("\\."),
-                                rs.getBytes("type_bit_maps")
-                        ));
+                                rs.getString("next_domain_name").split("\\."), rs.getBytes("type_bit_maps")));
             case NSEC3:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_nsec3_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.NSEC3,
                         zone,
@@ -310,10 +336,10 @@ public class ZoneHandler {
                                 rs.getInt("iterations"),
                                 rs.getBytes("salt"),
                                 rs.getBytes("next_hashed_owner_name"),
-                                rs.getBytes("type_bit_maps")
-                        ));
+                                rs.getBytes("type_bit_maps")));
             case NSEC3PARAM:
-                return lookupType(name,
+                return lookupType(
+                        name,
                         "SELECT * FROM zone_nsec3param_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?",
                         RRType.NSEC3PARAM,
                         zone,
@@ -321,8 +347,7 @@ public class ZoneHandler {
                                 rs.getInt("hash_algorithm"),
                                 rs.getInt("flags"),
                                 rs.getInt("iterations"),
-                                rs.getBytes("salt")
-                        ));
+                                rs.getBytes("salt")));
             default:
                 return new ArrayList<>();
         }
@@ -337,7 +362,6 @@ public class ZoneHandler {
         stmt.setLong(3, r.getTtl());
         stmt.setInt(4, r.getRdlength());
     }
-
 
     /**
      * Executes a type-specific INSERT for a single resource record.
@@ -456,7 +480,8 @@ public class ZoneHandler {
         stmt.setBytes(8, rdata.getSalt());
     }
 
-    private void singleInsert(String insertSql, ResourceRecord r, String zone, StatementFiller filler) throws SQLException {
+    private void singleInsert(String insertSql, ResourceRecord r, String zone, StatementFiller filler)
+            throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
             filler.fill(stmt, r, zone);
             stmt.executeUpdate();
@@ -589,7 +614,7 @@ public class ZoneHandler {
      */
     public void clearAll() throws SQLException {
         Statement stmt = conn.createStatement();
-        for(String table : ALL_RDATA_TABLES){
+        for (String table : ALL_RDATA_TABLES) {
             stmt.addBatch("TRUNCATE TABLE " + table);
         }
         stmt.executeBatch();
@@ -606,8 +631,7 @@ public class ZoneHandler {
      */
     private void batchInsert(List<ResourceRecord> group, String zone, String insertSql, StatementFiller filler)
             throws SQLException {
-        if (group.isEmpty())
-            return;
+        if (group.isEmpty()) return;
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
             for (ResourceRecord r : group) {
                 filler.fill(stmt, r, zone);
@@ -618,15 +642,14 @@ public class ZoneHandler {
     }
 
     /**
-     * Inserts a given array of ResourceRecords into the database using per-type
-     * batching.
+     * Inserts a given array of ResourceRecords into the database using per-type batching.
      *
      * @param dnsZone the zone to insert
      * @throws SQLException
      */
     public void insertZone(DNSZone dnsZone) throws SQLException {
         ResourceRecord[] records = dnsZone.getRecords().toArray(new ResourceRecord[0]);
-        String zone  = dnsZone.origin();
+        String zone = dnsZone.origin();
         Map<RRType, List<ResourceRecord>> byType = new EnumMap<>(RRType.class);
         for (ResourceRecord record : records) {
             byType.computeIfAbsent(record.getType(), k -> new ArrayList<>()).add(record);
@@ -657,5 +680,4 @@ public class ZoneHandler {
             conn.setAutoCommit(true);
         }
     }
-
 }

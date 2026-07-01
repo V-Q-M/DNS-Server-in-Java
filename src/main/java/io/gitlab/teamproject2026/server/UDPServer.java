@@ -1,28 +1,27 @@
 package io.gitlab.teamproject2026.server;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.model.DNSPacket;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 
-import static io.gitlab.teamproject2026.AnsiColors.*;
-
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
     // This will need to be negotiated in edns
     private int udpResponseSizeLimit = 512;
 
-    public UDPServer(ServerContext context){
+    public UDPServer(ServerContext context) {
         super(context);
     }
 
-    public void setUdpResponseSizeLimit(int limit){
+    public void setUdpResponseSizeLimit(int limit) {
         this.udpResponseSizeLimit = limit;
     }
 
@@ -31,15 +30,14 @@ public class UDPServer extends AbstractServer {
         handleUDP();
     }
 
-    private void handleUDP(){
+    private void handleUDP() {
         // Open UDP socket
         try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
             logger.log(
                     (GREEN + "[SERVER] UDP server listening on " + bindAddress.toString() + ":" + portNumber + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.NOTICE,
-                    true
-            );
+                    true);
 
             // Buffer necessary to store the packet
             byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
@@ -60,25 +58,20 @@ public class UDPServer extends AbstractServer {
                         (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
                         LoggingCategoryType.GENERAL,
                         LoggingSeverity.NOTICE,
-                        true
-                );
+                        true);
                 // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
                 logger.log(
                         ("[SERVER] IN: " + DNSParser.toHex(data)),
                         LoggingCategoryType.GENERAL,
                         LoggingSeverity.INFO,
-                        true
-                );
+                        true);
 
                 // Handle the query and receive a byte array as response
                 byte[] byteResponse = handleUDPQuery(data);
 
                 // Build UDP packet
-                DatagramPacket responsePacket = new DatagramPacket(
-                        byteResponse,
-                        byteResponse.length,
-                        clientAddress,
-                        clientPort);
+                DatagramPacket responsePacket =
+                        new DatagramPacket(byteResponse, byteResponse.length, clientAddress, clientPort);
 
                 // Actually send the packet over our socket
                 socket.send(responsePacket);
@@ -87,16 +80,14 @@ public class UDPServer extends AbstractServer {
                         (BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET),
                         LoggingCategoryType.GENERAL,
                         LoggingSeverity.NOTICE,
-                        true
-                );
+                        true);
                 logger.log(
                         ("[SERVER] OUT: " + DNSParser.toHex(byteResponse)),
                         LoggingCategoryType.GENERAL,
                         LoggingSeverity.INFO,
-                        true
-                );
+                        true);
             }
-        } catch (IOException e){
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

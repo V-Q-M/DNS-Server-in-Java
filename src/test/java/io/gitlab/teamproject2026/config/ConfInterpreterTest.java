@@ -1,23 +1,22 @@
 package io.gitlab.teamproject2026.config;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.gitlab.teamproject2026.config.interpreter.ConfInterpreter;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
+import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
+import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.config.zones.ZoneType;
-import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
-import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 public class ConfInterpreterTest {
 
@@ -188,9 +187,7 @@ public class ConfInterpreterTest {
                     """);
 
             assertEquals(
-                    List.of("9.9.9.9", "1.1.1.1", "8.8.8.8"),
-                    config.options().forwarders()
-            );
+                    List.of("9.9.9.9", "1.1.1.1", "8.8.8.8"), config.options().forwarders());
         }
 
         @Test
@@ -503,7 +500,7 @@ public class ConfInterpreterTest {
                             file "log/named.log";
                             severity info;
                         };
-                    
+
                         category default { default_log; };
                         category queries { default_log; };
                     };
@@ -529,8 +526,7 @@ public class ConfInterpreterTest {
                             .categories()
                             .get(LoggingCategoryType.DEFAULT)
                             .channels()
-                            .getFirst()
-            );
+                            .getFirst());
         }
 
         @Test
@@ -554,7 +550,7 @@ public class ConfInterpreterTest {
                         channel default_log {
                             file "log/named.log";
                         };
-                    
+
                         category made-up { default_log; };
                     };
                     """));
@@ -578,7 +574,7 @@ public class ConfInterpreterTest {
             String err = captureStderr(() -> interpretInvalidConfig("""
                     logging {
                     };
-                    
+
                     logging {
                     };
                     """));
@@ -611,6 +607,7 @@ public class ConfInterpreterTest {
 
             assertTrue(err.contains("logging.category requires a name"));
         }
+
         @Test
         void parsesMultipleLoggingChannels() {
             Config config = parseValidConfig("""
@@ -634,16 +631,14 @@ public class ConfInterpreterTest {
 
             assertEquals(2, config.logging().channels().size());
 
-            var queries =
-                    config.logging()
-                            .categories()
-                            .get(LoggingCategoryType.QUERIES);
+            var queries = config.logging().categories().get(LoggingCategoryType.QUERIES);
 
             assertEquals(2, queries.channels().size());
 
             assertEquals("default_log", queries.channels().get(0).channelName());
             assertEquals("query_log", queries.channels().get(1).channelName());
         }
+
         @Test
         void parsesHyphenatedCategoryNames() {
             Config config = parseValidConfig("""
@@ -658,12 +653,9 @@ public class ConfInterpreterTest {
         };
         """);
 
-            assertTrue(
-                    config.logging()
-                            .categories()
-                            .containsKey(LoggingCategoryType.QUERY_ERRORS)
-            );
+            assertTrue(config.logging().categories().containsKey(LoggingCategoryType.QUERY_ERRORS));
         }
+
         @Test
         void parsesLoggingPrintFlags() {
             Config config = parseValidConfig("""

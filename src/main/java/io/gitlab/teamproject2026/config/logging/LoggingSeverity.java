@@ -2,10 +2,9 @@ package io.gitlab.teamproject2026.config.logging;
 
 /**
  * Represents the supported logging severity levels.
- * <p>
- * The values correspond to BIND's logging severities. While this project
- * may not use every severity level, they are provided for compatibility
- * with the configuration format.
+ *
+ * <p>The values correspond to BIND's logging severities. While this project may not use every severity level, they are
+ * provided for compatibility with the configuration format.
  */
 public enum LoggingSeverity {
     /** Critical failures that may prevent normal server operation. */
@@ -24,6 +23,7 @@ public enum LoggingSeverity {
     DYNAMIC(6);
 
     private final int level;
+
     LoggingSeverity(int level) {
         this.level = level;
     }
@@ -31,8 +31,7 @@ public enum LoggingSeverity {
     /**
      * Returns the numeric severity level.
      *
-     * @return the severity level, where lower values indicate more severe
-     *         messages
+     * @return the severity level, where lower values indicate more severe messages
      */
     public int level() {
         return level;

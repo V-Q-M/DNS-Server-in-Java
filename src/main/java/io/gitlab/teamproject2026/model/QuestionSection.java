@@ -1,11 +1,12 @@
 package io.gitlab.teamproject2026.model;
 
-import io.gitlab.teamproject2026.DNSParser;
 import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
 
+import io.gitlab.teamproject2026.DNSParser;
+
 /**
- * Represents the Question Section of a DNS packet.
- * Contains the domain name being queried, the query type and the query class. As we learned from my presentation xD
+ * Represents the Question Section of a DNS packet. Contains the domain name being queried, the query type and the query
+ * class. As we learned from my presentation xD
  */
 public class QuestionSection {
 
@@ -14,24 +15,47 @@ public class QuestionSection {
     private RRClass qclass;
     private int lastProcessedByte;
 
-    public String[] getName() { return name; }
-    public String getNameString() { return String.join(".", name); }
-    public void setName(String[] name) { this.name = name; }
+    public String[] getName() {
+        return name;
+    }
 
-    public RRType getQtype() { return qtype; }
-    public void setQtype(RRType qtype) { this.qtype = qtype; }
+    public String getNameString() {
+        return String.join(".", name);
+    }
 
-    public RRClass getQclass() { return qclass; }
-    public void setQclass(RRClass qclass) { this.qclass = qclass; }
+    public void setName(String[] name) {
+        this.name = name;
+    }
+
+    public RRType getQtype() {
+        return qtype;
+    }
+
+    public void setQtype(RRType qtype) {
+        this.qtype = qtype;
+    }
+
+    public RRClass getQclass() {
+        return qclass;
+    }
+
+    public void setQclass(RRClass qclass) {
+        this.qclass = qclass;
+    }
 
     /**
      * Only curated if parsed from bytes and used by the surrounding packet to adjust the parsing offset
+     *
      * @return amount of bytes used to parse this QuestionSection
      */
-    public int getLastProcessedByte(){return lastProcessedByte; }
+    public int getLastProcessedByte() {
+        return lastProcessedByte;
+    }
+
     @Override
     public String toString() {
-        return "\n    name: " + String.join(".", getName()) + "." + "\n    qtype: " + getQtype() + "\n    qclass: " + getQclass();
+        return "\n    name: " + String.join(".", getName()) + "." + "\n    qtype: " + getQtype() + "\n    qclass: "
+                + getQclass();
     }
     /**
      * Serializes this question section into DNS wire format.
@@ -45,17 +69,18 @@ public class QuestionSection {
         System.arraycopy(name, 0, result, 0, name.length);
 
         int pos = name.length;
-        result[pos]     = (byte) (this.getQtype().getValue() >> 8);
+        result[pos] = (byte) (this.getQtype().getValue() >> 8);
         result[pos + 1] = (byte) (this.getQtype().getValue());
         result[pos + 2] = (byte) (this.getQclass().getValue() >> 8);
         result[pos + 3] = (byte) (this.getQclass().getValue());
 
         return result;
-
     }
 
     /**
-     * Parses the bytes array from the given index into a QuestionSection object and stores its end in the lastProcessedByte field
+     * Parses the bytes array from the given index into a QuestionSection object and stores its end in the
+     * lastProcessedByte field
+     *
      * @param bytes the full byte array of the packet
      * @param byteIndex the index of the byte at which this question section starts
      * @return the parsed question section
@@ -70,11 +95,9 @@ public class QuestionSection {
         questionSection.lastProcessedByte = byteIndex;
         return questionSection;
     }
-    
-    /**
-     * returns only name of question section (used by stubresolver for logging)
-     */
-    public String nameToString() { return 
-        String.join(".", this.name) + ".";
+
+    /** returns only name of question section (used by stubresolver for logging) */
+    public String nameToString() {
+        return String.join(".", this.name) + ".";
     }
 }

@@ -1,13 +1,12 @@
 package io.gitlab.teamproject2026.zones;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -18,8 +17,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 public class ZoneParserTest {
 
@@ -58,7 +57,7 @@ public class ZoneParserTest {
                             IN MX     10 mail1.testing.com.
                     @       IN TXT    "hello world"
                     split   IN TXT    "one" "two" "three"
-                    
+
                     multitxt IN TXT (
                         "this is "
                         "multiple txt chunks"
@@ -73,101 +72,74 @@ public class ZoneParserTest {
             List<ResourceRecord> testRecords = new ArrayList<>();
 
             RDataSOA firstRdata = new RDataSOA(
-                    new String[]{"ns1", "testing", "com"},
-                    new String[]{"admin.foo", "testing", "com"},
+                    new String[] {"ns1", "testing", "com"},
+                    new String[] {"admin.foo", "testing", "com"},
                     2026051201L,
                     3600,
                     1800,
                     1209600,
-                    3600
-            );
-            testRecords.add(new ResourceRecord(
-                    new String[]{"example", "com"}, RRClass.IN, 3200, firstRdata));
+                    3600);
+            testRecords.add(new ResourceRecord(new String[] {"example", "com"}, RRClass.IN, 3200, firstRdata));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"www", "example", "com"},
+                    new String[] {"www", "example", "com"},
                     RRClass.IN,
                     3200,
-                    new RDataA(InetAddress.getByName("192.0.2.2").getAddress())
-            ));
+                    new RDataA(InetAddress.getByName("192.0.2.2").getAddress())));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"ipv6", "example", "com"},
+                    new String[] {"ipv6", "example", "com"},
                     RRClass.IN,
                     3200,
-                    new RDataAAAA(InetAddress.getByName("2001:db8::1").getAddress())
-            ));
+                    new RDataAAAA(InetAddress.getByName("2001:db8::1").getAddress())));
 
             ResourceRecord ns2Rec = new ResourceRecord(
-                    new String[]{"ns2", "example", "com"},
+                    new String[] {"ns2", "example", "com"},
                     RRClass.IN,
                     3200,
-                    new RDataA(InetAddress.getByName("192.0.2.54").getAddress())
-            );
+                    new RDataA(InetAddress.getByName("192.0.2.54").getAddress()));
             testRecords.add(ns2Rec);
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"alias", "example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataCNAME(new String[]{"www", "testing", "com"})
-            ));
+                    new String[] {"alias", "example", "com"}, RRClass.IN, 3200, new RDataCNAME(new String[] {
+                        "www", "testing", "com"
+                    })));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataNS(new String[]{"ns1", "testing", "com"})
-            ));
+                    new String[] {"example", "com"}, RRClass.IN, 3200, new RDataNS(new String[] {"ns1", "testing", "com"
+                    })));
+
+            testRecords.add(
+                    new ResourceRecord(new String[] {"example", "com"}, RRClass.IN, 3200, new RDataMX(10, new String[] {
+                        "mail1", "testing", "com"
+                    })));
+
+            testRecords.add(
+                    new ResourceRecord(new String[] {"example", "com"}, RRClass.IN, 3200, new RDataTXT("hello world")));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataMX(10, new String[]{"mail1", "testing", "com"})
-            ));
+                    new String[] {"split", "example", "com"}, RRClass.IN, 3200, new RDataTXT("one", "two", "three")));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"example", "com"},
+                    new String[] {"multitxt", "example", "com"},
                     RRClass.IN,
                     3200,
-                    new RDataTXT("hello world")
-            ));
+                    new RDataTXT("this is ", "multiple txt chunks")));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"split", "example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataTXT("one", "two", "three")
-            ));
+                    new String[] {"2", "example", "com"}, RRClass.IN, 3200, new RDataPTR(new String[] {
+                        "www", "example", "com"
+                    })));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"multitxt", "example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataTXT("this is ", "multiple txt chunks")
-            ));
+                    new String[] {"54", "example", "com"}, RRClass.IN, 3200, new RDataPTR(new String[] {
+                        "ns2", "example", "com"
+                    })));
 
             testRecords.add(new ResourceRecord(
-                    new String[]{"2", "example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataPTR(new String[]{"www", "example", "com"})
-            ));
-
-            testRecords.add(new ResourceRecord(
-                    new String[]{"54", "example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataPTR(new String[]{"ns2", "example", "com"})
-            ));
-
-            testRecords.add(new ResourceRecord(
-                    new String[]{"1", "example", "com"},
-                    RRClass.IN,
-                    3200,
-                    new RDataPTR(new String[]{"ipv6", "examp", "e", "com"})
-            ));
+                    new String[] {"1", "example", "com"}, RRClass.IN, 3200, new RDataPTR(new String[] {
+                        "ipv6", "examp", "e", "com"
+                    })));
 
             assertEquals(testRecords.size(), ourRecords.size());
             assertFalse(testParser.hasParserError());
@@ -192,8 +164,7 @@ public class ZoneParserTest {
                     assertEquals(testSOA.getMinimum(), ourSOA.getMinimum());
                 }
 
-                if (ourRecord.getRdata() instanceof RDataA ourA
-                        && testRecord.getRdata() instanceof RDataA testA) {
+                if (ourRecord.getRdata() instanceof RDataA ourA && testRecord.getRdata() instanceof RDataA testA) {
                     assertArrayEquals(testA.getAddress(), ourA.getAddress());
                 }
 
@@ -207,13 +178,11 @@ public class ZoneParserTest {
                     assertArrayEquals(testCNAME.getCname(), ourCNAME.getCname());
                 }
 
-                if (ourRecord.getRdata() instanceof RDataNS ourNS
-                        && testRecord.getRdata() instanceof RDataNS testNS) {
+                if (ourRecord.getRdata() instanceof RDataNS ourNS && testRecord.getRdata() instanceof RDataNS testNS) {
                     assertArrayEquals(testNS.getNsdname(), ourNS.getNsdname());
                 }
 
-                if (ourRecord.getRdata() instanceof RDataMX ourMX
-                        && testRecord.getRdata() instanceof RDataMX testMX) {
+                if (ourRecord.getRdata() instanceof RDataMX ourMX && testRecord.getRdata() instanceof RDataMX testMX) {
                     assertEquals(testMX.getPreference(), ourMX.getPreference());
                     assertArrayEquals(testMX.getExchange(), ourMX.getExchange());
                 }
@@ -235,10 +204,9 @@ public class ZoneParserTest {
             try {
                 ConfigManager.setZoneDir("src/test/java/io/gitlab/teamproject2026/zones/");
                 ZoneParser testParser = new ZoneParser(
-                        Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.129.0.0"))
-                );
+                        Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.129.0.0")));
 
-                //IO.println("Record amount: " + testParser.getZoneRecords().size());
+                // IO.println("Record amount: " + testParser.getZoneRecords().size());
                 /*
                 for (ResourceRecord r : testParser.getZoneRecords()) {
                     IO.println(r);
@@ -290,7 +258,8 @@ public class ZoneParserTest {
             List<ResourceRecord> records = parser.getZoneRecords();
             assertEquals(2, records.size());
 
-            assertArrayEquals(new String[]{"www", "example", "com"}, records.get(1).getName());
+            assertArrayEquals(
+                    new String[] {"www", "example", "com"}, records.get(1).getName());
             assertEquals(3600, records.get(1).getTtl());
         }
 
@@ -304,7 +273,7 @@ public class ZoneParserTest {
             assertFalse(parser.hasParserError());
 
             ResourceRecord record = parser.getZoneRecords().getFirst();
-            assertArrayEquals(new String[]{"123", "example", "com"}, record.getName());
+            assertArrayEquals(new String[] {"123", "example", "com"}, record.getName());
             assertEquals(3600, record.getTtl());
         }
 
@@ -319,7 +288,7 @@ public class ZoneParserTest {
             assertFalse(parser.hasParserError());
 
             ResourceRecord record = parser.getZoneRecords().getFirst();
-            assertArrayEquals(new String[]{"1", "example", "com"}, record.getName());
+            assertArrayEquals(new String[] {"1", "example", "com"}, record.getName());
             assertEquals(RRType.PTR, record.getType());
         }
 
@@ -474,11 +443,17 @@ public class ZoneParserTest {
 
              */
 
-            assertEquals("[foo.bar, example, com]", Arrays.toString(records.get(0).getName()));
-            assertEquals("[literal@, example, com]", Arrays.toString(records.get(1).getName()));
-            assertEquals("[price$tag, example, com]", Arrays.toString(records.get(2).getName()));
-            assertEquals("[semi;colon, example, com]", Arrays.toString(records.get(3).getName()));
-            assertEquals("[space label, example, com]", Arrays.toString(records.get(4).getName()));
+            assertEquals(
+                    "[foo.bar, example, com]", Arrays.toString(records.get(0).getName()));
+            assertEquals(
+                    "[literal@, example, com]", Arrays.toString(records.get(1).getName()));
+            assertEquals(
+                    "[price$tag, example, com]", Arrays.toString(records.get(2).getName()));
+            assertEquals(
+                    "[semi;colon, example, com]", Arrays.toString(records.get(3).getName()));
+            assertEquals(
+                    "[space label, example, com]",
+                    Arrays.toString(records.get(4).getName()));
         }
 
         @Test
@@ -503,10 +478,17 @@ public class ZoneParserTest {
 
              */
 
-            assertEquals("[foo.bar, example, com]", Arrays.toString(records.get(0).getName()));
-            assertEquals("[hello world, example, com]", Arrays.toString(records.get(1).getName()));
-            assertEquals("[literal@sign, example, com]", Arrays.toString(records.get(2).getName()));
-            assertEquals("[backslash\\test, example, com]", Arrays.toString(records.get(3).getName()));
+            assertEquals(
+                    "[foo.bar, example, com]", Arrays.toString(records.get(0).getName()));
+            assertEquals(
+                    "[hello world, example, com]",
+                    Arrays.toString(records.get(1).getName()));
+            assertEquals(
+                    "[literal@sign, example, com]",
+                    Arrays.toString(records.get(2).getName()));
+            assertEquals(
+                    "[backslash\\test, example, com]",
+                    Arrays.toString(records.get(3).getName()));
         }
 
         @Test
@@ -741,18 +723,17 @@ public class ZoneParserTest {
             String longTxt = "a".repeat(256);
 
             String err = captureStderr(() -> {
-                ZoneParser parser = new ZoneParser(
-                        "$ORIGIN example.com.\n" +
-                                "@ IN SOA ns.example.com. admin.example.com. (\n" +
-                                "2026051201\n" +
-                                "3600\n" +
-                                "1800\n" +
-                                "1209600\n" +
-                                "3600\n" +
-                                ")\n" +
-                                "@ IN NS ns.example.com.\n" +
-                                "@ IN TXT \"" + longTxt + "\"\n"
-                );
+                ZoneParser parser =
+                        new ZoneParser("$ORIGIN example.com.\n" + "@ IN SOA ns.example.com. admin.example.com. (\n"
+                                + "2026051201\n"
+                                + "3600\n"
+                                + "1800\n"
+                                + "1209600\n"
+                                + "3600\n"
+                                + ")\n"
+                                + "@ IN NS ns.example.com.\n"
+                                + "@ IN TXT \""
+                                + longTxt + "\"\n");
 
                 assertTrue(parser.hasParserError());
             });
@@ -804,11 +785,12 @@ public class ZoneParserTest {
             assertEquals(RRType.TXT, records.get(0).getType());
             assertEquals(RRType.A, records.get(1).getType());
 
-            assertArrayEquals(new String[]{"example", "com"}, records.get(0).getName());
-            assertArrayEquals(new String[]{"www", "example", "com"}, records.get(1).getName());
+            assertArrayEquals(new String[] {"example", "com"}, records.get(0).getName());
+            assertArrayEquals(
+                    new String[] {"www", "example", "com"}, records.get(1).getName());
 
             RDataTXT txt = (RDataTXT) records.get(0).getRdata();
-            assertArrayEquals(new String[]{"hello", "world"}, txt.getTxtdata());
+            assertArrayEquals(new String[] {"hello", "world"}, txt.getTxtdata());
         }
 
         @Test
@@ -844,7 +826,6 @@ public class ZoneParserTest {
             assertTrue(err.contains("$TTL not allowed inside record"));
         }
 
-
         @Test
         void unclosedParenthesesFails() {
             String err = captureStderr(() -> {
@@ -874,6 +855,7 @@ public class ZoneParserTest {
             });
             assertTrue(err.contains("Closed parenthesis without opening"));
         }
+
         @Test
         void nestedParenthesesFails() {
             String err = captureStderr(() -> {
@@ -899,8 +881,7 @@ public class ZoneParserTest {
         void includeFile() throws IOException {
             ConfigManager.setZoneDir("src/test/java/io/gitlab/teamproject2026/zones/");
             ZoneParser parser = new ZoneParser(
-                    Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.example.com"))
-            );
+                    Files.readString(Path.of("src/test/java/io/gitlab/teamproject2026/zones/db.example.com")));
 
             List<ResourceRecord> records = parser.getZoneRecords();
             /*
@@ -913,22 +894,28 @@ public class ZoneParserTest {
             assertEquals(6, records.size());
 
             assertEquals(RRType.SOA, records.get(0).getType());
-            assertArrayEquals(new String[]{"example", "com"}, records.get(0).getName());
+            assertArrayEquals(new String[] {"example", "com"}, records.get(0).getName());
 
             assertEquals(RRType.NS, records.get(1).getType());
-            assertArrayEquals(new String[]{"example", "com"}, records.get(1).getName());
+            assertArrayEquals(new String[] {"example", "com"}, records.get(1).getName());
 
             assertEquals(RRType.A, records.get(2).getType());
-            assertArrayEquals(new String[]{"ns1", "example", "com"}, records.get(2).getName());
+            assertArrayEquals(
+                    new String[] {"ns1", "example", "com"}, records.get(2).getName());
 
             assertEquals(RRType.A, records.get(3).getType());
-            assertArrayEquals(new String[]{"api", "sub", "example", "com"}, records.get(3).getName());
+            assertArrayEquals(
+                    new String[] {"api", "sub", "example", "com"},
+                    records.get(3).getName());
 
             assertEquals(RRType.A, records.get(4).getType());
-            assertArrayEquals(new String[]{"mail", "sub", "example", "com"}, records.get(4).getName());
+            assertArrayEquals(
+                    new String[] {"mail", "sub", "example", "com"},
+                    records.get(4).getName());
 
             assertEquals(RRType.A, records.get(5).getType());
-            assertArrayEquals(new String[]{"www", "example", "com"}, records.get(5).getName());
+            assertArrayEquals(
+                    new String[] {"www", "example", "com"}, records.get(5).getName());
         }
 
         @Test
@@ -1136,18 +1123,17 @@ public class ZoneParserTest {
             String longLabel = "a".repeat(64);
 
             String err = captureStderr(() -> {
-                ZoneParser parser = new ZoneParser(
-                        "$ORIGIN example.com.\n" +
-                                "@ IN SOA ns.example.com. admin.example.com. (\n" +
-                                "2026051201\n" +
-                                "3600\n" +
-                                "1800\n" +
-                                "1209600\n" +
-                                "3600\n" +
-                                ")\n" +
-                                "@ IN NS ns.example.com.\n" +
-                                longLabel + " IN A 192.0.2.1\n"
-                );
+                ZoneParser parser =
+                        new ZoneParser("$ORIGIN example.com.\n" + "@ IN SOA ns.example.com. admin.example.com. (\n"
+                                + "2026051201\n"
+                                + "3600\n"
+                                + "1800\n"
+                                + "1209600\n"
+                                + "3600\n"
+                                + ")\n"
+                                + "@ IN NS ns.example.com.\n"
+                                + longLabel
+                                + " IN A 192.0.2.1\n");
 
                 assertTrue(parser.hasParserError());
             });
@@ -1158,25 +1144,20 @@ public class ZoneParserTest {
         void domainNameTooLongFails() {
             String label = "a".repeat(63);
 
-            String longName =
-                    label + "." +
-                            label + "." +
-                            label + "." +
-                            label + ".com";
+            String longName = label + "." + label + "." + label + "." + label + ".com";
 
             String err = captureStderr(() -> {
-                ZoneParser parser = new ZoneParser(
-                        "$ORIGIN example.com.\n" +
-                                "@ IN SOA ns.example.com. admin.example.com. (\n" +
-                                "2026051201\n" +
-                                "3600\n" +
-                                "1800\n" +
-                                "1209600\n" +
-                                "3600\n" +
-                                ")\n" +
-                                "@ IN NS ns.example.com.\n" +
-                                longName + " IN A 192.0.2.1\n"
-                );
+                ZoneParser parser =
+                        new ZoneParser("$ORIGIN example.com.\n" + "@ IN SOA ns.example.com. admin.example.com. (\n"
+                                + "2026051201\n"
+                                + "3600\n"
+                                + "1800\n"
+                                + "1209600\n"
+                                + "3600\n"
+                                + ")\n"
+                                + "@ IN NS ns.example.com.\n"
+                                + longName
+                                + " IN A 192.0.2.1\n");
 
                 assertTrue(parser.hasParserError());
             });

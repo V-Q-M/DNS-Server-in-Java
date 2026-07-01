@@ -1,9 +1,9 @@
 package io.gitlab.teamproject2026.zones;
 
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
+import org.junit.jupiter.api.Test;
 
 public class ZoneLexerTest {
     @Test
@@ -48,7 +48,7 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral());
+            // IO.println(ourTok.getLiteral());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
@@ -81,7 +81,7 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
@@ -130,7 +130,7 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
@@ -140,7 +140,7 @@ public class ZoneLexerTest {
 
     @Test
     void testPTRRecordToken() {
-       String input = "1.2.0.192.in-addr.arpa. IN PTR host1.example.com.";
+        String input = "1.2.0.192.in-addr.arpa. IN PTR host1.example.com.";
 
         ArrayList<ZoneToken> testTokens = new ArrayList<>();
         testTokens.add(new ZoneToken(ZoneTokenType.ATOM, "1.2.0.192.in-addr.arpa."));
@@ -155,14 +155,13 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
             assertEquals(testTok.literal(), ourTok.literal());
         }
     }
-
 
     @Test
     void testRecordTokens() {
@@ -234,7 +233,7 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
@@ -247,7 +246,7 @@ public class ZoneLexerTest {
         String input = """
                 @       IN TXT    "hello world"
                 split   IN TXT    "one" "two" "three"
-                
+
                 multitxt IN TXT (
                     "this is "
                     "multiple txt chunks"
@@ -301,7 +300,7 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
@@ -314,7 +313,7 @@ public class ZoneLexerTest {
         String input = """
                 @       IN TXT    "hello \\"world\\""
                 split   IN TXT    "one" "two" "three"
-                
+
                 multitxt IN TXT (
                     "this is "
                     "multiple \\"\\"txt\\" chunks"
@@ -367,13 +366,14 @@ public class ZoneLexerTest {
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
 
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal
             assertEquals(testTok.literal(), ourTok.literal());
         }
     }
+
     @Test
     void testInclude() {
         String input = "$INCLUDE /path/example example.com.";
@@ -387,7 +387,7 @@ public class ZoneLexerTest {
         ZoneLexer testLexer = new ZoneLexer(input);
         for (ZoneToken testTok : testTokens) {
             ZoneToken ourTok = testLexer.nextToken();
-            //IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
+            // IO.println(ourTok.getLiteral() + ":" + ourTok.getType());
             // Test type
             assertEquals(testTok.type(), ourTok.type());
             // Test literal

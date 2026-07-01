@@ -1,16 +1,14 @@
 package io.gitlab.teamproject2026.model;
 
 import io.gitlab.teamproject2026.DNSParser;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HexFormat;
 
 /**
- * Represents a complete DNS packet, including header fields and all sections.
- * The header fields are stored directly in this class as they are fixed in size.
- * Question, Answer, Authority and Additional sections are stored as arrays
- * to allow multiple entries per packet.
+ * Represents a complete DNS packet, including header fields and all sections. The header fields are stored directly in
+ * this class as they are fixed in size. Question, Answer, Authority and Additional sections are stored as arrays to
+ * allow multiple entries per packet.
  */
 public class DNSPacket {
 
@@ -37,9 +35,22 @@ public class DNSPacket {
     private ResourceRecord[] authoritySections;
     private ResourceRecord[] additionalSections;
 
-    public DNSPacket(){}
+    public DNSPacket() {}
 
-    public DNSPacket( byte[] id, boolean qr, OpCode opcode, boolean aa, boolean tc, boolean rd, boolean ra, byte z, RCode rcode, QuestionSection[] questionSections, ResourceRecord[] answerSections, ResourceRecord[] authoritySections, ResourceRecord[] additionalSections ) {
+    public DNSPacket(
+            byte[] id,
+            boolean qr,
+            OpCode opcode,
+            boolean aa,
+            boolean tc,
+            boolean rd,
+            boolean ra,
+            byte z,
+            RCode rcode,
+            QuestionSection[] questionSections,
+            ResourceRecord[] answerSections,
+            ResourceRecord[] authoritySections,
+            ResourceRecord[] additionalSections) {
         this.id = id;
         this.qr = qr;
         this.opcode = opcode;
@@ -50,14 +61,10 @@ public class DNSPacket {
         this.z = z;
         this.rcode = rcode;
 
-        this.questionSections =
-                questionSections != null ? questionSections : new QuestionSection[0];
-        this.answerSections =
-                answerSections != null ? answerSections : new ResourceRecord[0];
-        this.authoritySections =
-                authoritySections != null ? authoritySections : new ResourceRecord[0];
-        this.additionalSections =
-                additionalSections != null ? additionalSections : new ResourceRecord[0];
+        this.questionSections = questionSections != null ? questionSections : new QuestionSection[0];
+        this.answerSections = answerSections != null ? answerSections : new ResourceRecord[0];
+        this.authoritySections = authoritySections != null ? authoritySections : new ResourceRecord[0];
+        this.additionalSections = additionalSections != null ? additionalSections : new ResourceRecord[0];
 
         this.qdcount = this.questionSections.length;
         this.ancount = this.answerSections.length;
@@ -227,7 +234,10 @@ public class DNSPacket {
 
     @Override
     public String toString() {
-        return  "id:" + String.format("%16s", Integer.toBinaryString(((id[0] & 0xFF) << 8) | (id[1] & 0xFF))).replace(" ", "0") + "\n"
+        return "id:"
+                + String.format("%16s", Integer.toBinaryString(((id[0] & 0xFF) << 8) | (id[1] & 0xFF)))
+                        .replace(" ", "0")
+                + "\n"
                 + "qr: " + qr + "\n"
                 + "opcode: " + opcode + "\n"
                 + "aa: " + aa + "\n"
@@ -247,9 +257,8 @@ public class DNSPacket {
     }
 
     /**
-     * Serializes this DNS packet into DNS wire format.
-     * Assembles header and all sections into a single byte array
-     * that can be sent as a UDP payload.
+     * Serializes this DNS packet into DNS wire format. Assembles header and all sections into a single byte array that
+     * can be sent as a UDP payload.
      *
      * @return byte array representing the complete DNS packet
      */
@@ -275,14 +284,14 @@ public class DNSPacket {
         flagsByte2 |= (byte) ((this.isRa() ? 1 : 0) << 7); // Ra
         // z bits are zero anyway
         if (this.getRcode() != null) {
-            flagsByte2 |= (byte) (this.getRcode().getValue() & 0x0F); 
-        } //rcode
+            flagsByte2 |= (byte) (this.getRcode().getValue() & 0x0F);
+        } // rcode
         header[3] = flagsByte2;
 
         header[4] = (byte) ((this.getQdcount() >> 8) & 0xFF);
-        header[5] = (byte) (this.getQdcount() & 0xFF); 
+        header[5] = (byte) (this.getQdcount() & 0xFF);
         header[6] = (byte) ((this.getAncount() >> 8) & 0xFF);
-        header[7] = (byte) (this.getAncount() & 0xFF); 
+        header[7] = (byte) (this.getAncount() & 0xFF);
         header[8] = (byte) ((this.getNscount() >> 8) & 0xFF);
         header[9] = (byte) (this.getNscount() & 0xFF);
         header[10] = (byte) ((this.getArcount() >> 8) & 0xFF);
@@ -312,7 +321,7 @@ public class DNSPacket {
         // calculate total size
         int totalSize = header.length;
         for (byte[] q : questions) totalSize += q.length;
-        for (byte[] a : answers)   totalSize += a.length;
+        for (byte[] a : answers) totalSize += a.length;
         for (byte[] ns : authorities) totalSize += ns.length;
         for (byte[] ar : additionals) totalSize += ar.length;
 
@@ -344,19 +353,19 @@ public class DNSPacket {
     }
 
     /**
-     * Deserializes a complete DNS packet from DNS wire format.
-     * Splits the byte array into header and individual sections
-     * and parses them individually
+     * Deserializes a complete DNS packet from DNS wire format. Splits the byte array into header and individual
+     * sections and parses them individually
      *
      * @param bytes raw bytes from an incoming DNS packet
      * @return a new DnsPacket populated with all parsed fields
      */
     public static DNSPacket fromBytes(byte[] bytes) {
         if (bytes.length <= 12) {
-            throw new IllegalArgumentException("Invalid form body. DNS Packets require at least 12 bytes for the Header");
+            throw new IllegalArgumentException(
+                    "Invalid form body. DNS Packets require at least 12 bytes for the Header");
         }
         DNSPacket dnsPacket = new DNSPacket();
-        dnsPacket.setId(new byte[]{bytes[0], bytes[1]});
+        dnsPacket.setId(new byte[] {bytes[0], bytes[1]});
 
         dnsPacket.setQr(DNSParser.extractBit(bytes[2], 0));
         dnsPacket.setOpcode(OpCode.fromValue(DNSParser.subBits(bytes[2], 1, 5)));
@@ -377,35 +386,36 @@ public class DNSPacket {
         dnsPacket.setQuestionSections(new QuestionSection[dnsPacket.getQdcount()]);
         for (int i = 0; i < dnsPacket.getQdcount(); i++) {
             dnsPacket.getQuestionSections()[i] = QuestionSection.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte() ;
+            byte_index = dnsPacket.getQuestionSection(i).getLastProcessedByte();
         }
         dnsPacket.setAnswerSections(new ResourceRecord[dnsPacket.getAncount()]);
         for (int i = 0; i < dnsPacket.getAncount(); i++) {
             dnsPacket.getAnswerSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte() ;
+            byte_index = dnsPacket.getAnswerSection(i).getLastProcessedByte();
         }
         dnsPacket.setAuthoritySections(new ResourceRecord[dnsPacket.getNscount()]);
         for (int i = 0; i < dnsPacket.getNscount(); i++) {
             dnsPacket.getAuthoritySections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAuthoritySection(i).getLastProcessedByte() ;
+            byte_index = dnsPacket.getAuthoritySection(i).getLastProcessedByte();
         }
 
         dnsPacket.setAdditionalSections(new ResourceRecord[dnsPacket.getArcount()]);
         for (int i = 0; i < dnsPacket.getArcount(); i++) {
             dnsPacket.getAdditionalSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAdditionalSection(i).getLastProcessedByte() ;
+            byte_index = dnsPacket.getAdditionalSection(i).getLastProcessedByte();
         }
 
         return dnsPacket;
     }
 
     // Helper function to encode a name
-    public static byte[] encodeName(String[] name) throws IllegalArgumentException{
+    public static byte[] encodeName(String[] name) throws IllegalArgumentException {
         int nameLength = 0;
         for (String value : name) {
             int labelLength = value.length();
-            if(labelLength > 255){
-                throw new IllegalArgumentException("Malformatted labels. Must be <256 characters, including length, in size.");
+            if (labelLength > 255) {
+                throw new IllegalArgumentException(
+                        "Malformatted labels. Must be <256 characters, including length, in size.");
             }
             nameLength += labelLength + 1;
         }

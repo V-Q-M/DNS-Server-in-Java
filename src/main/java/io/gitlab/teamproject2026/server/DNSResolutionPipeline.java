@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.server;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
@@ -17,11 +19,8 @@ import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
 import io.gitlab.teamproject2026.resolver.StubResolver;
-
 import java.sql.SQLException;
 import java.util.*;
-
-import static io.gitlab.teamproject2026.AnsiColors.*;
 
 public class DNSResolutionPipeline {
     private static final int MAX_CNAME_HOPS = 8;
@@ -48,8 +47,7 @@ public class DNSResolutionPipeline {
             List<String> zoneCatalog,
             boolean minimalResponses,
             ForwardMode forwardMode,
-            long startTime
-    ) {
+            long startTime) {
         this.cacheHandler = cacheHandler;
         this.zoneHandler = zoneHandler;
         this.resolverOptions = resolverOptions;
@@ -63,12 +61,8 @@ public class DNSResolutionPipeline {
     }
 
     public DNSPayload zoneLookUp(DNSPacket packet, String id) {
-        DNSPayload payload = new DNSPayload(
-                new LinkedList<>(),
-                new LinkedList<>(),
-                new LinkedList<>(),
-                new LinkedList<>()
-        );
+        DNSPayload payload =
+                new DNSPayload(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), new LinkedList<>());
         for (QuestionSection questionSection : packet.getQuestionSections()) {
             // Relevant for CNAME resolution
             String currentName = questionSection.getNameString().toLowerCase();
@@ -81,8 +75,7 @@ public class DNSResolutionPipeline {
 
                 // Step 2: find the most specific authoritative zone for currentName
                 final String lookupName = currentName;
-                String zone = zoneCatalog
-                        .stream()
+                String zone = zoneCatalog.stream()
                         .filter(e -> lookupName.equals(e) || lookupName.endsWith("." + e))
                         .max(Comparator.comparingInt(String::length))
                         .orElse(null);
@@ -90,7 +83,8 @@ public class DNSResolutionPipeline {
                 if (zone == null) {
                     // No authoritative zone for this name → cache/forward handle it
                     QuestionSection fwdQuestion = new QuestionSection();
-                    fwdQuestion.setName(currentName.split("\\.")); // This must use CurrentName, to account for CNAME resolution
+                    fwdQuestion.setName(
+                            currentName.split("\\.")); // This must use CurrentName, to account for CNAME resolution
                     fwdQuestion.setQtype(questionSection.getQtype());
                     fwdQuestion.setQclass(questionSection.getQclass());
                     payload.notResolved().add(fwdQuestion);
@@ -99,17 +93,29 @@ public class DNSResolutionPipeline {
 
                 // Step 3: we are authoritative for this domain
                 try {
-                    List<ResourceRecord> directMatches = zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
+                    List<ResourceRecord> directMatches =
+                            zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
 
                         logger.log(
-                                (DNSEvent.event(DNSEventType.SUCCESS, id, currentName, questionSection.getQtype(), 0L, ResponseSource.ZONE,
-                                        resolverOptions.strategy().toString(), zone, "Local Zone", 1, null, null).toHumanReadable()),
+                                (DNSEvent.event(
+                                                DNSEventType.SUCCESS,
+                                                id,
+                                                currentName,
+                                                questionSection.getQtype(),
+                                                0L,
+                                                ResponseSource.ZONE,
+                                                resolverOptions.strategy().toString(),
+                                                zone,
+                                                "Local Zone",
+                                                1,
+                                                null,
+                                                null)
+                                        .toHumanReadable()),
                                 LoggingCategoryType.GENERAL,
-                                LoggingSeverity.INFO
-                        );
+                                LoggingSeverity.INFO);
 
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
@@ -126,7 +132,9 @@ public class DNSResolutionPipeline {
                                         try {
                                             payload.additional().addAll(zoneHandler.lookup(nsHost, RRType.A, zone));
                                             payload.additional().addAll(zoneHandler.lookup(nsHost, RRType.AAAA, zone));
-                                        } catch (SQLException ignored) { /* glue records are best-effort */ }
+                                        } catch (SQLException ignored) {
+                                            /* glue records are best-effort */
+                                        }
                                     }
                                 }
                                 case MX -> {
@@ -138,7 +146,9 @@ public class DNSResolutionPipeline {
                                         try {
                                             payload.additional().addAll(zoneHandler.lookup(mxHost, RRType.A, zone));
                                             payload.additional().addAll(zoneHandler.lookup(mxHost, RRType.AAAA, zone));
-                                        } catch (SQLException ignored) { /* additional records are best-effort */ }
+                                        } catch (SQLException ignored) {
+                                            /* additional records are best-effort */
+                                        }
                                     }
                                 }
                                 // A, AAAA, CNAME, TXT, SOA, PTR -> directly to answer
@@ -146,11 +156,11 @@ public class DNSResolutionPipeline {
                             }
                         }
                         logger.log(
-                                (GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\"" + RESET),
+                                (GREEN + "[ZONE] Success! Found: \"" + currentName + "\" in zone: \"" + zone + "\""
+                                        + RESET),
                                 LoggingCategoryType.GENERAL,
                                 LoggingSeverity.INFO,
-                                true
-                        );
+                                true);
                         break; // records found -> done with this question
                     }
 
@@ -162,8 +172,13 @@ public class DNSResolutionPipeline {
                             // Per RFC1034 4.3.2 step 3a: copy CNAME to answer,
                             // then go back to step 1 with the new QNAME (= restart the while loop)
                             payload.answer().addAll(cnameMatches);
-                            currentName = String.join(".",
-                                    ((RDataCNAME) cnameMatches.getFirst().getRdata()).getCname()).toLowerCase();
+                            currentName = String.join(
+                                            ".",
+                                            ((RDataCNAME) cnameMatches
+                                                            .getFirst()
+                                                            .getRdata())
+                                                    .getCname())
+                                    .toLowerCase();
                             continue; //  restart = "go back to step 1" per RFC
                         }
                     }
@@ -172,27 +187,39 @@ public class DNSResolutionPipeline {
                     // Question intentionally not added to notResolved; the caller detects
                     // NXDOMAIN via (notResolved.isEmpty && answer.isEmpty && authority.isEmpty).
                     logger.log(
-                            (YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName + "\" but has no entry for it" + RESET),
+                            (YELLOW + "[ZONE] Warning! Zone: \"" + zone + "\" is responsible for: \"" + currentName
+                                    + "\" but has no entry for it" + RESET),
                             LoggingCategoryType.QUERY_ERRORS,
                             LoggingSeverity.WARNING,
-                            true
-                    );
+                            true);
                     break;
 
                 } catch (SQLException e) {
                     logger.log(
-                            (RED + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error" + RESET),
+                            (RED
+                                    + "[DATABASE-ERROR] Connection to database Server has been lost, assume internal Server error"
+                                    + RESET),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR,
-                            true
-                    );
+                            true);
                     payload.notResolved().add(questionSection); // fall back to cache/forward
                     logger.log(
-                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                                    "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                            (DNSEvent.event(
+                                            DNSEventType.CACHE_ERROR,
+                                            null,
+                                            null,
+                                            null,
+                                            System.currentTimeMillis() - startTime,
+                                            ResponseSource.CACHE,
+                                            null,
+                                            null,
+                                            null,
+                                            -1,
+                                            "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
+                                            null)
+                                    .toHumanReadable()),
                             LoggingCategoryType.DEFAULT,
-                            LoggingSeverity.ERROR
-                    );
+                            LoggingSeverity.ERROR);
                     break;
                 }
             }
@@ -221,75 +248,112 @@ public class DNSResolutionPipeline {
                             (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
-                            true
-                    );
+                            true);
                     logger.log(
-                            (DNSEvent.event(DNSEventType.CACHE_MISS, id, domain, qType, 0L, ResponseSource.CACHE, resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "Not found in database", null).toHumanReadable()),
+                            (DNSEvent.event(
+                                            DNSEventType.CACHE_MISS,
+                                            id,
+                                            domain,
+                                            qType,
+                                            0L,
+                                            ResponseSource.CACHE,
+                                            resolverOptions.strategy().toString(),
+                                            "Local Cache",
+                                            "127.0.0.1",
+                                            1,
+                                            "Not found in database",
+                                            null)
+                                    .toHumanReadable()),
                             LoggingCategoryType.QUERIES,
-                            LoggingSeverity.NOTICE
-                    );
+                            LoggingSeverity.NOTICE);
 
                 } else {
                     logger.log(
                             (GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.NOTICE,
-                            true
-                    );
+                            true);
 
                     logger.log(
-                            (DNSEvent.event(DNSEventType.CACHE_HIT, id, domain, qType, 0L, ResponseSource.CACHE,
-                                    resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, null, null).toHumanReadable()),
+                            (DNSEvent.event(
+                                            DNSEventType.CACHE_HIT,
+                                            id,
+                                            domain,
+                                            qType,
+                                            0L,
+                                            ResponseSource.CACHE,
+                                            resolverOptions.strategy().toString(),
+                                            "Local Cache",
+                                            "127.0.0.1",
+                                            1,
+                                            null,
+                                            null)
+                                    .toHumanReadable()),
                             LoggingCategoryType.QUERIES,
-                            LoggingSeverity.INFO
-                    );
+                            LoggingSeverity.INFO);
                 }
-
             }
             // Merge cache results with existing zone answers
             payload.answer().addAll(cacheResult.answer());
             payload.authority().addAll(cacheResult.authority());
             payload.additional().addAll(cacheResult.additional());
-            return new DNSPayload(payload.answer(), payload.authority(), payload.additional(), cacheResult.notResolved());
+            return new DNSPayload(
+                    payload.answer(), payload.authority(), payload.additional(), cacheResult.notResolved());
 
         } catch (SQLException e) {
             // log
             logger.log(
-                    (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cacheStart, ResponseSource.CACHE, null, null, null, -1,
-                            "Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
+                    (DNSEvent.event(
+                                    DNSEventType.CACHE_ERROR,
+                                    null,
+                                    null,
+                                    null,
+                                    System.currentTimeMillis() - cacheStart,
+                                    ResponseSource.CACHE,
+                                    null,
+                                    null,
+                                    null,
+                                    -1,
+                                    "Connection to cache Server has been lost, assume internal Server error",
+                                    null)
+                            .toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
             // payload.notResolved already has the unresolved questions from zone lookup,
             // no need to add them again – just log them as misses for the stub resolver
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 logger.log(
-                        (DNSEvent.event(DNSEventType.CACHE_MISS, id, request.nameToString(), request.getQtype(), System.currentTimeMillis() - cacheStart, ResponseSource.CACHE,
-                                resolverOptions.strategy().toString(), "Local Cache", "127.0.0.1", 1, "cache couldn't be reached", null).toHumanReadable()),
+                        (DNSEvent.event(
+                                        DNSEventType.CACHE_MISS,
+                                        id,
+                                        request.nameToString(),
+                                        request.getQtype(),
+                                        System.currentTimeMillis() - cacheStart,
+                                        ResponseSource.CACHE,
+                                        resolverOptions.strategy().toString(),
+                                        "Local Cache",
+                                        "127.0.0.1",
+                                        1,
+                                        "cache couldn't be reached",
+                                        null)
+                                .toHumanReadable()),
                         LoggingCategoryType.QUERIES,
-                        LoggingSeverity.NOTICE
-                );
+                        LoggingSeverity.NOTICE);
             }
         }
         return payload;
     }
 
-
     // Cache internal logic
 
     /**
-     * Queries the Cache using a given cacheHandler and a dns query. If the Cache
-     * contains the requested records, it returns them in the corresponding section
-     * of the Record.
-     * Also Returns A and AAAA records for NS and MX records
-     * Packets that couldn't be resolved with the cache itself are stored in the
-     * notResolved part of the record
+     * Queries the Cache using a given cacheHandler and a dns query. If the Cache contains the requested records, it
+     * returns them in the corresponding section of the Record. Also Returns A and AAAA records for NS and MX records
+     * Packets that couldn't be resolved with the cache itself are stored in the notResolved part of the record
      *
-     * @param query        the DNS query which is to be resolved
-     *                     cache
-     * @return A DNSPayload record containing the resolved Records and the Records
-     *         that have yet to be resolved
+     * @param query the DNS query which is to be resolved cache
+     * @return A DNSPayload record containing the resolved Records and the Records that have yet to be resolved
      * @throws SQLException if the cache cannot be accessed
      */
     public DNSPayload queryCache(DNSPacket query) throws SQLException {
@@ -348,11 +412,12 @@ public class DNSResolutionPipeline {
             }
         } catch (SQLException e) {
             logger.log(
-                    (RED + "[DATABASE-ERROR] Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?" + RESET),
+                    (RED
+                            + "[DATABASE-ERROR] Connection to Server couldn't be established. Assume internal Server error. Is the Postgres-Docker running?"
+                            + RESET),
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.ERROR,
-                    true
-            );
+                    true);
             throw e;
         }
 
@@ -371,9 +436,12 @@ public class DNSResolutionPipeline {
     //                 query. Happens when "name" has no cached CNAME, the chain loops, or it
     //                 is longer than MAX_CNAME_HOPS.
     private boolean resolveCnameFromCache(
-            String name, RRType targetType, RRClass targetClass,
+            String name,
+            RRType targetType,
+            RRClass targetClass,
             LinkedList<ResourceRecord> answer,
-            LinkedList<QuestionSection> notCached) throws SQLException {
+            LinkedList<QuestionSection> notCached)
+            throws SQLException {
         String current = name.toLowerCase();
         LinkedList<ResourceRecord> chain = new LinkedList<>();
         Set<String> visited = new HashSet<>();
@@ -400,7 +468,8 @@ public class DNSResolutionPipeline {
             }
 
             chain.add(cnames[0]);
-            String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname()).toLowerCase();
+            String target = String.join(".", ((RDataCNAME) cnames[0].getRdata()).getCname())
+                    .toLowerCase();
 
             ResourceRecord[] targetRecords = cacheHandler.lookup(target, targetType);
             if (targetRecords.length > 0) {
@@ -433,15 +502,14 @@ public class DNSResolutionPipeline {
         byte[] rawResponse = null;
         if (forwardMode == null) {
             try {
-                logger.logTrace("Resolve recursively",  uncachedOOPacket);
+                logger.logTrace("Resolve recursively", uncachedOOPacket);
                 rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
             } catch (RuntimeException e) {
                 logger.log(
                         (RED + "[RECURSIVE-ERROR] Failed to resolve query" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,
                         LoggingSeverity.ERROR,
-                        true
-                );
+                        true);
                 return payload;
             }
         } else {
@@ -455,8 +523,7 @@ public class DNSResolutionPipeline {
                                 (RED + "[STUB-ERROR] Failed to resolve query" + RESET),
                                 LoggingCategoryType.QUERY_ERRORS,
                                 LoggingSeverity.ERROR,
-                                true
-                        );
+                                true);
                         return payload;
                     }
                 }
@@ -467,24 +534,25 @@ public class DNSResolutionPipeline {
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
                         logger.log(
-                                (YELLOW + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..." + RESET),
+                                (YELLOW
+                                        + "[SERVER] Forwarder failed or timed out in FORWARD_FIRST mode. Falling back to iterative resolution..."
+                                        + RESET),
                                 LoggingCategoryType.GENERAL,
                                 LoggingSeverity.WARNING,
-                                true
-                        );
+                                true);
                     }
                     // if stub resolver fails: fallback recursive resolver
                     if (rawResponse == null) {
                         try {
-                            logger.logTrace("Stubresolver unsuccessful, try recursive Resolver instead",uncachedOOPacket);
+                            logger.logTrace(
+                                    "Stubresolver unsuccessful, try recursive Resolver instead", uncachedOOPacket);
                             rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                         } catch (RuntimeException e) {
                             logger.log(
                                     (RED + "[RECURSIVE-ERROR] Iterative fallback failed" + RESET),
                                     LoggingCategoryType.QUERY_ERRORS,
                                     LoggingSeverity.ERROR,
-                                    true
-                            );
+                                    true);
                             return payload;
                         }
                     }
@@ -493,25 +561,21 @@ public class DNSResolutionPipeline {
         }
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
-        //----------------------------ReferralAnalyzer-------------------------------------------------
-        RRType queryType = payload.notResolved().isEmpty() ? RRType.A :
-                payload.notResolved().getFirst().getQtype();
-        //stub response
-        ReferralAnalyzer.Classification classification =
-                ReferralAnalyzer.classify(parsedResponse, queryType);
+        // ----------------------------ReferralAnalyzer-------------------------------------------------
+        RRType queryType = payload.notResolved().isEmpty()
+                ? RRType.A
+                : payload.notResolved().getFirst().getQtype();
+        // stub response
+        ReferralAnalyzer.Classification classification = ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
-                ("[ANALYZER]" + classification + queryType),
-                LoggingCategoryType.GENERAL,
-                LoggingSeverity.INFO,
-                true
-        );
+                ("[ANALYZER]" + classification + queryType), LoggingCategoryType.GENERAL, LoggingSeverity.INFO, true);
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if cachHandler is available
                 // caching
-                logger.logTrace("Upstream resolving has finished successfully",uncachedOOPacket);
+                logger.logTrace("Upstream resolving has finished successfully", uncachedOOPacket);
                 if (cacheHandler != null) {
-                    startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
+                    startTime = System.currentTimeMillis(); // set new startTime for logging of CACHE_ERROR
                     try {
                         cacheHandler.insertAll(parsedResponse.getAnswerSections());
                         cacheHandler.insertAll(parsedResponse.getAuthoritySections());
@@ -521,14 +585,24 @@ public class DNSResolutionPipeline {
                                 ("[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost"),
                                 LoggingCategoryType.DEFAULT,
                                 LoggingSeverity.ERROR,
-                                true
-                        );
+                                true);
                         logger.log(
-                                (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
-                                        "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost", null).toHumanReadable()),
+                                (DNSEvent.event(
+                                                DNSEventType.CACHE_ERROR,
+                                                null,
+                                                null,
+                                                null,
+                                                System.currentTimeMillis() - startTime,
+                                                ResponseSource.CACHE,
+                                                null,
+                                                null,
+                                                null,
+                                                -1,
+                                                "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost",
+                                                null)
+                                        .toHumanReadable()),
                                 LoggingCategoryType.DEFAULT,
-                                LoggingSeverity.ERROR
-                        );
+                                LoggingSeverity.ERROR);
                     }
                 }
 
@@ -538,13 +612,12 @@ public class DNSResolutionPipeline {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                logger.logTrace("NXDOMAIN received from upstream",uncachedOOPacket);
+                logger.logTrace("NXDOMAIN received from upstream", uncachedOOPacket);
                 logger.log(
                         (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,
                         LoggingSeverity.WARNING,
-                        true
-                );
+                        true);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
             }
             case REFERRAL -> {
@@ -558,19 +631,17 @@ public class DNSResolutionPipeline {
                         (YELLOW + "[RESOLVER] Referral received" + RESET),
                         LoggingCategoryType.GENERAL,
                         LoggingSeverity.INFO,
-                        true
-                );
+                        true);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
-                logger.logTrace("Resolving unsuccessful",uncachedOOPacket);
+                logger.logTrace("Resolving unsuccessful", uncachedOOPacket);
                 logger.log(
                         (RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,
                         LoggingSeverity.ERROR,
-                        true
-                );
+                        true);
             }
         }
         return payload;

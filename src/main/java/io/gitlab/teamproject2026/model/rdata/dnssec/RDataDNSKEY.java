@@ -3,20 +3,18 @@ package io.gitlab.teamproject2026.model.rdata.dnssec;
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.RData;
-
 import java.util.Base64;
 
 /**
- * Represents a DNS DNSKEY record.
- * Stores a public key used for DNSSEC validation.
- * Contains key flags, protocol, algorithm, and public key material.
+ * Represents a DNS DNSKEY record. Stores a public key used for DNSSEC validation. Contains key flags, protocol,
+ * algorithm, and public key material.
  */
 public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publickey) implements RData {
     public RDataDNSKEY(byte[] bytes, int byteIndex) {
         if (bytes.length - byteIndex < 4) {
             throw new IllegalArgumentException("DNSKEY RDATA must be at least 4 bytes");
         }
-        int flags = DNSParser.as16BitInt(bytes[byteIndex],bytes[byteIndex + 1]);
+        int flags = DNSParser.as16BitInt(bytes[byteIndex], bytes[byteIndex + 1]);
 
         int protocol = (bytes[byteIndex + 2] & 0xff);
         int algorithm = (bytes[byteIndex + 3] & 0xff);
@@ -32,21 +30,30 @@ public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publick
         return RRType.DNSKEY;
     }
 
-    public int getFlags(){ return this.flags; }
-    public int getProtocol() { return this.protocol; }
-    public int getAlgorithm() { return this.algorithm; }
-    public byte[] getPublickey() { return  this.publickey; }
+    public int getFlags() {
+        return this.flags;
+    }
+
+    public int getProtocol() {
+        return this.protocol;
+    }
+
+    public int getAlgorithm() {
+        return this.algorithm;
+    }
+
+    public byte[] getPublickey() {
+        return this.publickey;
+    }
 
     @Override
     public String toString() {
-        return  "{\n" +
-                "        flags: " + flags +
-                ",\n        protocol: " + protocol +
-                ",\n        algorithm: " + algorithm +
-                ",\n        publicKey: " + Base64.getEncoder().encodeToString(publickey) +
-                "\n    }";
+        return "{\n" + "        flags: "
+                + flags + ",\n        protocol: "
+                + protocol + ",\n        algorithm: "
+                + algorithm + ",\n        publicKey: "
+                + Base64.getEncoder().encodeToString(publickey) + "\n    }";
     }
-
 
     @Override
     public byte[] toBytes() {
@@ -55,14 +62,14 @@ public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publick
         int pos = 0;
 
         result[pos] = (byte) (flags >> 8);
-        result[pos+1] = (byte) (flags);
-        pos+=2;
+        result[pos + 1] = (byte) (flags);
+        pos += 2;
 
         result[pos] = (byte) protocol;
-        pos+=1;
+        pos += 1;
 
         result[pos] = (byte) algorithm;
-        pos+=1;
+        pos += 1;
 
         System.arraycopy(publicKey, 0, result, pos, publicKey.length);
 

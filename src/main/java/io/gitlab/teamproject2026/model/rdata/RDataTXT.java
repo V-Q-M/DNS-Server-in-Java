@@ -1,29 +1,27 @@
 package io.gitlab.teamproject2026.model.rdata;
 
-import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
-
-/**
- * Represents a DNS TXT record.
- * Stores arbitrary text data associated with a domain.
- */
+/** Represents a DNS TXT record. Stores arbitrary text data associated with a domain. */
 public class RDataTXT implements RData {
     private String[] txtdata;
 
-    public RDataTXT(){}
-    public RDataTXT(String... txtdata){
+    public RDataTXT() {}
+
+    public RDataTXT(String... txtdata) {
         this.txtdata = txtdata;
     }
 
-    public String[] getTxtdata() { return txtdata; }
-    public void setTxtdata(String... txtdata) { this.txtdata = txtdata; }
+    public String[] getTxtdata() {
+        return txtdata;
+    }
+
+    public void setTxtdata(String... txtdata) {
+        this.txtdata = txtdata;
+    }
 
     @Override
     public RRType getType() {
@@ -31,7 +29,7 @@ public class RDataTXT implements RData {
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         return String.join(", ", txtdata);
     }
 
@@ -71,9 +69,7 @@ public class RDataTXT implements RData {
             if (pos + length > end) {
                 throw new IllegalArgumentException("TXT chunk exceeds available data");
             }
-            chunks.add(
-                    new String(bytes, pos, length, StandardCharsets.UTF_8)
-            );
+            chunks.add(new String(bytes, pos, length, StandardCharsets.UTF_8));
             pos += length;
         }
         return new RDataTXT(chunks.toArray(new String[0]));

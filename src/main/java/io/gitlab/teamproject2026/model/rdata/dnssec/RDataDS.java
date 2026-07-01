@@ -3,20 +3,18 @@ package io.gitlab.teamproject2026.model.rdata.dnssec;
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.RData;
-
 import java.util.HexFormat;
 
 /**
- * Represents a DNS DS (Delegation Signer) record.
- * Stores a hash of a child zone DNSKEY record.
- * Used to establish the chain of trust in DNSSEC.
+ * Represents a DNS DS (Delegation Signer) record. Stores a hash of a child zone DNSKEY record. Used to establish the
+ * chain of trust in DNSSEC.
  */
 public record RDataDS(int keyTag, int algorithm, int digestType, byte[] digest) implements RData {
-    public RDataDS(byte[] bytes, int byteIndex){
+    public RDataDS(byte[] bytes, int byteIndex) {
         if (bytes.length < 4) {
             throw new IllegalArgumentException("DS RDATA must be at least 4 bytes");
         }
-        int keyTag = ( DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        int keyTag = (DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
 
         int algorithm = (bytes[byteIndex++] & 0xFF);
         int digestType = (bytes[byteIndex++] & 0xFF);
@@ -32,19 +30,29 @@ public record RDataDS(int keyTag, int algorithm, int digestType, byte[] digest) 
         return RRType.DS;
     }
 
-    public int getKeyTag() { return this.keyTag;}
-    public int getAlgorithm() { return this.algorithm; }
-    public int getDigestType() { return this.digestType; }
-    public byte[] getDigest() { return this.digest; }
+    public int getKeyTag() {
+        return this.keyTag;
+    }
+
+    public int getAlgorithm() {
+        return this.algorithm;
+    }
+
+    public int getDigestType() {
+        return this.digestType;
+    }
+
+    public byte[] getDigest() {
+        return this.digest;
+    }
 
     @Override
     public String toString() {
-        return  "{\n" +
-                "        keyTag: " + keyTag +
-                ",\n        algorithm: " + algorithm +
-                ",\n        digestType: " + digestType +
-                ",\n        digest: " + HexFormat.of().formatHex(digest) +
-                "\n    }";
+        return "{\n" + "        keyTag: "
+                + keyTag + ",\n        algorithm: "
+                + algorithm + ",\n        digestType: "
+                + digestType + ",\n        digest: "
+                + HexFormat.of().formatHex(digest) + "\n    }";
     }
 
     @Override
@@ -52,7 +60,7 @@ public record RDataDS(int keyTag, int algorithm, int digestType, byte[] digest) 
         byte[] result = new byte[4 + digest.length];
         int pos = 0;
 
-        result[pos]     = (byte) (keyTag >> 8);
+        result[pos] = (byte) (keyTag >> 8);
         result[pos + 1] = (byte) keyTag;
         pos += 2;
 
