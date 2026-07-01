@@ -65,6 +65,8 @@ public class RecursiveResolver extends AbstractResolver{
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
     private byte[] resolve(String[] sname, RRType qtype, byte[] query, ResolveContext ctx){
+        // OOP QueryPacket for logging
+        DNSPacket queryPacket = DNSPacket.fromBytes(query);
 
         // Cap glue/CNAME resolution to avoid infinite recursion.
         if (ctx.depth() > MAX_DEPTH) {
@@ -110,24 +112,24 @@ public class RecursiveResolver extends AbstractResolver{
             //query UDP: try ipv4, if not available use ipv6
             if (!queriedServerIpv4.host().equals("0.0.0.0")) {
                 currentServer = queriedServerIpv4;
-                logger.logTrace(PINK + "[TRACE] Sending query: " + String.join(".",sname) + ". to " + currentServer.name()+ RESET);
+                logger.logTrace("Sending query to " + currentServer.name(), queryPacket);
                 result = queryUDP(query, queriedServerIpv4, timeoutMs);
             } else if (!queriedServerIpv6.host().equals("0000:0000:0000:0000:0000:0000:0000:0000")){
                 currentServer = queriedServerIpv6;
-                logger.logTrace(PINK + "[TRACE] Sending query: " + String.join(".",sname) + ". to " + currentServer.name()+ RESET);
+                logger.logTrace("Sending query to " + currentServer.name(),queryPacket);
                 result = queryUDP(query, queriedServerIpv6, timeoutMs);
             }
 
             //handle failures: new while iteration with new server
             if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
                 sleep(retryDelay);
-                logger.logTrace(PINK + "[TRACE] Query failure, retry"+ RESET);
+                logger.logTrace("Query failure, retry",queryPacket);
                 continue;
             }
 
             //fallback to TCP in case of truncation
             if (isTruncated(result.response())) {
-                logger.logTrace(PINK + "[TRACE] Query truncated, retrying over TCP"+ RESET);
+                logger.logTrace("Query truncated, retrying over TCP",queryPacket);
                 QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
                 //handle failures: new while iteration with new server
                 if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
@@ -170,7 +172,7 @@ public class RecursiveResolver extends AbstractResolver{
                 }
                 // This server could not answer: try the next one.
                 case SERVFAIL -> {
-                    logger.logTrace(PINK + "[TRACE] Server returned " + verdict.SERVFAIL + ", retry"+ RESET);
+                    logger.logTrace("Server returned " + verdict.SERVFAIL + ", retry",queryPacket);
                     continue;
                 }
                 // Delegation: resolve any missing glue, add the servers, keep walking down.
@@ -218,7 +220,7 @@ public class RecursiveResolver extends AbstractResolver{
                         return buildServFail(query);
                     }
                     // loop guard: a target we have already followed means a CNAME loop
-                    logger.logTrace(PINK + "[TRACE] Received CNAME for: " + String.join(".", sname) + ". to: " + String.join(".",target) + "."+ RESET);
+                    logger.logTrace("Received CNAME for: " + String.join(".", sname) + ". to: " + String.join(".",target) + ".",queryPacket);
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
                         return buildServFail(query);
                     }
