@@ -168,7 +168,7 @@ public class RecursiveResolver extends AbstractResolver{
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
                 case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
-                    logger.logTrace("Query successfully resolved via recursive resolver", queryPacket);
+                    logger.logTrace("Recursive resolver has finished successfully", queryPacket);
                     return response.toBytes();
                 }
                 // This server could not answer: try the next one.

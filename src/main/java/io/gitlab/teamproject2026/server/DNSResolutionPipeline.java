@@ -509,7 +509,7 @@ public class DNSResolutionPipeline {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if cachHandler is available
                 // caching
-                logger.logTrace("Query successfully resolved from upstream",uncachedOOPacket);
+                logger.logTrace("Upstream resolving has finished successfully",uncachedOOPacket);
                 if (cacheHandler != null) {
                     startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                     try {
