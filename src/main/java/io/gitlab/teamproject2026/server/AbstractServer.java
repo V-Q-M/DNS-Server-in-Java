@@ -58,8 +58,7 @@ public abstract class AbstractServer implements Runnable {
                 new LinkedList<>());
 
         //needed for cache logging:
-        byte[] idBytes = oopPacket.getId();
-        String id = "0x" + HexFormat.of().formatHex(idBytes);
+        String id = oopPacket.getIdString();
 
         //first question for Trace-logs
 

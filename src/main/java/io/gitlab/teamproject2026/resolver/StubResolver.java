@@ -259,8 +259,7 @@ public class StubResolver extends AbstractResolver{
      * @params : all input needed by logDebug
      */
     private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, NameServer server, int attempt, String error, RCode rCode) {
-        byte[] idBytes = packet.getId();
-        String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
+        String id = packet.getIdString();
         if (packet.getQdcount() == 0 || packet.getQuestionSections() == null ) {
             return; 
         }
