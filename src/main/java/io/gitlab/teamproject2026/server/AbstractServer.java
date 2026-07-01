@@ -58,17 +58,16 @@ public abstract class AbstractServer implements Runnable {
                 new LinkedList<>());
 
         //needed for cache logging:
-        byte[] idBytes = oopPacket.getId();
-        String id = "0x" + HexFormat.of().formatHex(idBytes);
+        String id = oopPacket.getIdString();
 
         //first question for Trace-logs
 
-        logger.logTrace(PINK + "[TRACE] Received query for: " + oopPacket.getQuestionSection(0).getNameString() + " for RR Type: " + oopPacket.getQuestionSection(0).getQtype()+ RESET);
+        logger.logTrace("Received query for RR Type: " + oopPacket.getQuestionSection(0).getQtype(),oopPacket);
 
         boolean authoritative = false;
         if (cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
-            logger.logTrace(PINK + "[TRACE] Try resolving query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones."+ RESET);
+            logger.logTrace("Try resolving from Zones.",oopPacket);
             payload = resolutionPipeline.zoneLookUp(oopPacket, id);
 
             // If recursion is disabled and something is outside our zones, REFUSE
@@ -80,7 +79,7 @@ public abstract class AbstractServer implements Runnable {
                         true
                 );
 
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" not contained in Zones but no recursion allowed. Return " + RCode.REFUSED+ RESET);
+                logger.logTrace("Query not contained in Zones but no recursion allowed. Return " + RCode.REFUSED,oopPacket);
 
                 //return response.toBytes();
                 return responseBuilder.refused(payload, oopPacket).toBytes();
@@ -96,23 +95,17 @@ public abstract class AbstractServer implements Runnable {
                     && payload.answer().isEmpty()
                     && payload.authority().isEmpty()) {
 
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN+ RESET);
+                logger.logTrace("Query contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN,oopPacket);
                 return responseBuilder.nxDomain(oopPacket).toBytes();
             }
 
             if(payload.notResolved().isEmpty() && !payload.answer().isEmpty()){
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones"+ RESET
-                );
-                for (ResourceRecord answer: payload.answer()){
-                    logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
+                logger.logTrace("Query contained in Zones",oopPacket);
+                String answerString = "";
+                for (ResourceRecord answer : payload.answer()){
+                    answerString += "\n\t\t" + answer.getRdata().toString();
                 }
-                for (ResourceRecord authority: payload.authority()){
-                    logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-                }
-                for (ResourceRecord additional: payload.additional()){
-                    logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-                }
-
+                logger.logTrace("Answered: " + answerString, oopPacket);
                 return responseBuilder.noError(payload, oopPacket, true).toBytes();
             }
 
@@ -122,24 +115,15 @@ public abstract class AbstractServer implements Runnable {
             }
 
             if(!payload.notResolved().isEmpty()){
-                logger.logTrace(PINK + "[TRACE] Could not resolve query: " + oopPacket.getQuestionSection(0).getNameString() +" from Zones, try Cache instead"+ RESET );
+                logger.logTrace("Could not resolve query from Zones, try Cache instead",oopPacket);
             }
 
             payload = resolutionPipeline.cacheLookUp(payload, id);
 
             if(payload.notResolved().isEmpty()){
-                logger.logTrace(PINK + "[TRACE] Query: " +  oopPacket.getQuestionSection(0).getNameString() + " resolved from Cache"+ RESET);
-                for (ResourceRecord answer: payload.answer()){
-                    logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + "of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
-                }
-                for (ResourceRecord authority: payload.authority()){
-                    logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + "of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-                }
-                for (ResourceRecord additional: payload.additional()){
-                    logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-                }
+                logger.logTrace("Query resolved from Cache",oopPacket);
             } else {
-                logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() + " could not be resolved from Cache, try Resolver instead."+ RESET);
+                logger.logTrace("Query could not be resolved from Cache, try Resolver instead.",oopPacket);
             }
 
         } else {
@@ -147,7 +131,7 @@ public abstract class AbstractServer implements Runnable {
             for (QuestionSection request : oopPacket.getQuestionSections()) {
                 payload.notResolved().add(request);
 
-                logger.logTrace(PINK + "[TRACE] Query: " + request.getNameString() + " could not be resolved from Cache or Zone due to missing database connection, try Resolver instead."+ RESET);
+                logger.logTrace("Query could not be resolved from Cache or Zone due to missing database connection, try Resolver instead.",oopPacket);
 
 
                 logger.log(
@@ -165,16 +149,12 @@ public abstract class AbstractServer implements Runnable {
             payload = resolutionPipeline.resolveUpstream(payload, data);
         }
 
-        logger.logTrace(PINK+ "[TRACE] Query: " + String.join(".", String.join(".",oopPacket.getQuestionSection(0).getName())+"." + " was successfully resolved" + RESET));
-        for (ResourceRecord answer: payload.answer()){
-            logger.logTrace(PINK + "[TRACE] Answer: " + String.join(".",answer.getName()) + "." + " of Type: " + answer.getType() + " with RData: " + answer.getRdata().toString() + RESET);
+        logger.logTrace("Query was successfully resolved",oopPacket);
+        String answerString = "";
+        for (ResourceRecord answer : payload.answer()){
+            answerString += "\n\t\t" + answer.getRdata().toString();
         }
-        for (ResourceRecord authority: payload.authority()){
-            logger.logTrace(PINK + "[TRACE] Authority: " + String.join(".",authority.getName()) + "." + " of Type: " + authority.getType() + " with RData: " + authority.getRdata().toString() + RESET);
-        }
-        for (ResourceRecord additional: payload.additional()){
-            logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + " of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
-        }
+        logger.logTrace("Answered: " + answerString, oopPacket);
 
         return responseBuilder.noError(payload, oopPacket, authoritative).toBytes();
     }

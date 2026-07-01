@@ -433,7 +433,7 @@ public class DNSResolutionPipeline {
         byte[] rawResponse = null;
         if (forwardMode == null) {
             try {
-                logger.logTrace(PINK + "[TRACE] Resolve query recursively" + RESET);
+                logger.logTrace("Resolve recursively",  uncachedOOPacket);
                 rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
             } catch (RuntimeException e) {
                 logger.log(
@@ -447,7 +447,7 @@ public class DNSResolutionPipeline {
         } else {
             switch (forwardMode) {
                 case FORWARD_ONLY -> { // only stub
-                    logger.logTrace(PINK + "[TRACE] Forward query via Stubresolver" + RESET);
+                    logger.logTrace("Forward via Stubresolver", uncachedOOPacket);
                     try {
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
@@ -463,7 +463,7 @@ public class DNSResolutionPipeline {
                 case FORWARD_FIRST -> {
                     try {
                         // try stub
-                        logger.logTrace(PINK + "[TRACE] Try forwarding query via Stubresolver" + RESET);
+                        logger.logTrace("Try forwarding via Stubresolver", uncachedOOPacket);
                         rawResponse = stubResolver.resolve(uncachedOOPacket.toBytes());
                     } catch (RuntimeException e) {
                         logger.log(
@@ -476,7 +476,7 @@ public class DNSResolutionPipeline {
                     // if stub resolver fails: fallback recursive resolver
                     if (rawResponse == null) {
                         try {
-                            logger.logTrace(PINK + "[TRACE] Stubresolver unsuccessful, try recursive Resolver instead" + RESET);
+                            logger.logTrace("Stubresolver unsuccessful, try recursive Resolver instead",uncachedOOPacket);
                             rawResponse = recursiveResolver.resolve(uncachedOOPacket.toBytes());
                         } catch (RuntimeException e) {
                             logger.log(
@@ -509,7 +509,7 @@ public class DNSResolutionPipeline {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if cachHandler is available
                 // caching
-                logger.logTrace(PINK + "[TRACE] Query resolved successfully" + RESET);
+                logger.logTrace("Upstream resolving has finished successfully",uncachedOOPacket);
                 if (cacheHandler != null) {
                     startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                     try {
@@ -538,7 +538,7 @@ public class DNSResolutionPipeline {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case NXDOMAIN -> {
-                logger.logTrace(PINK + "[TRACE] NXDOMAIN received from upstream" + RESET);
+                logger.logTrace("NXDOMAIN received from upstream",uncachedOOPacket);
                 logger.log(
                         (YELLOW + "[RESOLVER] NXDOMAIN received from upstream" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,
@@ -552,7 +552,7 @@ public class DNSResolutionPipeline {
                 for (ResourceRecord ns : parsedResponse.getAuthoritySections()) {
                     referral += String.join(".", ((RDataNS) ns.getRdata()).getNsdname()) + ". , ";
                 }
-                logger.logTrace(PINK + "[TRACE] Referal to: " + referral + RESET);
+                logger.logTrace("Referral to: " + referral, uncachedOOPacket);
 
                 logger.log(
                         (YELLOW + "[RESOLVER] Referral received" + RESET),
@@ -564,7 +564,7 @@ public class DNSResolutionPipeline {
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
             }
             case SERVFAIL, FORMERR -> {
-                logger.logTrace(PINK + "[TRACE] Resolving unsuccessful" + RESET);
+                logger.logTrace("Resolving unsuccessful",uncachedOOPacket);
                 logger.log(
                         (RED + "[RESOLVER] upstream returned" + classification + ", skipping cache insert" + RESET),
                         LoggingCategoryType.QUERY_ERRORS,

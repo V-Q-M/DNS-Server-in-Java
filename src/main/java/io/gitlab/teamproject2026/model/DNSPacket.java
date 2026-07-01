@@ -4,6 +4,7 @@ import io.gitlab.teamproject2026.DNSParser;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HexFormat;
 
 /**
  * Represents a complete DNS packet, including header fields and all sections.
@@ -66,6 +67,10 @@ public class DNSPacket {
 
     public byte[] getId() {
         return id;
+    }
+
+    public String getIdString() {
+        return "0x" + HexFormat.of().formatHex(id);
     }
 
     public void setId(byte[] id) {

@@ -66,7 +66,7 @@ public class StubResolver extends AbstractResolver{
                     true
             );
 
-            logger.logTrace(PINK + "[TRACE] Forward query: " + queryPacket.getQuestionSection(0).getNameString() + " to " + server.name());
+            logger.logTrace("Forward query to " + server.name(),queryPacket);
 
             logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
             QueryResult result = queryUDP(query, server, timeoutMs);//forward once over UDP
@@ -81,7 +81,7 @@ public class StubResolver extends AbstractResolver{
                         logQuestionEvents(DNSEventType.IO_ERROR, queryPacket,
                                 result.latencyMs(), server, attempt,
                                 "invalid DNS response", null);
-                        logger.logTrace(PINK + "[TRACE] Received invalid DNS response, retry");
+                        logger.logTrace("Received invalid DNS response for query, retry",queryPacket);
                         break; // retry
                     }
 
@@ -93,7 +93,7 @@ public class StubResolver extends AbstractResolver{
                                 true
                         );
 
-                        logger.logTrace(PINK + "[TRACE] Received truncated Message, retrying over TCP"+ RESET);
+                        logger.logTrace("Received truncated Message for query, retrying over TCP",queryPacket);
 
                         QueryResult tcpResult = queryTCP(query, server, timeoutMs); //forward once over TCP
 
@@ -109,7 +109,7 @@ public class StubResolver extends AbstractResolver{
                                     true
                             );
 
-                            logger.logTrace(PINK + "[TRACE] TCP fallback failed, retry"+ RESET);
+                            logger.logTrace("TCP fallback failed for query, retry",queryPacket);
 
 
                             logQuestionEvents(
@@ -141,7 +141,7 @@ public class StubResolver extends AbstractResolver{
                             result.latencyMs(), server, attempt,
                             "invalid DNS response", null);
                         
-                        logger.logTrace(PINK + "[TRACE] Received invalid DNS response, retry"+ RESET);
+                        logger.logTrace("Received invalid DNS response, retry",queryPacket);
                         break; // retry 
                     }
                     RCode rCode = responsePacket.getRcode();
@@ -153,6 +153,7 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.NOTICE,
                             true
                     );
+                    logger.logTrace("Stub resolver has finished successfully", queryPacket);
                     return result.response();
                 }
                 case TIMEOUT -> {
@@ -166,7 +167,7 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.WARNING,
                             true
                     );
-                    logger.logTrace(PINK + "[TRACE] Query timed out, retry" + RESET);
+                    logger.logTrace("Query timed out, retry",queryPacket);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             logger.log(
@@ -175,7 +176,7 @@ public class StubResolver extends AbstractResolver{
                                     LoggingSeverity.NOTICE,
                                     true
                             );
-                            logger.logTrace(PINK + "[TRACE] Too many retries, failover to next Server"+ RESET);
+                            logger.logTrace("Too many retries, failover to next Server",queryPacket);
                             startIndex = (startIndex + 1) % totalServers;
                         } else {
                             logger.log(
@@ -199,11 +200,11 @@ public class StubResolver extends AbstractResolver{
                             LoggingSeverity.ERROR,
                             true
                     );
-                    logger.logTrace(PINK + "[TRACE] IO-Error, retry"+ RESET);
+                    logger.logTrace("IO-Error, retry",queryPacket);
                     if (attempt + 1 < maxAttempts) {
                         if (strategy == StubResolverStrategy.FAILOVER) {
                             startIndex = (startIndex + 1) % totalServers;
-                            logger.logTrace(PINK + "[TRACE] Too many retries, failover to next Server"+ RESET);
+                            logger.logTrace("Too many retries, failover to next Server",queryPacket);
                         }
                         sleep(retryDelay);
                     }
@@ -225,7 +226,7 @@ public class StubResolver extends AbstractResolver{
                 LoggingSeverity.ERROR,
                 true
         );
-        logger.logTrace(PINK + "[TRACE] Forwarding unsuccessful"+ RESET);
+        logger.logTrace("Forwarding unsuccessful",queryPacket);
 
         return buildServFail(query);
     }
@@ -259,8 +260,7 @@ public class StubResolver extends AbstractResolver{
      * @params : all input needed by logDebug
      */
     private void logQuestionEvents(DNSEventType type, DNSPacket packet, long latency, NameServer server, int attempt, String error, RCode rCode) {
-        byte[] idBytes = packet.getId();
-        String id = "0x" + java.util.HexFormat.of().formatHex(idBytes);
+        String id = packet.getIdString();
         if (packet.getQdcount() == 0 || packet.getQuestionSections() == null ) {
             return; 
         }
