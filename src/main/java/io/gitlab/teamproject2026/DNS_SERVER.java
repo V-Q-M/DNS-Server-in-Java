@@ -17,10 +17,7 @@ import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.NameServer;
 import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.StubResolver;
-import io.gitlab.teamproject2026.server.DNSResolutionPipeline;
-import io.gitlab.teamproject2026.server.DNSResponseBuilder;
-import io.gitlab.teamproject2026.server.TCPServer;
-import io.gitlab.teamproject2026.server.UDPServer;
+import io.gitlab.teamproject2026.server.*;
 import io.gitlab.teamproject2026.zones.ZoneManager;
 
 import java.net.InetAddress;
@@ -29,41 +26,17 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 /**
  * Main entry point of the DNS server.
  * Coordinates configuration loading, zone management, caching,
  * query resolution, and UDP/TCP request handling.
  */
 public class DNS_SERVER {
-    private static final int DEFAULT_PORT = 4242;
-    private static final String DEFAULT_IP = "0.0.0.0";
-
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String GREEN   = "\u001B[32m";
-    private static final String BLUE   = "\u001B[34m";
-    private static final String PINK = "\u001B[95m";
-
-    private static CacheHandler cacheHandler;
-    private static ZoneHandler zoneHandler;
-    public static Logger logger;
-
-    private static int portNumber;
-    private static String bindIP;
-
-    /*
-    named.conf recap:
-        recursion no                  -> never resolve, only answer local zones
-        recursion yes + null          -> never forward, resolve everything yourself (plus answer local zones)
-        recursion yes + FORWARD_FIRST -> Try forwarding first, then resolve everything yourself (plus answer local zones)
-        recursion yes + FORWARD_ONLY  -> never resolve yourself, forward everything (plus answer local zones)
-     */
-    public static boolean recursionAllowed;
-    // If true, disable glue data to improve performance
-    private static boolean minimalResponses = false;
-
-    private static long startTime;
+    //private static final String DEFAULT_IP = "0.0.0.0";
+    private static ServerContext context;
+    //public static Logger logger;
 
     /**
      * Initializes the server and starts the UDP, TCP, and zone refresh workers.
@@ -80,7 +53,7 @@ public class DNS_SERVER {
 
         // named.conf
         Config serverConfig = ConfigManager.loadConfig("named.conf");
-        logger = ConfigManager.logger; // A pointer to the actual logger
+        Logger logger = ConfigManager.logger; // A pointer to the actual logger
         logger.log(
                 ("Starting DNS Server..."),
                 LoggingCategoryType.GENERAL,
@@ -92,8 +65,10 @@ public class DNS_SERVER {
         ResolverSection resolverOptions = options.resolverSection();
 
         // establish Database Connection
-        initializeDatabase();
-
+        initializeDatabase(logger);
+        ZoneHandler zoneHandler = context.zoneHandler();
+        CacheHandler cacheHandler = context.cacheHandler();
+        long startTime = context.startTime();
 
         // load zones into the database and store the zone names for easy lookup
         List<String> zoneCatalog;
@@ -109,25 +84,30 @@ public class DNS_SERVER {
             zoneCatalog = new ArrayList<>();
         }
 
-        // Default options from the config
-        portNumber = options.port();
-        bindIP = options.ipAddress();
+        ServerCliOptions cliOptions = applyCliArgs(
+                args,
+                options.port(),
+                options.ipAddress(),
+                logger
+        );
 
-        applyCliArgs(args);
+        int portNumber = cliOptions.portNumber();
+        String bindIP = cliOptions.bindIP();
+        boolean minimalResponses = cliOptions.minimalResponses();
 
         // port check
         if (portNumber < 0 || portNumber > 65535) {
             logger.log(
                     (RED + "[SERVER] Invalid port: " + portNumber + " — port must be between 0 and 65535, using default "
-                            + DEFAULT_PORT + RESET),
+                            + OptionSection.defaultOptions().port() + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
                     true
             );
-            portNumber = DEFAULT_PORT;
+            portNumber = OptionSection.defaultOptions().port();
         }
 
-        recursionAllowed = options.recursionAllowed();
+        boolean recursionAllowed = options.recursionAllowed();
         logger.log(
                 (GREEN + "[SERVER] Recursion: " + recursionAllowed),
                 LoggingCategoryType.DEFAULT,
@@ -155,35 +135,53 @@ public class DNS_SERVER {
         List<NameServer> forwarders = options.forwarders().stream()
                 .map(ip -> new NameServer(ip, 53, ip))
                 .toList();
-        StubResolver stubResolver = new StubResolver( forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
-        RecursiveResolver recursiveResolver = new RecursiveResolver( cacheHandler, resolverOptions.timeout(), resolverOptions.retryDelay());
+
+        StubResolver stubResolver = new StubResolver(logger, forwarders, resolverOptions.timeout(), resolverOptions.maxRetries(), resolverOptions.retryDelay(), resolverOptions.strategy());
+        RecursiveResolver recursiveResolver = new RecursiveResolver(cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay());
         DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed);
         DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(cacheHandler, zoneHandler, resolverOptions, stubResolver, recursiveResolver, logger, zoneCatalog, minimalResponses, forwardMode, startTime);
+
         InetAddress bindAddress;
         try {
             bindAddress = InetAddress.getByName(bindIP);
         } catch (Exception e) {
             logger.log(
-                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + DEFAULT_IP + RESET),
+                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default " + OptionSection.defaultOptions().ipAddress() + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
                     true
             );
-            bindIP = DEFAULT_IP;
             try {
-                bindAddress = InetAddress.getByName(DEFAULT_IP);
+                bindAddress = InetAddress.getByName(OptionSection.defaultOptions().ipAddress());
             } catch (UnknownHostException ex) {
                 throw new RuntimeException(ex);
             }
         }
+        context = new ServerContext(cacheHandler,
+                zoneHandler,
+                logger,
+                resolutionPipeline,
+                responseBuilder,
+                serverConfig,
+                zoneCatalog,
+                portNumber,
+                bindAddress,
+                startTime
+        );
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();
-        new Thread(new UDPServer(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger)).start();
-        new Thread(new TCPServer(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger)).start();
-        new Thread(new ZoneManager(zoneHandler, serverConfig, zoneCatalog, startTime, logger)).start();
+        new Thread(new UDPServer(context), "udp-server").start();
+        new Thread(new TCPServer(context), "tcp-server").start();
+        new Thread(new ZoneManager(context)).start();
     }
 
-    private static void applyCliArgs(String[] args) {
+    private record ServerCliOptions(
+            int portNumber,
+            String bindIP,
+            boolean minimalResponses
+    ) {}
+    private static ServerCliOptions applyCliArgs(String[] args, int portNumber, String bindIP, Logger logger) {
+        boolean minimalResponses = false;
         // Overwrite default values
         for (int i = 0; i < args.length; i++) {
             if (args[i].equals("-p") && i + 1 < args.length) {
@@ -192,12 +190,12 @@ public class DNS_SERVER {
                 } catch (NumberFormatException e) {
                     assert logger != null;
                     logger.log(
-                            (RED + "[SERVER] Invalid port: " + args[i + 1] + " — using default " + DEFAULT_PORT + RESET),
+                            (RED + "[SERVER] Invalid port: " + args[i + 1] + " — using default " + OptionSection.defaultOptions().port() + RESET),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR,
                             true
                     );
-                    portNumber = DEFAULT_PORT;
+                    portNumber = OptionSection.defaultOptions().port();
                 }
                 i++;
             } else if (args[i].equals("-a") && i + 1 < args.length) {
@@ -219,15 +217,15 @@ public class DNS_SERVER {
                 minimalResponses = true;
             }
         }
+        return new ServerCliOptions(portNumber, bindIP, minimalResponses);
     }
 
-    private static void initializeDatabase() {
-        startTime = System.currentTimeMillis();
+    private static void initializeDatabase(Logger logger) {
+        long startTime = System.currentTimeMillis();
 
         try {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
-            cacheHandler = new CacheHandler(provider);
-            zoneHandler = new ZoneHandler(provider);
+            context = new ServerContext(new CacheHandler(provider), new ZoneHandler(provider), logger, startTime);
             logger.log(
                     (GREEN + "[DATABASE] Connection to the database successful" + RESET),
                     LoggingCategoryType.GENERAL,
@@ -259,20 +257,21 @@ public class DNS_SERVER {
 
     // cache helper
     private static void handleCacheCleanUp() {
+        long cleanUpStartime = System.currentTimeMillis();
         while (!Thread.currentThread().isInterrupted()) {
+            CacheHandler cacheHandler = context.cacheHandler();
             if (cacheHandler != null) {
-                long cleanupStart = System.currentTimeMillis();
                 try {
                     cacheHandler.deleteExpired();
                 } catch (SQLException e) {
-                    logger.log(
+                    context.logger().log(
                             (RED + "[DATABASE-ERROR] Cache cleanup failed" + RESET),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR,
                             true
                     );
-                    logger.log(
-                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - startTime,ResponseSource.CACHE, null, null, null, -1,
+                    context.logger().log(
+                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cleanUpStartime,ResponseSource.CACHE, null, null, null, -1,
                                     "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR

@@ -2,11 +2,18 @@ package io.gitlab.teamproject2026.resolver;
 
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
-import io.gitlab.teamproject2026.logging.*;
-import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.logging.DNSEvent;
+import io.gitlab.teamproject2026.logging.DNSEventType;
+import io.gitlab.teamproject2026.logging.Logger;
+import io.gitlab.teamproject2026.logging.ResponseSource;
+import io.gitlab.teamproject2026.model.DNSPacket;
+import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.model.RCode;
+import io.gitlab.teamproject2026.model.RRType;
 
-import java.net.*;
 import java.util.List;
+
+import static io.gitlab.teamproject2026.AnsiColors.*;
 
 
 public class StubResolver extends AbstractResolver{
@@ -16,9 +23,8 @@ public class StubResolver extends AbstractResolver{
     private final StubResolverStrategy strategy;
     private int RRIndex =0;
 
-
-
-    public StubResolver(List<NameServer> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){
+    public StubResolver(Logger logger, List<NameServer> forwarders, int timeoutMs, int maxRetries, long retryDelay, StubResolverStrategy strategy){
+        this.logger = logger;
         if(forwarders==null || forwarders.isEmpty())
             throw new IllegalArgumentException("at least one name server is required");
         this.forwarders=List.copyOf(forwarders);

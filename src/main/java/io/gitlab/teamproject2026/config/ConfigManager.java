@@ -21,6 +21,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 /**
  * Utility class for loading, parsing, and validating {@link Config}
  * instances and {@link DNSZone}s, providing fallbacks to sensible defaults
@@ -28,13 +30,6 @@ import java.util.List;
  */
 public class ConfigManager {
     private static String zoneDir = "";
-
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String GREEN   = "\u001B[32m";
-    private static final String BLUE   = "\u001B[34m";
-    private static final String BOLD   = "\u001B[1m";
 
     public static Config defaultConfig() {
         return new Config(

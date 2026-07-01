@@ -1,6 +1,5 @@
 package io.gitlab.teamproject2026.server;
 
-import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.database.CacheHandler;
@@ -17,15 +16,10 @@ import io.gitlab.teamproject2026.model.ResourceRecord;
 import java.net.InetAddress;
 import java.util.HexFormat;
 import java.util.LinkedList;
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 
 public abstract class AbstractServer implements Runnable {
-
-    protected static final String RESET  = "\u001B[0m";
-    protected static final String RED    = "\u001B[31m";
-    protected static final String YELLOW = "\u001B[33m";
-    protected static final String GREEN   = "\u001B[32m";
-    protected static final String BLUE   = "\u001B[34m";
-    protected static final String PINK = "\u001B[95m";
 
     protected final CacheHandler cacheHandler;
     protected final ZoneHandler zoneHandler;
@@ -35,14 +29,17 @@ public abstract class AbstractServer implements Runnable {
     protected final int portNumber;
     protected final InetAddress bindAddress;
 
-    public AbstractServer(CacheHandler cacheHandler, ZoneHandler zoneHandler,DNSResolutionPipeline resolutionPipeline, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
-        this.cacheHandler = cacheHandler;
-        this.zoneHandler = zoneHandler;
-        this.resolutionPipeline = resolutionPipeline;
-        this.responseBuilder = responseBuilder;
-        this.bindAddress = bindAddress;
-        this.portNumber = portNumber;
-        this.logger = logger;
+    protected final boolean recursionAllowed;
+
+    public AbstractServer(ServerContext context){
+        this.cacheHandler = context.cacheHandler();
+        this.zoneHandler = context.zoneHandler();
+        this.resolutionPipeline = context.resolutionPipeline();
+        this.responseBuilder = context.responseBuilder();
+        this.bindAddress = context.bindAddress();
+        this.portNumber = context.portNumber();
+        this.logger = context.logger();
+        this.recursionAllowed = context.serverConfig().options().recursionAllowed();
     }
 
     /**
@@ -75,7 +72,7 @@ public abstract class AbstractServer implements Runnable {
             payload = resolutionPipeline.zoneLookUp(oopPacket, id);
 
             // If recursion is disabled and something is outside our zones, REFUSE
-            if (!DNS_SERVER.recursionAllowed && !payload.notResolved().isEmpty()) {
+            if (!recursionAllowed && !payload.notResolved().isEmpty()) {
                 logger.log(
                         (RED + "[SERVER] Received a foreign query but recursion is currently not allowed!" ),
                         LoggingCategoryType.QUERY_ERRORS,
@@ -164,7 +161,7 @@ public abstract class AbstractServer implements Runnable {
         }
         // Stub/RecursiveResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
-        if (DNS_SERVER.recursionAllowed && !payload.notResolved().isEmpty()) {
+        if (recursionAllowed && !payload.notResolved().isEmpty()) {
             payload = resolutionPipeline.resolveUpstream(payload, data);
         }
 

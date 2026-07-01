@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 /**
  * Interprets the configuration AST represented by {@link ConfNode}s and
  * converts it into validated {@link Config} objects. Responsible for
@@ -381,11 +383,6 @@ public class ConfInterpreter {
         }
     }
 
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String CYAN   = "\u001B[36m";
-    private static final String BOLD   = "\u001B[1m";
 
     /**
      * Reports a fatal config interpreting error and marks the interpreter as failed.

@@ -1,18 +1,16 @@
 package io.gitlab.teamproject2026.resolver;
 
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.NoSuchElementException;
-
+import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.RDataA;
 import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
-import io.gitlab.teamproject2026.model.rdata.RDataNS;
-import io.gitlab.teamproject2026.database.CacheHandler;
-import io.gitlab.teamproject2026.model.RRType;
+
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
 
 
 public class SListWrapper {

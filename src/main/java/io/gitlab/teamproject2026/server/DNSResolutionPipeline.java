@@ -21,14 +21,10 @@ import io.gitlab.teamproject2026.resolver.StubResolver;
 import java.sql.SQLException;
 import java.util.*;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 public class DNSResolutionPipeline {
     private static final int MAX_CNAME_HOPS = 8;
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String GREEN   = "\u001B[32m";
-    private static final String BLUE   = "\u001B[34m";
-    private static final String PINK = "\u001B[95m";
 
     private final CacheHandler cacheHandler;
     private final ZoneHandler zoneHandler;

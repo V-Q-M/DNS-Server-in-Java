@@ -10,33 +10,29 @@ import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.rdata.RDataSOA;
+import io.gitlab.teamproject2026.server.ServerContext;
 
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 public class ZoneManager implements Runnable {
 
-    private ZoneHandler zoneHandler;
-    private Config serverConfig;
-    private List<String> zoneCatalog;
-    private long startTime;
-    private Logger logger;
+    private final ZoneHandler zoneHandler;
+    private final Config serverConfig;
+    private final List<String> zoneCatalog;
+    private final long startTime;
+    private final Logger logger;
 
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String GREEN   = "\u001B[32m";
-    private static final String BLUE   = "\u001B[34m";
-    private static final String PINK = "\u001B[95m";
-
-    public ZoneManager(ZoneHandler zoneHandler, Config serverConfig, List<String> zoneCatalog, long startTime, Logger logger){
-        this.zoneHandler = zoneHandler;
-        this.serverConfig = serverConfig;
-        this.zoneCatalog = zoneCatalog;
-        this.startTime = startTime;
-        this.logger = logger;
+    public ZoneManager(ServerContext context){
+        this.zoneHandler = context.zoneHandler();
+        this.serverConfig = context.serverConfig();
+        this.zoneCatalog = context.zoneCatalog();
+        this.logger = context.logger();
+        this.startTime = context.startTime();
     }
     @Override
     public void run() {

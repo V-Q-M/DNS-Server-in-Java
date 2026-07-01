@@ -3,11 +3,7 @@ package io.gitlab.teamproject2026.server;
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
-import io.gitlab.teamproject2026.database.CacheHandler;
-import io.gitlab.teamproject2026.database.ZoneHandler;
-import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.DNSPacket;
-import io.gitlab.teamproject2026.model.ResourceRecord;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -15,11 +11,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
 
-    public UDPServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResolutionPipeline resolutionPipeline, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
-        super(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger);
+    public UDPServer(ServerContext context){
+        super(context);
     }
 
     @Override

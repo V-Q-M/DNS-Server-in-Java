@@ -3,19 +3,19 @@ package io.gitlab.teamproject2026.server;
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
-import io.gitlab.teamproject2026.database.CacheHandler;
-import io.gitlab.teamproject2026.database.ZoneHandler;
-import io.gitlab.teamproject2026.logging.Logger;
 
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
+
 public class TCPServer extends AbstractServer{
 
-    public TCPServer(CacheHandler cacheHandler, ZoneHandler zoneHandler, DNSResolutionPipeline resolutionPipeline, DNSResponseBuilder responseBuilder, InetAddress bindAddress, int portNumber, Logger logger){
-        super(cacheHandler, zoneHandler, resolutionPipeline, responseBuilder, bindAddress, portNumber, logger);
+    public TCPServer(ServerContext context){
+        super(context);
     }
 
     @Override

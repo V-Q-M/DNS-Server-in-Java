@@ -60,8 +60,7 @@ class StubResolverTest {
     void testSuccessfulResolution(){
         NameServer server = new NameServer("127.0.0.1", mockServer.getLocalPort(),
                 "MockLocal");
-        StubResolver resolver= new StubResolver(List.of(server),1000,2,50, StubResolverStrategy.FAILOVER);
-        StubResolver.logger = logger;
+        StubResolver resolver= new StubResolver(logger, List.of(server),1000,2,50, StubResolverStrategy.FAILOVER);
 
         byte[] query= new byte[]{0x12, 0x34, // id
         0x00, 0x01, // flags, qdcount=1
@@ -77,7 +76,7 @@ class StubResolverTest {
     void testTimeoutAndServFail(){
         serverDelayMs=200;
         NameServer server= new NameServer("127.0.0.1", mockServer.getLocalPort(), "MockLocal");
-        StubResolver resolver= new StubResolver(List.of(server),100,1,10, StubResolverStrategy.FAILOVER);
+        StubResolver resolver= new StubResolver(logger, List.of(server),100,1,10, StubResolverStrategy.FAILOVER);
         byte[] query= new byte[12];
         byte[] response= resolver.resolve(query);
         assertNotNull(response);
@@ -89,7 +88,7 @@ class StubResolverTest {
         serverDelayMs=200;
         NameServer badServer = new NameServer("127.0.0.1", mockServer.getLocalPort(), "BadPrimary");
         NameServer deadServer= new NameServer("127.0.0.1", 54321, "Dead");
-        StubResolver resolver = new StubResolver(List.of(badServer, deadServer),50,1,10, StubResolverStrategy.FAILOVER);
+        StubResolver resolver = new StubResolver(logger, List.of(badServer, deadServer),50,1,10, StubResolverStrategy.FAILOVER);
         byte[] query= new byte[12];
         byte[] response= resolver.resolve(query);
         assertNotNull(response);
@@ -99,7 +98,7 @@ class StubResolverTest {
     void testRoundRobinStrategy(){
         NameServer server1 = new NameServer("127.0.0.1", mockServer.getLocalPort(), "server1");
         NameServer server2 = new NameServer("127.0.0.1", mockServer.getLocalPort(), "server2");
-        StubResolver resolver = new StubResolver(List.of(server1, server2),1000,0,10, StubResolverStrategy.ROUND_ROBIN);
+        StubResolver resolver = new StubResolver(logger, List.of(server1, server2),1000,0,10, StubResolverStrategy.ROUND_ROBIN);
         byte[] query = new byte[12];
         resolver.resolve(query);
         assertEquals(0, requestCount.get());
@@ -120,7 +119,7 @@ class StubResolverTest {
         t.start();
         try {
             NameServer server = new NameServer("127.0.0.1", shortServer.getLocalPort(), "ShortResponse");
-            StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolverStrategy.FAILOVER);
+            StubResolver resolver = new StubResolver(logger, List.of(server), 500, 0, 0, StubResolverStrategy.FAILOVER);
             byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             byte[] response = resolver.resolve(query);
             assertEquals(0x02, response[3] & 0x0F, "Response shorter than 12 bytes should result in SERVFAIL");
@@ -147,7 +146,7 @@ class StubResolverTest {
         t.start();
         try {
             NameServer server = new NameServer("127.0.0.1", badIdServer.getLocalPort(), "BadId");
-            StubResolver resolver = new StubResolver(List.of(server), 500, 0, 0, StubResolverStrategy.FAILOVER);
+            StubResolver resolver = new StubResolver(logger, List.of(server), 500, 0, 0, StubResolverStrategy.FAILOVER);
             byte[] query = new byte[]{0x12, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
             byte[] response = resolver.resolve(query);
             assertEquals(0x02, response[3] & 0x0F, "Transaction ID mismatch should result in SERVFAIL");

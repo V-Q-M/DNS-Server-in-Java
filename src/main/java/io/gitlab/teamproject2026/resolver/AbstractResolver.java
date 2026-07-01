@@ -1,12 +1,12 @@
 package io.gitlab.teamproject2026.resolver;
 
+import io.gitlab.teamproject2026.logging.Logger;
+
 import java.io.*;
 import java.net.*;
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
-import io.gitlab.teamproject2026.DNS_SERVER;
-import io.gitlab.teamproject2026.logging.Logger;
 public abstract class AbstractResolver {
 
     public enum Status { SUCCESS, TIMEOUT, IO_ERROR }
@@ -20,14 +20,7 @@ public abstract class AbstractResolver {
     public long retryDelay;
     public static final int MAX_UDP_SIZE = 4096;
 
-    public static Logger logger = DNS_SERVER.logger;
-
-    public static final String RESET  = "\u001B[0m";
-    public static final String RED    = "\u001B[31m";
-    public static final String YELLOW = "\u001B[33m";
-    public static final String GREEN   = "\u001B[32m";
-    public static final String BLUE   = "\u001B[34m";
-    public static final String PINK = "\u001B[95m";
+    public Logger logger;
 
     public abstract byte[] resolve(byte[] query);
 
