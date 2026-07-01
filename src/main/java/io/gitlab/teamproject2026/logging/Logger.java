@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.logging;
 
 import io.gitlab.teamproject2026.config.logging.*;
+import io.gitlab.teamproject2026.model.DNSPacket;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -143,10 +144,14 @@ public class Logger {
     }
 
     /**
-     * Logs a Trace log message
+     * Builds and logs a Tracelog message by prepending the qName, ID of a given query, and the log type [TRACE] . Also adds colour definition 
      * @param message the log message
+     * @param query the query that is to be logged 
      */
-    public void logTrace(String message){
-        log(message, LoggingCategoryType.TRACE, LoggingSeverity.DEBUG);
+    public void logTrace(String message, DNSPacket query){
+        String RESET  = "\u001B[0m";
+        String PINK = "\u001B[95m";
+        String loggedMessage = PINK + "[TRACE] query: " + query.getQuestionSection(0).getNameString()+  " id: " + query.getIdString()+" type: " + query.getQuestionSection(0).getQtype() +": " +  message + RESET;
+        log(loggedMessage, LoggingCategoryType.TRACE, LoggingSeverity.INFO);
     }
 }
