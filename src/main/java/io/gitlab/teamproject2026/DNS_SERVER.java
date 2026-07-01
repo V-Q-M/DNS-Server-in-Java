@@ -64,11 +64,11 @@ public class DNS_SERVER {
         OptionSection options = serverConfig.options();
         ResolverSection resolverOptions = options.resolverSection();
 
+        long startTime = System.currentTimeMillis();
         // establish Database Connection
-        initializeDatabase(logger);
-        ZoneHandler zoneHandler = context.zoneHandler();
-        CacheHandler cacheHandler = context.cacheHandler();
-        long startTime = context.startTime();
+        DatabaseHandlers dbHandlers = initializeDatabase(logger, startTime);
+        ZoneHandler zoneHandler = dbHandlers.zoneHandler();
+        CacheHandler cacheHandler = dbHandlers.cacheHandler();
 
         // load zones into the database and store the zone names for easy lookup
         List<String> zoneCatalog;
@@ -220,18 +220,20 @@ public class DNS_SERVER {
         return new ServerCliOptions(portNumber, bindIP, minimalResponses);
     }
 
-    private static void initializeDatabase(Logger logger) {
-        long startTime = System.currentTimeMillis();
-
+    private record DatabaseHandlers(
+            CacheHandler cacheHandler,
+            ZoneHandler zoneHandler
+    ) {}
+    private static DatabaseHandlers initializeDatabase(Logger logger, long startTime) {
         try {
             DatabaseConnectionProvider provider = new DatabaseConnectionProvider();
-            context = new ServerContext(new CacheHandler(provider), new ZoneHandler(provider), logger, startTime);
             logger.log(
                     (GREEN + "[DATABASE] Connection to the database successful" + RESET),
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.INFO,
                     true
             );
+            return new DatabaseHandlers(new CacheHandler(provider), new ZoneHandler(provider));
         } catch (ClassNotFoundException e) {
             logger.log(
                     (RED + "[DATABASE-ERROR] JDBC jar couldn't be located, perhaps the classpath isn't set up correctly?" + RESET),
@@ -253,12 +255,13 @@ public class DNS_SERVER {
                     LoggingSeverity.ERROR
             );
         }
+        return new DatabaseHandlers(null, null);
     }
 
     // cache helper
     private static void handleCacheCleanUp() {
-        long cleanUpStartime = System.currentTimeMillis();
         while (!Thread.currentThread().isInterrupted()) {
+            long cleanUpStarTime = System.currentTimeMillis();
             CacheHandler cacheHandler = context.cacheHandler();
             if (cacheHandler != null) {
                 try {
@@ -271,7 +274,7 @@ public class DNS_SERVER {
                             true
                     );
                     context.logger().log(
-                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cleanUpStartime,ResponseSource.CACHE, null, null, null, -1,
+                            (DNSEvent.event(DNSEventType.CACHE_ERROR, null, null, null, System.currentTimeMillis() - cleanUpStarTime,ResponseSource.CACHE, null, null, null, -1,
                                     "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error", null).toHumanReadable()),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR

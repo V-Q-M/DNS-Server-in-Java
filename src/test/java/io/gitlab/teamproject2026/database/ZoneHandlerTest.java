@@ -1,15 +1,19 @@
 package io.gitlab.teamproject2026.database;
 
 import io.gitlab.teamproject2026.config.ConfigManager;
-import io.gitlab.teamproject2026.config.zones.ZoneSection;
-import io.gitlab.teamproject2026.model.*;
-import io.gitlab.teamproject2026.model.rdata.*;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-import static org.junit.jupiter.api.Assertions.*;
+import io.gitlab.teamproject2026.model.RRClass;
+import io.gitlab.teamproject2026.model.RRType;
+import io.gitlab.teamproject2026.model.ResourceRecord;
+import io.gitlab.teamproject2026.model.rdata.RDataA;
+import io.gitlab.teamproject2026.model.rdata.RDataSOA;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
-import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 class ZoneHandlerTest {

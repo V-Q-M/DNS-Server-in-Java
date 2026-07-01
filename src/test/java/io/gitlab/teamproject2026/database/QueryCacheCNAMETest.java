@@ -1,18 +1,20 @@
 package io.gitlab.teamproject2026.database;
 
-import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingSection;
 import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.model.*;
-import io.gitlab.teamproject2026.model.rdata.*;
-import io.gitlab.teamproject2026.resolver.AbstractResolver;
+import io.gitlab.teamproject2026.model.rdata.RDataA;
+import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.server.DNSPayload;
 import io.gitlab.teamproject2026.server.DNSResolutionPipeline;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 class QueryCacheCNAMETest {

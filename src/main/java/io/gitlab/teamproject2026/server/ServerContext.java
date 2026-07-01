@@ -20,7 +20,4 @@ public record ServerContext(
         InetAddress bindAddress,
         long startTime
 ) {
-    public ServerContext(CacheHandler cacheHandler, ZoneHandler zoneHandler, Logger logger, long startTime) {
-        this(cacheHandler, zoneHandler, logger, null, null, null, List.of(), null, null, startTime);
-    }
 }

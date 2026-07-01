@@ -15,9 +15,15 @@ import static io.gitlab.teamproject2026.AnsiColors.*;
 
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
+    // This will need to be negotiated in edns
+    private int udpResponseSizeLimit = 512;
 
     public UDPServer(ServerContext context){
         super(context);
+    }
+
+    public void setUdpResponseSizeLimit(int limit){
+        this.udpResponseSizeLimit = limit;
     }
 
     @Override
@@ -95,7 +101,6 @@ public class UDPServer extends AbstractServer {
         }
     }
 
-    int udpResponseSizeLimit = 512;
     /*
     Specialized version of handleQuery which also checks for truncated response
      */
