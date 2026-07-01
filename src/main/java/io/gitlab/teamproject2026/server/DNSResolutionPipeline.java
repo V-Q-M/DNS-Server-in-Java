@@ -509,7 +509,7 @@ public class DNSResolutionPipeline {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if cachHandler is available
                 // caching
-                logger.logTrace("Query succesfully resolved from upstream",uncachedOOPacket);
+                logger.logTrace("Query successfully resolved from upstream",uncachedOOPacket);
                 if (cacheHandler != null) {
                     startTime = System.currentTimeMillis(); //set new startTime for logging of CACHE_ERROR
                     try {
@@ -552,7 +552,7 @@ public class DNSResolutionPipeline {
                 for (ResourceRecord ns : parsedResponse.getAuthoritySections()) {
                     referral += String.join(".", ((RDataNS) ns.getRdata()).getNsdname()) + ". , ";
                 }
-                logger.logTrace("Referal to: " + referral, uncachedOOPacket);
+                logger.logTrace("Referral to: " + referral, uncachedOOPacket);
 
                 logger.log(
                         (YELLOW + "[RESOLVER] Referral received" + RESET),
