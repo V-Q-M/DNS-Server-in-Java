@@ -117,8 +117,12 @@ public class DNSResolutionPipeline {
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
                                 case NS -> {
-                                    // NS records go to authority section, consistent with queryCache
-                                    payload.authority().add(record);
+                                    if (questionSection.getQtype() == RRType.NS) {
+                                        payload.answer().add(record);
+                                    } else {
+                                        // NS records go to authority section, consistent with queryCache
+                                        payload.authority().add(record);
+                                    }
                                     // Step 6: add glue A/AAAA for the nameserver to additional
                                     if (!minimalResponses) {
                                         String nsHost = String.join(".", ((RDataNS) record.getRdata()).getNsdname());

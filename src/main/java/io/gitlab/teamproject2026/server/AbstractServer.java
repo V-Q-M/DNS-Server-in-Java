@@ -92,38 +92,18 @@ public abstract class AbstractServer implements Runnable {
 
             // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
             // True NXDOMAIN only when ALL sections are empty:
-            // authority may contain NS records from an authoritative zone answer
+            // Explicit NS queries are returned in the answer section.
+            // Authority may still contain delegation/referral-style records.
 
-            if (payload.notResolved().isEmpty() && payload.answer().isEmpty() && payload.authority().isEmpty()) {
-                DNSPacket response = new DNSPacket();
-                response.setId(oopPacket.getId());
-                response.setOpcode(oopPacket.getOpcode());
-                response.setAa(true);
-                response.setRd(oopPacket.isRd());
-                response.setRa(DNS_SERVER.recursionAllowed);
-                response.setRcode(RCode.NXDOMAIN);
-                response.setQuestionSections(oopPacket.getQuestionSections());
-                response.setAnswerSections(new ResourceRecord[0]);
-                response.setAuthoritySections(new ResourceRecord[0]);
-                response.setAdditionalSections(new ResourceRecord[0]);
+            if (payload.notResolved().isEmpty()
+                    && payload.answer().isEmpty()
+                    && payload.authority().isEmpty()) {
 
                 logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN+ RESET);
+                return responseBuilder.nxDomain(oopPacket).toBytes();
             }
 
-            if(payload.notResolved().isEmpty() && !payload.answer().isEmpty()
-                    && payload.authority().isEmpty() ){
-                DNSPacket response = new DNSPacket();
-                response.setId(oopPacket.getId());
-                response.setOpcode(oopPacket.getOpcode());
-                response.setAa(true);
-                response.setRd(oopPacket.isRd());
-                response.setRa(DNS_SERVER.recursionAllowed);
-                response.setRcode(RCode.NXDOMAIN);
-                response.setQuestionSections(oopPacket.getQuestionSections());
-                response.setAnswerSections(payload.answer().toArray(new ResourceRecord[0]));
-                response.setAuthoritySections(new ResourceRecord[0]);
-                response.setAdditionalSections(new ResourceRecord[0]);
-
+            if(payload.notResolved().isEmpty() && !payload.answer().isEmpty()){
                 logger.logTrace(PINK + "[TRACE] Query: " + oopPacket.getQuestionSection(0).getNameString() +" contained in Zones"+ RESET
                 );
                 for (ResourceRecord answer: payload.answer()){
@@ -136,7 +116,7 @@ public abstract class AbstractServer implements Runnable {
                     logger.logTrace(PINK + "[TRACE] Additional: " + String.join(".",additional.getName()) + "." + "of Type: " + additional.getType() + " with RData: " + additional.getRdata().toString() + RESET);
                 }
 
-                return response.toBytes();
+                return responseBuilder.noError(payload, oopPacket, true).toBytes();
             }
 
             // Step 2: Cache lookup only for questions not resolved by zone
