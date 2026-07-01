@@ -169,19 +169,19 @@ testZone(){
 testHardLookups(){
     echo "Testing hard recursive lookups..."
     # Basic github lookup
-    doLookupNoError "github.com" "A" ${NOCACHE}
+    doLookupNoError "github.com" "A" ${HARDLOOKUP}
 
     # Cloudflare-owned domain / Cloudflare nameserver path
-    doLookupNoError "cloudflare.com" "A" ${NOCACHE}
+    doLookupNoError "cloudflare.com" "A" ${HARDLOOKUP}
 
     # Glue-less and more complex delegation path
-    doLookupNoError "mastodon.social" "A" ${NOCACHE}
+    doLookupNoError "mastodon.social" "A" ${HARDLOOKUP}
 
     # Ipv6 should work aswell
-    doLookupNoError "mastodon.social" "AAAA" ${NOCACHE}
+    doLookupNoError "mastodon.social" "AAAA" ${HARDLOOKUP}
 
     # Ebay used a different delegation strategy
-    doLookupNoError "ebay.com" "A" ${NOCACHE}
+    doLookupNoError "ebay.com" "A" ${HARDLOOKUP}
 
     # Run one repeated query to make sure cache path also works
     doLookupNoError "github.com" "A" ${CACHETIME}

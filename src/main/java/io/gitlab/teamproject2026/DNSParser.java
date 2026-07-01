@@ -1,7 +1,5 @@
 package io.gitlab.teamproject2026;
 
-import io.gitlab.teamproject2026.model.*;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -149,6 +147,20 @@ public class DNSParser{
             throw new IndexOutOfBoundsException("pointer points out of bounds");
         }
         return pointerTarget;
+    }
+
+
+    // Utilities
+
+    // Small helper method to convert byte packets into hex
+    public static String toHex(byte[] bytes) {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (byte b : bytes) {
+            stringBuilder.append(String.format("%02X ", b));
+        }
+
+        return stringBuilder.toString().trim();
     }
 
 }

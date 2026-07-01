@@ -3,27 +3,19 @@ package io.gitlab.teamproject2026.resolver;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.database.CacheHandler;
-import io.gitlab.teamproject2026.database.*;
-import io.gitlab.teamproject2026.model.DNSPacket;
-import io.gitlab.teamproject2026.model.QuestionSection;
-import io.gitlab.teamproject2026.model.RCode;
-import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.OpCode;
-import io.gitlab.teamproject2026.model.ResourceRecord;
-import io.gitlab.teamproject2026.model.rdata.RData;
-import io.gitlab.teamproject2026.model.rdata.RDataA;
-import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
-import io.gitlab.teamproject2026.model.rdata.RDataNS;
-import io.gitlab.teamproject2026.resolver.SListWrapper.*;
-import io.gitlab.teamproject2026.model.RRClass;
-import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
+import io.gitlab.teamproject2026.logging.Logger;
+import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.model.rdata.*;
+import io.gitlab.teamproject2026.resolver.SListWrapper.SListEntry;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+
+import static io.gitlab.teamproject2026.AnsiColors.*;
 
 /*
  * Iterative resolver loop (equivalent to RFC 1034 5.3.3).
@@ -43,8 +35,9 @@ public class RecursiveResolver extends AbstractResolver{
     private static final int MAX_DEPTH = 16;
     private static final int MAX_NS_ADDRESS_DEPTH = 3;
 
-    public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
+    public RecursiveResolver(CacheHandler cache, Logger logger, int timeoutMs, long retryDelay) {
         this.cache = cache;
+        this.logger = logger;
         this.timeoutMs=timeoutMs;
         this.retryDelay=retryDelay;
     }

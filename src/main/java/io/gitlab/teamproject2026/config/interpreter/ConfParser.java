@@ -7,6 +7,8 @@ import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 /**
  * Recursive-descent parser for the DNS server configuration language.
  * Consumes tokens produced by {@link ConfLexer} and builds a tree of
@@ -90,12 +92,6 @@ public class ConfParser {
     public List<ConfNode> getRootNodes() {
         return List.copyOf(rootNodes);
     }
-
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String CYAN   = "\u001B[36m";
-    private static final String BOLD   = "\u001B[1m";
 
     /**
      * Reports a fatal config parsing error and marks the parser as failed.

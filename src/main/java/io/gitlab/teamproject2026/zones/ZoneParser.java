@@ -10,22 +10,22 @@ import io.gitlab.teamproject2026.model.rdata.*;
 import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Base64;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.regex.Pattern;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.regex.Pattern;
+
+import static io.gitlab.teamproject2026.AnsiColors.*;
 
 /**
  * Parses BIND-style DNS zone files into validated {@link ResourceRecord}s.
@@ -1208,12 +1208,6 @@ public class ZoneParser {
             return 0;
         }
     }
-
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String CYAN   = "\u001B[36m";
-    private static final String BOLD   = "\u001B[1m";
 
     /**
      * Reports a fatal zone parsing error and marks the parser as failed.
