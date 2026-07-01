@@ -188,7 +188,7 @@ public class RecursiveResolver extends AbstractResolver{
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                         addedAny = true;
-                        logger.logTrace("Recieved glueful referral from: " + currentServer.name() + " to: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ". with address: IPv4: " + d.ipv4.toString() + " IPv6: " + d.ipv6.toString(), queryPacket);
+                        logger.logTrace("Received glueful referral from: " + currentServer.name() + " to: "+ d.toString(), queryPacket);
                     }
 
                     // PASS 2: only if no glueful referral was usable, resolve glue-less NS names.
@@ -205,7 +205,7 @@ public class RecursiveResolver extends AbstractResolver{
                                 continue;
                             }
 
-                            logger.logTrace("Recieved gluerecord for: " + String.join(".",((RDataNS)d.ns.getRdata()).getNsdname()) + ". with address: IPv4: " + resolved.ipv4.toString() + " IPv6: " + resolved.ipv6.toString(), queryPacket);
+                            logger.logTrace("Recieved gluerecord for: " + resolved.toString(), queryPacket);
                             slistWrap.addSListEntry(resolved.ns(), resolved.ipv4(), resolved.ipv6());
                             addedAny = true;
 
@@ -480,6 +480,17 @@ public class RecursiveResolver extends AbstractResolver{
         boolean hasGlue() {
             return !isZero(ipv4.getAddress()) || !isZero(ipv6.getAddress());
         }
+
+        @Override
+        public String toString() {
+            String nsName = String.join(".", ((RDataNS) ns.getRdata()).getNsdname()) + ".";
+
+            String ipv4Text = isZero(ipv4.getAddress()) ? "none" : ipv4.toString();
+            String ipv6Text = isZero(ipv6.getAddress()) ? "none" : ipv6.toString();
+
+            return "ns=" + nsName + " ipv4=" + ipv4Text + " ipv6=" + ipv6Text;
+        }
+
     }
 
     /**
