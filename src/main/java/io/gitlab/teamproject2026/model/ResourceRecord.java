@@ -10,13 +10,13 @@ import static io.gitlab.teamproject2026.model.DNSPacket.encodeName;
  */
 public class ResourceRecord {
 
-    private String[] name;
-    //private RRType type;
-    private RRClass rrclass;
-    private long ttl;
-    //private int rdlength;
-    private RData rdata;
-    private int lastProcessedByte;
+    protected String[] name;
+    //protected RRType type;
+    protected RRClass rrclass;
+    protected long ttl;
+    //protected int rdlength;
+    protected RData rdata;
+    protected int lastProcessedByte;
 
     public ResourceRecord(){}
     public ResourceRecord(String[] name, RRClass rrclass, long ttl, RData rdata){
@@ -132,6 +132,9 @@ public class ResourceRecord {
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         //resourceRecord.setName(labels);
         RRType type = RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        if(type == RRType.OPT){
+            return new OPTPseudoResourceRecord(bytes, byteIndex);
+        }
         RRClass rrclass = RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
         long ttl = DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);

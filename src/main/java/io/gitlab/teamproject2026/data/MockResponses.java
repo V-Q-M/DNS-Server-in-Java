@@ -131,6 +131,7 @@ public class MockResponses {
             case PTR   -> ptr(requestPacket);
             case SOA   -> soa(requestPacket);
             case TXT   -> txt(requestPacket);
+            case OPT -> null;
             case DS          -> ds(requestPacket);
             case RRSIG       -> rrsig(requestPacket);
             case NSEC        -> nsec(requestPacket);

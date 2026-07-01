@@ -40,6 +40,7 @@ public interface RData {
             case PTR -> RDataPTR.fromBytes(bytes, byteIndex);
             case SOA -> RDataSOA.fromBytes(bytes, byteIndex);
             case TXT -> RDataTXT.fromBytes(bytes, byteIndex, rdlength);
+            case OPT -> new RDataOPTOption(bytes, byteIndex);
             case DS -> new RDataDS(bytes, byteIndex);
             case RRSIG -> new RDataRRSIG(bytes, byteIndex);
             case NSEC -> new RDataNSEC(bytes, byteIndex);
