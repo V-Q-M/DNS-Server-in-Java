@@ -8,6 +8,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -55,6 +56,19 @@ public class Logger {
                 System.err.println("Failed to open log file: " + channel.fileName());
             }
         }
+    }
+
+
+    private BufferedWriter openWriter(String fileName, boolean append) throws IOException {
+        Path path = Path.of(fileName);
+        if (path.getParent() != null) {
+            Files.createDirectories(path.getParent());
+        }
+        if (append) {
+            return Files.newBufferedWriter( path, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        }
+
+        return Files.newBufferedWriter( path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
     }
 
     /**
@@ -128,6 +142,10 @@ public class Logger {
             writer.newLine();
             writer.flush();
 
+            rotateFileIfRequired(channel);
+
+
+
             // Optionally echo the original (ANSI-colored) message to the console.
             if (alsoPrintToConsole) {
                 if (severity.level() <= LoggingSeverity.WARNING.level()) {
@@ -153,5 +171,105 @@ public class Logger {
                 PINK + "[TRACE] query: " + query.getQuestionSection(0).getNameString() + " id: " + query.getIdString()
                         + " type: " + query.getQuestionSection(0).getQtype() + ": " + message + RESET;
         log(loggedMessage, LoggingCategoryType.TRACE, LoggingSeverity.INFO);
+    }
+
+    private void rotateFileIfRequired(LoggingChannel channel) throws IOException {
+        if (channel.fileName() == null || channel.fileName().isBlank()){
+            return;
+        }
+        if (channel.fileSize() == null){
+            return;
+        }
+
+        Path currentLog = Path.of(channel.fileName());
+        if(!Files.exists(currentLog)){
+            return;
+        }
+        long maxBytes = channel.fileSize();
+        if (maxBytes <= 0){
+            return;
+        }
+        long actualBytes = Files.size(currentLog);
+        if (actualBytes <= maxBytes){
+            return;
+        }
+        rotateLogFile(channel);
+    }
+
+    private void rotateLogFile(LoggingChannel channel) throws IOException {
+        String channelName = channel.channelName();
+        String fileName = channel.fileName();
+
+        BufferedWriter writer = writers.remove(channelName);
+        if (writer != null) {
+            writer.close();
+        }
+
+        Path currentLog = Path.of(fileName);
+
+        /*
+         * If versions is missing, we do not rotate.
+         *
+         * This keeps the semantic difference:
+         *   file "x.log" size 200k;
+         *     -> size configured, but no rotation history configured
+         *
+         *   file "x.log" versions 0 size 200k;
+         *     -> rotate/truncate at 200k, keep no old copies
+         */
+        if (channel.fileVersions() == null) {
+            writers.put(channelName, openWriter(fileName, true));
+            return;
+        }
+        int versions = channel.fileVersions();
+        if (versions < 0) {
+            /*
+             * -1 can mean "versions unlimited".
+             * For unlimited, find the next free suffix and move current log there.
+             */
+            rotateUnlimited(currentLog);
+        } else if (versions == 0) {
+            /*
+             * Keep no old files.
+             * Delete/truncate the current log and start fresh.
+             */
+            Files.deleteIfExists(currentLog);
+        } else {
+            /*
+             * Keep N old files:
+             *
+             * queries.log.2 -> queries.log.3
+             * queries.log.1 -> queries.log.2
+             * queries.log.0 -> queries.log.1
+             * queries.log   -> queries.log.0
+             */
+            rotateNumbered(currentLog, versions);
+        }
+        writers.put(channelName, openWriter(fileName, false));
+    }
+
+    private void rotateNumbered(Path currentLog, int versions) throws IOException {
+        Path oldest = Path.of(currentLog.toString() + "." + (versions - 1));
+        Files.deleteIfExists(oldest);
+        for (int i = versions - 2; i >= 0; i--) {
+            Path source = Path.of(currentLog.toString() + "." + i);
+            Path target = Path.of(currentLog.toString() + "." + (i + 1));
+            if (Files.exists(source)) {
+                Files.move(source, target);
+            }
+        }
+        if (Files.exists(currentLog)) {
+            Files.move(currentLog, Path.of(currentLog.toString() + ".0"));
+        }
+    }
+
+    private void rotateUnlimited(Path currentLog) throws IOException {
+        int i = 0;
+        while (Files.exists(Path.of(currentLog.toString() + "." + i))) {
+            i++;
+        }
+        if (Files.exists(currentLog)) {
+            Files.move(currentLog, Path.of(currentLog.toString() + "." + i));
+        }
     }
 }
