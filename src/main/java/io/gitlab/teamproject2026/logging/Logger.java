@@ -58,17 +58,17 @@ public class Logger {
         }
     }
 
-
     private BufferedWriter openWriter(String fileName, boolean append) throws IOException {
         Path path = Path.of(fileName);
         if (path.getParent() != null) {
             Files.createDirectories(path.getParent());
         }
         if (append) {
-            return Files.newBufferedWriter( path, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            return Files.newBufferedWriter(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         }
 
-        return Files.newBufferedWriter( path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        return Files.newBufferedWriter(
+                path, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
     }
 
     /**
@@ -144,8 +144,6 @@ public class Logger {
 
             rotateFileIfRequired(channel);
 
-
-
             // Optionally echo the original (ANSI-colored) message to the console.
             if (alsoPrintToConsole) {
                 if (severity.level() <= LoggingSeverity.WARNING.level()) {
@@ -174,23 +172,23 @@ public class Logger {
     }
 
     private void rotateFileIfRequired(LoggingChannel channel) throws IOException {
-        if (channel.fileName() == null || channel.fileName().isBlank()){
+        if (channel.fileName() == null || channel.fileName().isBlank()) {
             return;
         }
-        if (channel.fileSize() == null){
+        if (channel.fileSize() == null) {
             return;
         }
 
         Path currentLog = Path.of(channel.fileName());
-        if(!Files.exists(currentLog)){
+        if (!Files.exists(currentLog)) {
             return;
         }
         long maxBytes = channel.fileSize();
-        if (maxBytes <= 0){
+        if (maxBytes <= 0) {
             return;
         }
         long actualBytes = Files.size(currentLog);
-        if (actualBytes <= maxBytes){
+        if (actualBytes <= maxBytes) {
             return;
         }
         rotateLogFile(channel);
