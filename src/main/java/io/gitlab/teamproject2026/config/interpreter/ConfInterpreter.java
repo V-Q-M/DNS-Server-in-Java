@@ -138,6 +138,9 @@ public class ConfInterpreter {
         }
         String channelName = root.args().getFirst();
         String fileName = "";
+        Integer fileVersions = null; // null = not configured; -1 = unlimited
+        Long fileSize = null; // bytes; null = not configured
+
         LoggingSeverity severity = LoggingSeverity.INFO;
         boolean printTime = false;
         boolean printCategory = false;
@@ -146,11 +149,12 @@ public class ConfInterpreter {
         for (ConfNode node : root.children()) {
             switch (node.name().toLowerCase()) {
                 case "file" -> {
-                    if (node.args().isEmpty()) {
-                        error("logging.channel.file requires a path", node.lineNumber());
-                        continue;
+                    ParsedFileLogging parsed = parseFileLoggingArgs(node);
+                    if (parsed != null) {
+                        fileName = parsed.fileName();
+                        fileVersions = parsed.versions();
+                        fileSize = parsed.sizeBytes();
                     }
-                    fileName = node.args().getFirst();
                 }
                 case "severity" -> {
                     if (node.args().isEmpty()) {
@@ -190,7 +194,103 @@ public class ConfInterpreter {
             }
         }
 
-        return new LoggingChannel(channelName, fileName, severity, printTime, printCategory, printSeverity);
+        return new LoggingChannel(
+                channelName, fileName, fileVersions, fileSize, severity, printTime, printCategory, printSeverity);
+    }
+
+    private record ParsedFileLogging(String fileName, Integer versions, Long sizeBytes) {}
+
+    private ParsedFileLogging parseFileLoggingArgs(ConfNode node) {
+        List<String> args = node.args();
+        if (args.isEmpty()) {
+            error("logging.channel.file requires a path", node.lineNumber());
+            return null;
+        }
+        String fileName = args.get(0);
+        Integer versions = null;
+        Long sizeBytes = null;
+        int i = 1;
+        while (i < args.size()) {
+            String keyword = args.get(i).toLowerCase();
+            switch (keyword) {
+                case "versions" -> {
+                    if (i + 1 >= args.size()) {
+                        error("logging.channel.file versions requires a value", node.lineNumber());
+                        return new ParsedFileLogging(fileName, versions, sizeBytes);
+                    }
+                    String value = args.get(i + 1);
+                    if (value.equalsIgnoreCase("unlimited")) {
+                        versions = -1; // sentinel for unlimited
+                    } else {
+                        try {
+                            versions = Integer.parseInt(value);
+                            if (versions < 0) {
+                                error("logging.channel.file versions cannot be negative", node.lineNumber());
+                            }
+                        } catch (NumberFormatException e) {
+                            error("Invalid logging.channel.file versions value: " + value, node.lineNumber());
+                        }
+                    }
+                    i += 2;
+                }
+                case "size" -> {
+                    if (i + 1 >= args.size()) {
+                        error("logging.channel.file size requires a value", node.lineNumber());
+                        return new ParsedFileLogging(fileName, versions, sizeBytes);
+                    }
+                    String value = args.get(i + 1);
+                    try {
+                        sizeBytes = parseSizeToBytes(value);
+                    } catch (IllegalArgumentException e) {
+                        error("Invalid logging.channel.file size value: " + value, node.lineNumber());
+                    }
+                    i += 2;
+                }
+                default -> {
+                    warning("Unknown logging.channel.file option: \"" + args.get(i) + "\"", node.lineNumber());
+                    i++;
+                }
+            }
+        }
+        return new ParsedFileLogging(fileName, versions, sizeBytes);
+    }
+
+    private long parseSizeToBytes(String value) {
+        String trimmed = value.trim().toLowerCase();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("empty size");
+        }
+        long multiplier = 1;
+        char last = trimmed.charAt(trimmed.length() - 1);
+        String numberPart = trimmed;
+        switch (last) {
+            case 'k' -> {
+                multiplier = 1_000L;
+                numberPart = trimmed.substring(0, trimmed.length() - 1);
+            }
+            case 'm' -> {
+                multiplier = 1_000_000L;
+                numberPart = trimmed.substring(0, trimmed.length() - 1);
+            }
+            case 'g' -> {
+                multiplier = 1_000_000_000L;
+                numberPart = trimmed.substring(0, trimmed.length() - 1);
+            }
+            default -> {
+                if (!Character.isDigit(last)) {
+                    throw new IllegalArgumentException("unknown size suffix: " + last);
+                }
+            }
+        }
+        try {
+            long number = Long.parseLong(numberPart);
+            if (number < 0) {
+                throw new IllegalArgumentException("negative size");
+            }
+            return Math.multiplyExact(number, multiplier);
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw new IllegalArgumentException("invalid size: " + value, e);
+        }
     }
 
     /**

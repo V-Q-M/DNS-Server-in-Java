@@ -17,17 +17,24 @@ public record LoggingSection(List<LoggingChannel> channels, Map<LoggingCategoryT
     /** Gets called when the config fails */
     public static LoggingSection defaultLogger() {
 
-        LoggingChannel defaultLog =
-                new LoggingChannel("default_log", "log/default/default.log", LoggingSeverity.INFO, true, true, true);
+        LoggingChannel defaultLog = new LoggingChannel(
+                "default_log", "log/default/default.log", null, null, LoggingSeverity.INFO, true, true, true);
 
         LoggingChannel errorLog = new LoggingChannel(
-                "error_log", "log/default/default-error.log", LoggingSeverity.ERROR, true, true, true);
+                "error_log", "log/default/default-error.log", null, null, LoggingSeverity.ERROR, true, true, true);
 
         LoggingChannel criticalLog = new LoggingChannel(
-                "critical_log", "log/default/default-critical.log", LoggingSeverity.CRITICAL, true, true, true);
+                "critical_log",
+                "log/default/default-critical.log",
+                null,
+                null,
+                LoggingSeverity.CRITICAL,
+                true,
+                true,
+                true);
 
         LoggingChannel traceLog = new LoggingChannel(
-                "trace_log", "log/default/default-trace.log", LoggingSeverity.INFO, true, false, false);
+                "trace_log", "log/default/default-trace.log", null, null, LoggingSeverity.INFO, true, false, false);
 
         return new LoggingSection(
                 List.of(defaultLog, errorLog, criticalLog, traceLog),

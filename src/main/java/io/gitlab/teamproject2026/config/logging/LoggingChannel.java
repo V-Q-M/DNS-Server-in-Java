@@ -17,6 +17,8 @@ package io.gitlab.teamproject2026.config.logging;
 public record LoggingChannel(
         String channelName,
         String fileName,
+        Integer fileVersions,
+        Long fileSize,
         LoggingSeverity severity,
         boolean printTime,
         boolean printCategory,
