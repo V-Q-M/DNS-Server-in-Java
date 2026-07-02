@@ -244,7 +244,6 @@ public class DNSPacket {
      * @param ednsRecord A Pseudo record enabling edns with additional info for edns
      */
     public void setEdnsRecord(OPTPseudoResourceRecord ednsRecord) {
-        this.ednsRecord = ednsRecord;
 
         // parsing z into human-readable data
         this.setDNSSecCheckingDisabled(
@@ -252,9 +251,12 @@ public class DNSPacket {
         this.setDNSSecAuthenticatedData(DNSParser.extractBit(this.z, 6));
 
         // extending Rcode to 12 bits
-        this.rcode = rcode
-                + (ednsRecord.getExtendedRcode()
-                        << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
+        if(this.ednsRecord != null) { // restore previous, simple RCode in case of an OPTRR change
+            this.rcode -= (this.ednsRecord.getExtendedRcode() << 4);
+        }
+        this.rcode += (ednsRecord.getExtendedRcode() << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
+        this.ednsRecord = ednsRecord;
+
     }
 
     public Boolean getDNSSecCheckingDisabled() {
@@ -304,7 +306,8 @@ public class DNSPacket {
                 + "questionSections: " + Arrays.toString(questionSections) + "\n"
                 + "answerSections: " + Arrays.toString(answerSections) + "\n"
                 + "authoritySections: " + Arrays.toString(authoritySections) + "\n"
-                + "additionalSections: " + Arrays.toString(additionalSections) + "\n";
+                + "additionalSections: " + Arrays.toString(additionalSections) + "\n"
+                + "ednsPseudoRR: " + ednsRecord + "\n";
     }
 
     /**
@@ -466,7 +469,9 @@ public class DNSPacket {
             }
             byte_index = record.getLastProcessedByte();
         }
-
+        if(dnsPacket.ednsRecord != null){ // truncate additional sections by 1 element as ednsRecord is missing
+            dnsPacket.setAdditionalSections(Arrays.copyOf(dnsPacket.getAdditionalSections(), dnsPacket.getAdditionalSections().length-1));
+        }
         return dnsPacket;
     }
 

@@ -39,4 +39,13 @@ public class RDataOPTOption implements RData {
         }
         return result;
     }
+
+    @Override
+    public String toString(){
+        StringBuilder result = new StringBuilder();
+        for (Map.Entry<Integer, byte[]> option : options.entrySet()) {
+            result.append(option.getKey()).append(": ").append(Arrays.toString(option.getValue())).append("\n");
+        }
+        return result.toString();
+    }
 }
