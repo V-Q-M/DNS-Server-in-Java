@@ -45,10 +45,7 @@ public interface RData {
             case RRType.NSEC3 -> new RDataNSEC3(bytes, byteIndex);
             case RRType.NSEC3PARAM -> new RDataNSEC3PARAM(bytes, byteIndex);
             case RRType.DNSKEY -> new RDataDNSKEY(bytes, byteIndex);
-            default -> {
-                // TODO new RDataUndefined or smth
-                yield null;
-            }
+            default -> new RDataUnknown(rrType, bytes, byteIndex, rdlength);
         };
     }
 }

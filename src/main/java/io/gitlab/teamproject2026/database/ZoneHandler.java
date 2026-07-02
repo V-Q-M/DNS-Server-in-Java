@@ -39,7 +39,7 @@ public class ZoneHandler {
     private static final String SQL_DNSKEY =
             "INSERT INTO zone_dnskey_rdata (zone, name, rrtype, rrclass, ttl, rdlength, flags, protocol, algorithm, publickey) VALUES (?, ?, 'DNSKEY', 'IN', ?, ?, ?, ?, ?, ?)";
     private static final String SQL_RRSIG =
-            "INSERT INTO zone_rrsig_rdata (zone, name, rrtype, rrclass, ttl, rdlength, type_covered, algorithm, labels, original_ttl, expiration, inception, key_tag, signer_name, signature) VALUES (?, ?, 'RRSIG', 'IN', ?, ?, ?::RRTypeEnum, ?, ?, ?, ?, ?, ?, ?, ?)";
+            "INSERT INTO zone_rrsig_rdata (zone, name, rrtype, rrclass, ttl, rdlength, type_covered, algorithm, labels, original_ttl, expiration, inception, key_tag, signer_name, signature) VALUES (?, ?, 'RRSIG', 'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String SQL_NSEC =
             "INSERT INTO zone_nsec_rdata (zone, name, rrtype, rrclass, ttl, rdlength, next_domain_name, type_bit_maps) VALUES (?, ?, 'NSEC', 'IN', ?, ?, ?, ?)";
     private static final String SQL_NSEC3 =

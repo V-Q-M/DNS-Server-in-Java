@@ -290,7 +290,8 @@ public class DNSResolutionPipeline {
                 int qType = request.getQtype();
                 if (cacheResult.notResolved().contains(request)) {
                     logger.log(
-                            (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
+                            (BLUE + "[CACHE] Miss! Couldn't find: " + RRType.mapToString(qType) + " of \"" + domain
+                                    + "\"" + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
                             true);
@@ -613,7 +614,10 @@ public class DNSResolutionPipeline {
         // stub response
         ReferralAnalyzer.Classification classification = ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
-                ("[ANALYZER]" + classification + queryType), LoggingCategoryType.GENERAL, LoggingSeverity.INFO, true);
+                ("[ANALYZER] " + classification + " type: " + queryType),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.INFO,
+                true);
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if cachHandler is available
