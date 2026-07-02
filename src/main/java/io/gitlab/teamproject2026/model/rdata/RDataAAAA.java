@@ -17,7 +17,7 @@ public class RDataAAAA implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.AAAA;
     }
 

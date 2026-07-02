@@ -59,7 +59,7 @@ public class CacheHandler {
         return Math.max(1, seconds);
     }
 
-    private ResourceRecord[] lookupType(String name, String sql, RRType type, RDataRowMapper mapper)
+    private ResourceRecord[] lookupType(String name, String sql, int type, RDataRowMapper mapper)
             throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -88,17 +88,17 @@ public class CacheHandler {
      * @return
      * @throws SQLException
      */
-    public ResourceRecord[] lookup(String name, RRType type) throws SQLException {
+    public ResourceRecord[] lookup(String name, int type) throws SQLException {
         name = name.toLowerCase();
         switch (type) {
-            case A:
+            case RRType.A:
                 return lookupType(
                         name, "SELECT * FROM a_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.A, rs -> {
                             RDataA rdata = new RDataA();
                             rdata.setAddress(rs.getBytes("ipv4"));
                             return rdata;
                         });
-            case AAAA:
+            case RRType.AAAA:
                 return lookupType(
                         name,
                         "SELECT * FROM aaaa_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -108,7 +108,7 @@ public class CacheHandler {
                             rdata.setAddress(rs.getBytes("ipv6"));
                             return rdata;
                         });
-            case CNAME:
+            case RRType.CNAME:
                 return lookupType(
                         name,
                         "SELECT * FROM cname_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -118,7 +118,7 @@ public class CacheHandler {
                             rdata.setCname(rs.getString("cname").split("\\."));
                             return rdata;
                         });
-            case MX:
+            case RRType.MX:
                 return lookupType(
                         name, "SELECT * FROM mx_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.MX, rs -> {
                             RDataMX rdata = new RDataMX();
@@ -126,14 +126,14 @@ public class CacheHandler {
                             rdata.setExchange(rs.getString("exchange").split("\\."));
                             return rdata;
                         });
-            case NS:
+            case RRType.NS:
                 return lookupType(
                         name, "SELECT * FROM ns_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.NS, rs -> {
                             RDataNS rdata = new RDataNS();
                             rdata.setNsdname(rs.getString("nsdname").split("\\."));
                             return rdata;
                         });
-            case PTR:
+            case RRType.PTR:
                 return lookupType(
                         name,
                         "SELECT * FROM ptr_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -143,7 +143,7 @@ public class CacheHandler {
                             rdata.setPtrdname(rs.getString("ptrdname").split("\\."));
                             return rdata;
                         });
-            case SOA:
+            case RRType.SOA:
                 return lookupType(
                         name,
                         "SELECT * FROM soa_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -159,7 +159,7 @@ public class CacheHandler {
                             rdata.setMinimum(rs.getLong("minimum"));
                             return rdata;
                         });
-            case TXT:
+            case RRType.TXT:
                 return lookupType(
                         name,
                         "SELECT * FROM txt_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -257,28 +257,28 @@ public class CacheHandler {
     void insert(ResourceRecord record) throws SQLException {
         delete(String.join(".", record.getName()).toLowerCase(), record.getType());
         switch (record.getType()) {
-            case A:
+            case RRType.A:
                 singleInsert(SQL_A, record, this::fillA);
                 break;
-            case AAAA:
+            case RRType.AAAA:
                 singleInsert(SQL_AAAA, record, this::fillAAAA);
                 break;
-            case CNAME:
+            case RRType.CNAME:
                 singleInsert(SQL_CNAME, record, this::fillCNAME);
                 break;
-            case MX:
+            case RRType.MX:
                 singleInsert(SQL_MX, record, this::fillMX);
                 break;
-            case NS:
+            case RRType.NS:
                 singleInsert(SQL_NS, record, this::fillNS);
                 break;
-            case PTR:
+            case RRType.PTR:
                 singleInsert(SQL_PTR, record, this::fillPTR);
                 break;
-            case SOA:
+            case RRType.SOA:
                 singleInsert(SQL_SOA, record, this::fillSOA);
                 break;
-            case TXT:
+            case RRType.TXT:
                 singleInsert(SQL_TXT, record, this::fillTXT);
                 break;
         }
@@ -291,32 +291,32 @@ public class CacheHandler {
      * @param type
      * @throws SQLException
      */
-    public void delete(String name, RRType type) throws SQLException {
+    public void delete(String name, int type) throws SQLException {
         name = name.toLowerCase();
         String sql;
         switch (type) {
-            case A:
+            case RRType.A:
                 sql = DEL_A;
                 break;
-            case AAAA:
+            case RRType.AAAA:
                 sql = DEL_AAAA;
                 break;
-            case CNAME:
+            case RRType.CNAME:
                 sql = DEL_CNAME;
                 break;
-            case MX:
+            case RRType.MX:
                 sql = DEL_MX;
                 break;
-            case NS:
+            case RRType.NS:
                 sql = DEL_NS;
                 break;
-            case PTR:
+            case RRType.PTR:
                 sql = DEL_PTR;
                 break;
-            case SOA:
+            case RRType.SOA:
                 sql = DEL_SOA;
                 break;
-            case TXT:
+            case RRType.TXT:
                 sql = DEL_TXT;
                 break;
             default:
@@ -401,7 +401,7 @@ public class CacheHandler {
      * @throws SQLException
      */
     public void insertAll(ResourceRecord[] records) throws SQLException {
-        Map<RRType, List<ResourceRecord>> byType = new EnumMap<>(RRType.class);
+        Map<Integer, List<ResourceRecord>> byType = new HashMap<>();
         for (ResourceRecord record : records) {
             byType.computeIfAbsent(record.getType(), k -> new ArrayList<>()).add(record);
         }

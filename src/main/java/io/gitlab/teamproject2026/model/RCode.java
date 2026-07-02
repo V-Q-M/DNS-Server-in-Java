@@ -1,29 +1,10 @@
 package io.gitlab.teamproject2026.model;
 
-public enum RCode {
-    NOERROR(0),
-    FORMERR(1),
-    SERVFAIL(2),
-    NXDOMAIN(3),
-    NOTIMP(4),
-    REFUSED(5);
-
-    private final int value;
-
-    RCode(int value) {
-        this.value = value;
-    }
-
-    public int getValue() {
-        return value;
-    }
-
-    public static RCode fromValue(int value) {
-        for (RCode rCode : RCode.values()) {
-            if (rCode.value == value) {
-                return rCode;
-            }
-        }
-        throw new IllegalArgumentException("Invalid RCode: " + value);
-    }
+public final class RCode {
+    public static final int NOERROR = 0;
+    public static final int FORMERR = 1;
+    public static final int SERVFAIL = 2;
+    public static final int NXDOMAIN= 3;
+    public static final int NOTIMP = 4;
+    public static final int REFUSED = 5;
 }

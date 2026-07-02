@@ -31,7 +31,7 @@ public class RDataSOA implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.SOA;
     }
 

@@ -13,7 +13,7 @@ public class ResourceRecord {
 
     protected String[] name;
     // protected RRType type;
-    protected RRClass rrclass;
+    protected int rrclass;
     protected long ttl;
     // protected int rdlength;
     protected RData rdata;
@@ -21,7 +21,7 @@ public class ResourceRecord {
 
     public ResourceRecord() {}
 
-    public ResourceRecord(String[] name, RRClass rrclass, long ttl, RData rdata) {
+    public ResourceRecord(String[] name, int rrclass, long ttl, RData rdata) {
         this.name = name;
         this.rrclass = rrclass;
         this.ttl = ttl;
@@ -38,17 +38,17 @@ public class ResourceRecord {
 
     // public RRType getType() { return type; }
     // Derive the type from the actual rdata type instead of setting it manually
-    public RRType getType() {
+    public int getType() {
         return this.rdata == null ? null : this.rdata.getType();
     }
 
     // public void setType(RRType type) { this.type = type; }
 
-    public RRClass getRrclass() {
+    public int getRrclass() {
         return rrclass;
     }
 
-    public void setRrclass(RRClass rrclass) {
+    public void setRrclass(int rrclass) {
         this.rrclass = rrclass;
     }
 
@@ -124,12 +124,12 @@ public class ResourceRecord {
         System.arraycopy(name, 0, result, pos, name.length);
         pos += name.length;
 
-        result[pos] = (byte) (this.getType().getValue() >> 8);
-        result[pos + 1] = (byte) (this.getType().getValue());
+        result[pos] = (byte) (this.getType() >> 8);
+        result[pos + 1] = (byte) (this.getType());
         pos += 2;
 
-        result[pos] = (byte) (this.getRrclass().getValue() >> 8);
-        result[pos + 1] = (byte) (this.getRrclass().getValue());
+        result[pos] = (byte) (this.getRrclass() >> 8);
+        result[pos + 1] = (byte) (this.getRrclass());
         pos += 2;
 
         result[pos] = (byte) (this.getTtl() >> 24);
@@ -158,11 +158,11 @@ public class ResourceRecord {
         String[] labels = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         // resourceRecord.setName(labels);
-        RRType type = RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        int type = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         if (type == RRType.OPT) {
             return new OPTPseudoResourceRecord(bytes, byteIndex);
         }
-        RRClass rrclass = RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        int rrclass = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         long ttl = DNSParser.as32BitInt(bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++], bytes[byteIndex++]);
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         RData rdata = RData.fromBytes(bytes, byteIndex, rdlengthComp, type);

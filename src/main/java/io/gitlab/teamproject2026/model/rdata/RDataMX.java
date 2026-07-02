@@ -18,7 +18,7 @@ public class RDataMX implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.MX;
     }
 

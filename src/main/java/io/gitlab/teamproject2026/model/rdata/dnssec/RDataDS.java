@@ -26,7 +26,7 @@ public record RDataDS(int keyTag, int algorithm, int digestType, byte[] digest) 
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.DS;
     }
 

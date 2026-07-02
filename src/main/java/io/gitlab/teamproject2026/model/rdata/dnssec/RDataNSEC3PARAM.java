@@ -30,7 +30,7 @@ public record RDataNSEC3PARAM(int hashAlgorithm, int flags, int iterations, byte
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.NSEC3PARAM;
     }
 

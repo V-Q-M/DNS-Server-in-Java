@@ -1,38 +1,19 @@
 package io.gitlab.teamproject2026.model;
 
-public enum RRType {
-    A(1),
-    NS(2),
-    CNAME(5),
-    SOA(6),
-    PTR(12),
-    MX(15),
-    TXT(16),
-    AAAA(28),
-    OPT(41),
-    DS(43),
-    RRSIG(46),
-    NSEC(47),
-    DNSKEY(48),
-    NSEC3(50),
-    NSEC3PARAM(51);
-
-    private final int value;
-
-    RRType(int value) {
-        this.value = value;
-    }
-
-    public int getValue() {
-        return value;
-    }
-
-    public static RRType fromValue(int value) {
-        for (RRType rrType : RRType.values()) {
-            if (rrType.value == value) {
-                return rrType;
-            }
-        }
-        throw new IllegalArgumentException("Invalid RRType: " + value);
-    }
+public final class RRType {
+    public static final int A = 1;
+    public static final int NS = 2;
+    public static final int CNAME = 5;
+    public static final int SOA = 6;
+    public static final int PTR = 12;
+    public static final int MX = 15;
+    public static final int TXT = 16;
+    public static final int AAAA = 28;
+    public static final int OPT = 41;
+    public static final int DS = 43;
+    public static final int RRSIG = 46;
+    public static final int NSEC = 47;
+    public static final int DNSKEY = 48;
+    public static final int NSEC3 = 50;
+    public static final int NSEC3PARAM = 51;
 }

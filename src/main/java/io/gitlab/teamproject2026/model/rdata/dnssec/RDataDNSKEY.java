@@ -26,7 +26,7 @@ public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publick
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.DNSKEY;
     }
 

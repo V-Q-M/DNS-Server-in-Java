@@ -157,14 +157,14 @@ public class DNSResolutionPipeline {
                                                 "Local Zone",
                                                 1,
                                                 null,
-                                                null)
+                                                -1)
                                         .toHumanReadable()),
                                 LoggingCategoryType.GENERAL,
                                 LoggingSeverity.INFO);
 
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
-                                case NS -> {
+                                case RRType.NS -> {
                                     if (questionSection.getQtype() == RRType.NS) {
                                         payload.answer().add(record);
                                     } else {
@@ -182,7 +182,7 @@ public class DNSResolutionPipeline {
                                         }
                                     }
                                 }
-                                case MX -> {
+                                case RRType.MX -> {
                                     // MX records go to answer section
                                     payload.answer().add(record);
                                     // Step 6: add A/AAAA of mail exchange to additional
@@ -253,7 +253,7 @@ public class DNSResolutionPipeline {
                                             DNSEventType.CACHE_ERROR,
                                             null,
                                             null,
-                                            null,
+                                            -1,
                                             System.currentTimeMillis() - startTime,
                                             ResponseSource.CACHE,
                                             null,
@@ -261,7 +261,7 @@ public class DNSResolutionPipeline {
                                             null,
                                             -1,
                                             "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
-                                            null)
+                                            -1)
                                     .toHumanReadable()),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR);
@@ -287,7 +287,7 @@ public class DNSResolutionPipeline {
             DNSPayload cacheResult = queryCache(unresolvedPacket);
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 String domain = request.nameToString();
-                RRType qType = request.getQtype();
+                int qType = request.getQtype();
                 if (cacheResult.notResolved().contains(request)) {
                     logger.log(
                             (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
@@ -307,7 +307,7 @@ public class DNSResolutionPipeline {
                                             "127.0.0.1",
                                             1,
                                             "Not found in database",
-                                            null)
+                                            -1)
                                     .toHumanReadable()),
                             LoggingCategoryType.QUERIES,
                             LoggingSeverity.NOTICE);
@@ -332,7 +332,7 @@ public class DNSResolutionPipeline {
                                             "127.0.0.1",
                                             1,
                                             null,
-                                            null)
+                                            -1)
                                     .toHumanReadable()),
                             LoggingCategoryType.QUERIES,
                             LoggingSeverity.INFO);
@@ -352,7 +352,7 @@ public class DNSResolutionPipeline {
                                     DNSEventType.CACHE_ERROR,
                                     null,
                                     null,
-                                    null,
+                                    -1,
                                     System.currentTimeMillis() - cacheStart,
                                     ResponseSource.CACHE,
                                     null,
@@ -360,7 +360,7 @@ public class DNSResolutionPipeline {
                                     null,
                                     -1,
                                     "Connection to cache Server has been lost, assume internal Server error",
-                                    null)
+                                    -1)
                             .toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
@@ -381,7 +381,7 @@ public class DNSResolutionPipeline {
                                         "127.0.0.1",
                                         1,
                                         "cache couldn't be reached",
-                                        null)
+                                        -1)
                                 .toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.NOTICE);
@@ -419,7 +419,7 @@ public class DNSResolutionPipeline {
                 if (cachedRecords.length != 0) {
                     for (ResourceRecord record : cachedRecords) {
                         switch (record.getType()) {
-                            case NS: {
+                            case RRType.NS: {
                                 if (request.getQtype() == RRType.NS) {
                                     answer.add(record);
                                 } else {
@@ -432,7 +432,7 @@ public class DNSResolutionPipeline {
                                 }
                                 break;
                             }
-                            case MX: {
+                            case RRType.MX: {
                                 answer.add(record);
                                 if (!minimalResponses) {
                                     String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
@@ -441,7 +441,7 @@ public class DNSResolutionPipeline {
                                 }
                                 break;
                             }
-                            case A, AAAA, TXT, SOA, PTR, CNAME:
+                            case RRType.A, RRType.AAAA, RRType.TXT, RRType.SOA, RRType.PTR, RRType.CNAME:
                                 answer.add(record);
                         }
                     }
@@ -482,8 +482,8 @@ public class DNSResolutionPipeline {
     //                 is longer than MAX_CNAME_HOPS.
     private boolean resolveCnameFromCache(
             String name,
-            RRType targetType,
-            RRClass targetClass,
+            int targetType,
+            int targetClass,
             LinkedList<ResourceRecord> answer,
             LinkedList<QuestionSection> notCached)
             throws SQLException {
@@ -607,7 +607,7 @@ public class DNSResolutionPipeline {
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         // ----------------------------ReferralAnalyzer-------------------------------------------------
-        RRType queryType = payload.notResolved().isEmpty()
+        int queryType = payload.notResolved().isEmpty()
                 ? RRType.A
                 : payload.notResolved().getFirst().getQtype();
         // stub response
@@ -636,7 +636,7 @@ public class DNSResolutionPipeline {
                                                 DNSEventType.CACHE_ERROR,
                                                 null,
                                                 null,
-                                                null,
+                                                -1,
                                                 System.currentTimeMillis() - startTime,
                                                 ResponseSource.CACHE,
                                                 null,
@@ -644,7 +644,7 @@ public class DNSResolutionPipeline {
                                                 null,
                                                 -1,
                                                 "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost",
-                                                null)
+                                                -1)
                                         .toHumanReadable()),
                                 LoggingCategoryType.DEFAULT,
                                 LoggingSeverity.ERROR);

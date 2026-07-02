@@ -49,7 +49,7 @@ public record RDataNSEC3(
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.NSEC3;
     }
 

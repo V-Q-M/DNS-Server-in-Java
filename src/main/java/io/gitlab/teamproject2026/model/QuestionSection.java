@@ -11,8 +11,8 @@ import io.gitlab.teamproject2026.DNSParser;
 public class QuestionSection {
 
     private String[] name;
-    private RRType qtype;
-    private RRClass qclass;
+    private int qtype;
+    private int qclass;
     private int lastProcessedByte;
 
     public String[] getName() {
@@ -27,19 +27,19 @@ public class QuestionSection {
         this.name = name;
     }
 
-    public RRType getQtype() {
+    public int getQtype() {
         return qtype;
     }
 
-    public void setQtype(RRType qtype) {
+    public void setQtype(int qtype) {
         this.qtype = qtype;
     }
 
-    public RRClass getQclass() {
+    public int getQclass() {
         return qclass;
     }
 
-    public void setQclass(RRClass qclass) {
+    public void setQclass(int qclass) {
         this.qclass = qclass;
     }
 
@@ -69,10 +69,10 @@ public class QuestionSection {
         System.arraycopy(name, 0, result, 0, name.length);
 
         int pos = name.length;
-        result[pos] = (byte) (this.getQtype().getValue() >> 8);
-        result[pos + 1] = (byte) (this.getQtype().getValue());
-        result[pos + 2] = (byte) (this.getQclass().getValue() >> 8);
-        result[pos + 3] = (byte) (this.getQclass().getValue());
+        result[pos] = (byte) (this.getQtype() >> 8);
+        result[pos + 1] = (byte) (this.getQtype());
+        result[pos + 2] = (byte) (this.getQclass() >> 8);
+        result[pos + 3] = (byte) (this.getQclass());
 
         return result;
     }
@@ -90,8 +90,8 @@ public class QuestionSection {
         String[] labels = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
         questionSection.setName(labels);
-        questionSection.setQtype(RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
-        questionSection.setQclass(RRClass.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++])));
+        questionSection.setQtype(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        questionSection.setQclass(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
         questionSection.lastProcessedByte = byteIndex;
         return questionSection;
     }

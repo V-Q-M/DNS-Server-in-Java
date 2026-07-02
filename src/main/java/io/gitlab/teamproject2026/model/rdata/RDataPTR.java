@@ -16,7 +16,7 @@ public class RDataPTR implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.PTR;
     }
 

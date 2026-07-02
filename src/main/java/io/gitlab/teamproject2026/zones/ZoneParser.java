@@ -373,8 +373,8 @@ public class ZoneParser {
 
         String recordName;
         String recordTtlLocal = "";
-        RRClass recordClass = RRClass.IN;
-        RRType recordType = null;
+        int recordClass = RRClass.IN;
+        int recordType = -1;
 
         int i = 0;
 
@@ -481,21 +481,21 @@ public class ZoneParser {
     }
 
     /** Parses RDATA based on the already identified RR type. */
-    private RData parseRdata(RRType type, int rdataStart) {
+    private RData parseRdata(int type, int rdataStart) {
         return switch (type) {
-            case A -> parseIPv4(rdataStart);
-            case AAAA -> parseIPv6(rdataStart);
-            case NS, CNAME, PTR -> parseDomainName(type, rdataStart);
-            case MX -> parseMX(rdataStart);
-            case TXT -> parseTXT(rdataStart);
-            case SOA -> parseSOA(rdataStart);
+            case RRType.A -> parseIPv4(rdataStart);
+            case RRType.AAAA -> parseIPv6(rdataStart);
+            case RRType.NS, RRType.CNAME, RRType.PTR -> parseDomainName(type, rdataStart);
+            case RRType.MX -> parseMX(rdataStart);
+            case RRType.TXT -> parseTXT(rdataStart);
+            case RRType.SOA -> parseSOA(rdataStart);
             // DNSSEC
-            case DNSKEY -> parseDNSKEY(rdataStart);
-            case DS -> parseDS(rdataStart);
-            case RRSIG -> parseRRSIG(rdataStart);
-            case NSEC -> parseNSEC(rdataStart);
-            case NSEC3 -> parseNSEC3(rdataStart);
-            case NSEC3PARAM -> parseNSEC3PARAM(rdataStart);
+            case RRType.DNSKEY -> parseDNSKEY(rdataStart);
+            case RRType.DS -> parseDS(rdataStart);
+            case RRType.RRSIG -> parseRRSIG(rdataStart);
+            case RRType.NSEC -> parseNSEC(rdataStart);
+            case RRType.NSEC3 -> parseNSEC3(rdataStart);
+            case RRType.NSEC3PARAM -> parseNSEC3PARAM(rdataStart);
 
             default -> {
                 error("Unknown record type: " + type, tokenBuffer.getLast().lineNumber());
@@ -573,7 +573,7 @@ public class ZoneParser {
     }
 
     /** Normalizes a domain name using the current origin. */
-    private RData parseDomainName(RRType type, int start) {
+    private RData parseDomainName(int type, int start) {
         if (start >= tokenBuffer.size()) {
             error(
                     "Missing domain name in " + type + " record",
@@ -593,9 +593,9 @@ public class ZoneParser {
 
         RData rdata;
         switch (type) {
-            case CNAME -> rdata = new RDataCNAME(domainName);
-            case NS -> rdata = new RDataNS(domainName);
-            case PTR -> rdata = new RDataPTR(domainName);
+            case RRType.CNAME -> rdata = new RDataCNAME(domainName);
+            case RRType.NS -> rdata = new RDataNS(domainName);
+            case RRType.PTR -> rdata = new RDataPTR(domainName);
             default -> throw new IllegalArgumentException("ILLEGAL: " + type);
         }
         return rdata;

@@ -249,7 +249,7 @@ public class DNS_SERVER {
                                     DNSEventType.CACHE_ERROR,
                                     null,
                                     null,
-                                    null,
+                                    -1,
                                     System.currentTimeMillis() - startTime,
                                     ResponseSource.CACHE,
                                     null,
@@ -257,7 +257,7 @@ public class DNS_SERVER {
                                     null,
                                     -1,
                                     "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
-                                    null)
+                                    -1)
                             .toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR);
@@ -286,7 +286,7 @@ public class DNS_SERVER {
                                                     DNSEventType.CACHE_ERROR,
                                                     null,
                                                     null,
-                                                    null,
+                                                    -1,
                                                     System.currentTimeMillis() - cleanUpStarTime,
                                                     ResponseSource.CACHE,
                                                     null,
@@ -294,7 +294,7 @@ public class DNS_SERVER {
                                                     null,
                                                     -1,
                                                     "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
-                                                    null)
+                                                    -1)
                                             .toHumanReadable()),
                                     LoggingCategoryType.DEFAULT,
                                     LoggingSeverity.ERROR);

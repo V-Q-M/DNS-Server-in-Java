@@ -25,7 +25,7 @@ public record RDataNSEC(String[] nextDomainName, byte[] typeBitMaps) implements 
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.NSEC;
     }
 

@@ -506,7 +506,7 @@ public class DNSParserTest {
      * @param rdlength Rdlength of rdata
      * @return new ResourceRecord
      */
-    public static ResourceRecord createRr(String[] qname, RRType qtype, int ttl, RData rdata, int rdlength) {
+    public static ResourceRecord createRr(String[] qname, int qtype, int ttl, RData rdata, int rdlength) {
         ResourceRecord rr = new ResourceRecord();
         rr.setName(qname);
         // rr.setType(qtype);

@@ -2,15 +2,20 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
 
 public class RDataOPTOption implements RData {
-    private int optionCode;
-    private byte[] optionData;
+    private Map<Integer, byte[]> options = new HashMap<>();
 
-    public RDataOPTOption(byte[] bytes, int byteIndex) {
-        this.optionCode = bytes[byteIndex++];
-        int optionLength = bytes[byteIndex++];
-        this.optionData = Arrays.copyOfRange(bytes, byteIndex, byteIndex + optionLength);
+    public RDataOPTOption(byte[] bytes, int byteIndex, int rdlength) {
+        while(rdlength > 0) {
+            int optionCode = bytes[byteIndex++];
+            int optionLength = bytes[byteIndex++];
+            options.put(optionCode, Arrays.copyOfRange(bytes, byteIndex, byteIndex + optionLength));
+            rdlength -= optionLength + 2;
+        }
     }
 
     @Override
@@ -20,10 +25,20 @@ public class RDataOPTOption implements RData {
 
     @Override
     public byte[] toBytes() {
-        byte[] result = new byte[2 + optionData.length];
-        result[0] = (byte) optionCode;
-        result[1] = (byte) optionData.length;
-        System.arraycopy(optionData, 0, result, 2, optionData.length);
+        int rdlength = 0;
+        for(byte[] rdata : this.options.values()) {
+            rdlength += rdata.length + 2;
+        }
+        byte[] result = new byte[rdlength];
+        int byteIndex = 0;
+        for (Map.Entry<Integer, byte[]> option : options.entrySet()){
+            result[byteIndex++] = option.getKey().byteValue();
+            int optionLength = option.getValue().length;
+            result[byteIndex++] = (byte) optionLength;
+            System.arraycopy(option.getValue(), 0, result, byteIndex, optionLength);
+            byteIndex += optionLength;
+        }
         return result;
+
     }
 }
