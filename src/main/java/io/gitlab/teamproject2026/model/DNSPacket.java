@@ -22,7 +22,7 @@ public class DNSPacket {
     private boolean ra = true;
     private byte z = 0;
 
-    //EDNS Specific fields, only curated on edns
+    // EDNS Specific fields, only curated on edns
     private Boolean DNSSecCheckingDisabled = null;
     private Boolean DNSSecAuthenticatedData = null;
     private int rcode;
@@ -234,40 +234,49 @@ public class DNSPacket {
         this.additionalSections = additionalSections;
     }
 
-    public OPTPseudoResourceRecord getEdnsRecord(){
+    public OPTPseudoResourceRecord getEdnsRecord() {
         return ednsRecord;
     }
     /**
+     * Addition of EDNS OPTPseudo record changes the meaning of headers and other behaviour, so setting this will
+     * recalculate the Packet as EDNS Packet
      *
-     * Addition of EDNS OPTPseudo record changes the meaning of headers and other behaviour, so setting this will recalculate the Packet as EDNS Packet
      * @param ednsRecord A Pseudo record enabling edns with additional info for edns
      */
-    public void setEdnsRecord(OPTPseudoResourceRecord ednsRecord){
+    public void setEdnsRecord(OPTPseudoResourceRecord ednsRecord) {
         this.ednsRecord = ednsRecord;
 
         // parsing z into human-readable data
-        this.setDNSSecCheckingDisabled(DNSParser.extractBit(this.z, 5)); // Parser shift them to the right so Z = 0x00000abc
+        this.setDNSSecCheckingDisabled(
+                DNSParser.extractBit(this.z, 5)); // Parser shift them to the right so Z = 0x00000abc
         this.setDNSSecAuthenticatedData(DNSParser.extractBit(this.z, 6));
 
         // extending Rcode to 12 bits
-        this.rcode = rcode+(ednsRecord.getExtendedRcode() << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
-
+        this.rcode = rcode
+                + (ednsRecord.getExtendedRcode()
+                        << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
     }
+
     public Boolean getDNSSecCheckingDisabled() {
         return DNSSecCheckingDisabled;
     }
+
     public void setDNSSecCheckingDisabled(Boolean DNSSecCheckingDisabled) {
         this.DNSSecCheckingDisabled = DNSSecCheckingDisabled;
-        this.z = (byte) (((DNSSecCheckingDisabled ? 1 : 0) << 2) | ((DNSParser.extractBit(z, 6) ? 1 : 0) << 1) | (DNSParser.extractBit(z, 7) ? 1 : 0));
+        this.z = (byte) (((DNSSecCheckingDisabled ? 1 : 0) << 2)
+                | ((DNSParser.extractBit(z, 6) ? 1 : 0) << 1)
+                | (DNSParser.extractBit(z, 7) ? 1 : 0));
     }
 
     public Boolean getDNSSecAuthenticatedData() {
         return DNSSecAuthenticatedData;
     }
+
     public void setDNSSecAuthenticatedData(Boolean DNSSecAuthenticatedData) {
         this.DNSSecAuthenticatedData = DNSSecAuthenticatedData;
-        this.z = (byte) (((DNSParser.extractBit(z, 5) ? 1 : 0) << 2) | ((DNSSecAuthenticatedData ? 1 : 0) << 1) | (DNSParser.extractBit(z, 7) ? 1 : 0));
-
+        this.z = (byte) (((DNSParser.extractBit(z, 5) ? 1 : 0) << 2)
+                | ((DNSSecAuthenticatedData ? 1 : 0) << 1)
+                | (DNSParser.extractBit(z, 7) ? 1 : 0));
     }
 
     public ResourceRecord getAdditionalSection(int index) {
@@ -324,11 +333,11 @@ public class DNSPacket {
         // second flag byte
         byte flagsByte2 = 0;
         flagsByte2 |= (byte) ((this.isRa() ? 1 : 0) << 7); // Ra
-        if(this.getEdnsRecord() != null){ // Means Edns is enabled and some z bits are used, otherwise it stays on 0
+        if (this.getEdnsRecord() != null) { // Means Edns is enabled and some z bits are used, otherwise it stays on 0
             flagsByte2 |= (byte) (this.z << 4); // 3 z-btis are all the way to the right but need to be at index 9-11
         }
 
-        flagsByte2 |= (byte) (this.getRcode() & 0x0F);// rcode
+        flagsByte2 |= (byte) (this.getRcode() & 0x0F); // rcode
         header[3] = flagsByte2;
 
         header[4] = (byte) ((this.getQdcount() >> 8) & 0xFF);
@@ -445,17 +454,17 @@ public class DNSPacket {
         dnsPacket.setAdditionalSections(new ResourceRecord[dnsPacket.getArcount()]);
         for (int i = 0; i < dnsPacket.getArcount(); i++) {
             ResourceRecord record = ResourceRecord.fromBytes(bytes, byte_index);
-            if(record.getType() == RRType.OPT){
-                if(dnsPacket.getEdnsRecord() != null){
-                    throw new IllegalArgumentException("Invalid form body. DNS Packets may only have a maximum of 1 EDNS pseudo Record");
+            if (record.getType() == RRType.OPT) {
+                if (dnsPacket.getEdnsRecord() != null) {
+                    throw new IllegalArgumentException(
+                            "Invalid form body. DNS Packets may only have a maximum of 1 EDNS pseudo Record");
                 }
-                dnsPacket.setEdnsRecord((OPTPseudoResourceRecord) record); // Should not be forwarded or cached, so stored separately
+                dnsPacket.setEdnsRecord(
+                        (OPTPseudoResourceRecord) record); // Should not be forwarded or cached, so stored separately
             } else {
                 dnsPacket.getAdditionalSections()[i] = record;
             }
             byte_index = record.getLastProcessedByte();
-
-
         }
 
         return dnsPacket;

@@ -2,7 +2,6 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.rdata.dnssec.*;
-import jdk.jshell.spi.ExecutionControl;
 
 /** Interface for all DNS RDATA types. Each implementing class defines its own type-specific fields. */
 public interface RData {

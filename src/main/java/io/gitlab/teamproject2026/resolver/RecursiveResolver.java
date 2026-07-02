@@ -61,7 +61,7 @@ public class RecursiveResolver extends AbstractResolver {
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, RRType qtype, byte[] query, ResolveContext ctx) {
+    private byte[] resolve(String[] sname, int qtype, byte[] query, ResolveContext ctx) {
         // OOP QueryPacket for logging
         DNSPacket queryPacket = DNSPacket.fromBytes(query);
 
@@ -305,7 +305,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param ctx the resolution context
      * @return the matching address rdata, or null if it cannot be resolved
      */
-    RData resolveAddress(String[] name, RRType type, ResolveContext ctx) {
+    RData resolveAddress(String[] name, int type, ResolveContext ctx) {
         try {
             ResourceRecord[] cached = cache.lookup(String.join(".", name), type);
             if (cached.length > 0) {
@@ -385,7 +385,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param ctx the resolution context
      * @return a response, cached CNAMEs prepended onto the resolved tail
      */
-    DNSPacket resolveCnameTarget(String[] name, RRType qtype, ResolveContext ctx) {
+    DNSPacket resolveCnameTarget(String[] name, int qtype, ResolveContext ctx) {
         // the wanted type is cached directly
         DNSPacket direct = cachedResponse(name, qtype);
         if (direct != null) {
@@ -412,7 +412,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param qtype the record type
      * @return a NOERROR response with the cached records, or null if not cached
      */
-    DNSPacket cachedResponse(String[] name, RRType qtype) {
+    DNSPacket cachedResponse(String[] name, int qtype) {
         ResourceRecord[] cached;
         try {
             cached = cache.lookup(String.join(".", name), qtype);
@@ -453,7 +453,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param qtype the query type
      * @return the query bytes
      */
-    private static byte[] buildQuery(String[] name, RRType qtype) {
+    private static byte[] buildQuery(String[] name, int qtype) {
         QuestionSection question = new QuestionSection();
         question.setName(name);
         question.setQtype(qtype);
@@ -575,7 +575,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param type the record type to look for (A or AAAA)
      * @return the matching rdata, or null if none is present
      */
-    private static RData findGlue(ResourceRecord[] additional, String nsHost, RRType type) {
+    private static RData findGlue(ResourceRecord[] additional, String nsHost, int type) {
         if (additional == null) {
             return null;
         }

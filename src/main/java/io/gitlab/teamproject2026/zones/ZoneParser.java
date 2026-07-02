@@ -374,7 +374,7 @@ public class ZoneParser {
         String recordName;
         String recordTtlLocal = "";
         int recordClass = RRClass.IN;
-        int recordType = -1;
+        int recordType = RRType.UNASSIGNED;
 
         int i = 0;
 
@@ -428,7 +428,7 @@ public class ZoneParser {
             error("Unexpected token before RR type: " + t.literal(), t.lineNumber());
             return;
         }
-        if (recordType == null) {
+        if (recordType == RRType.UNASSIGNED) {
             error("Record has no RR type", tokenBuffer.getLast().lineNumber());
             return;
         }
@@ -447,7 +447,7 @@ public class ZoneParser {
 
         if (i >= tokenBuffer.size()) {
             error(
-                    "Missing RDATA for " + recordType + " record",
+                    "Missing RDATA for " + RRType.mapToString(recordType) + " record",
                     tokenBuffer.getLast().lineNumber());
             return;
         }
@@ -459,6 +459,9 @@ public class ZoneParser {
         int rdataStart = i;
 
         RData rdata = parseRdata(recordType, rdataStart);
+        if (parserError || rdata == null) {
+            return;
+        }
 
         long ttlValue;
         if (!recordTtlLocal.isEmpty()) {
@@ -574,9 +577,10 @@ public class ZoneParser {
 
     /** Normalizes a domain name using the current origin. */
     private RData parseDomainName(int type, int start) {
+        String typeName = RRType.mapToString(type);
         if (start >= tokenBuffer.size()) {
             error(
-                    "Missing domain name in " + type + " record",
+                    "Missing domain name in " + typeName + " record",
                     tokenBuffer.getLast().lineNumber());
             return null;
         }
@@ -584,11 +588,11 @@ public class ZoneParser {
         String rawDomainName = normalizeDomainName(nameToken.literal());
         for (int i = start + 1; i < tokenBuffer.size(); i++) {
             warning(
-                    "trailing garbage in " + type + " record: "
+                    "trailing garbage in " + typeName + " record: "
                             + tokenBuffer.get(i).literal(),
                     tokenBuffer.get(i).lineNumber());
         }
-        String[] domainName = parseDomainLabels(rawDomainName, type + " domain name", nameToken.lineNumber());
+        String[] domainName = parseDomainLabels(rawDomainName, typeName + " domain name", nameToken.lineNumber());
         if (parserError) return null;
 
         RData rdata;
@@ -596,7 +600,7 @@ public class ZoneParser {
             case RRType.CNAME -> rdata = new RDataCNAME(domainName);
             case RRType.NS -> rdata = new RDataNS(domainName);
             case RRType.PTR -> rdata = new RDataPTR(domainName);
-            default -> throw new IllegalArgumentException("ILLEGAL: " + type);
+            default -> throw new IllegalArgumentException("ILLEGAL: " + typeName);
         }
         return rdata;
     }
@@ -860,7 +864,7 @@ public class ZoneParser {
             return null;
         }
 
-        RRType typeCovered = RRType.valueOf(typeCoveredToken.literal());
+        int typeCovered = RRType.valueOf(typeCoveredToken.literal());
 
         int algorithm = parseUInt8(algorithmToken, "RRSIG algorithm");
         int labels = parseUInt8(labelsToken, "RRSIG labels");
@@ -933,7 +937,7 @@ public class ZoneParser {
         String[] nextDomain = parseDomainLabels(rawNextDomain, "NSEC next domain name", nextDomainToken.lineNumber());
         if (parserError) return null;
 
-        List<RRType> types = new ArrayList<>();
+        List<Integer> types = new ArrayList<>();
         for (int i = start + 1; i < tokenBuffer.size(); i++) {
             ZoneToken typeToken = tokenBuffer.get(i);
 
@@ -948,18 +952,17 @@ public class ZoneParser {
         return new RDataNSEC(nextDomain, typeBitMaps);
     }
 
-    private byte[] buildTypeBitMaps(List<RRType> types) {
+    private byte[] buildTypeBitMaps(List<Integer> types) {
         int maxType = 0;
-        for (RRType type : types) {
-            maxType = Math.max(maxType, type.getValue());
+        for (int type : types) {
+            maxType = Math.max(maxType, type);
         }
         int bitmapLength = (maxType / 8) + 1;
         byte[] bitmap = new byte[bitmapLength];
 
-        for (RRType type : types) {
-            int value = type.getValue();
-            int byteIndex = value / 8;
-            int bitIndex = value % 8;
+        for (int type : types) {
+            int byteIndex = type / 8;
+            int bitIndex = type % 8;
             bitmap[byteIndex] |= (byte) (1 << (7 - bitIndex));
         }
         return bitmap;
@@ -996,7 +999,7 @@ public class ZoneParser {
             return null;
         }
 
-        List<RRType> types = new ArrayList<>();
+        List<Integer> types = new ArrayList<>();
         for (int i = start + requiredFields; i < tokenBuffer.size(); i++) {
             ZoneToken typeToken = tokenBuffer.get(i);
             if (!isRRType(typeToken)) {

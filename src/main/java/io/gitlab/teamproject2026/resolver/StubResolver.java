@@ -11,7 +11,6 @@ import io.gitlab.teamproject2026.logging.ResponseSource;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
-import io.gitlab.teamproject2026.model.RRType;
 import java.util.List;
 
 public class StubResolver extends AbstractResolver {

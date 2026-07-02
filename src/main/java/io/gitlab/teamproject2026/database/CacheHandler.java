@@ -59,8 +59,7 @@ public class CacheHandler {
         return Math.max(1, seconds);
     }
 
-    private ResourceRecord[] lookupType(String name, String sql, int type, RDataRowMapper mapper)
-            throws SQLException {
+    private ResourceRecord[] lookupType(String name, String sql, int type, RDataRowMapper mapper) throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, name);

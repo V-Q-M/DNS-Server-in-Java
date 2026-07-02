@@ -149,7 +149,7 @@ public abstract class AbstractServer implements Runnable {
                                         "127.0.0.1",
                                         1,
                                         "testing is active, do not check cache",
-                                        null)
+                                        RCode.UNASSIGNED)
                                 .toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.NOTICE);

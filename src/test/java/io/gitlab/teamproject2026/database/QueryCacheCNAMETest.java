@@ -62,7 +62,7 @@ class QueryCacheCNAMETest {
         return rr;
     }
 
-    private static DNSPacket makeQuery(String name, RRType type) {
+    private static DNSPacket makeQuery(String name, int type) {
         QuestionSection q = new QuestionSection();
         q.setName(name.split("\\."));
         q.setQtype(type);

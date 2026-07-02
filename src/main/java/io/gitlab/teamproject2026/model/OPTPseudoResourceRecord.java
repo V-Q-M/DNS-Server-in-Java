@@ -2,7 +2,6 @@ package io.gitlab.teamproject2026.model;
 
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.rdata.RDataOPTOption;
-
 import java.util.Arrays;
 
 /**
@@ -22,7 +21,8 @@ public class OPTPseudoResourceRecord extends ResourceRecord {
         this.extendedRcode = bytes[byteIndex++];
         this.version = bytes[byteIndex++];
         this.DNSsecOK = DNSParser.extractBit(bytes[byteIndex], 0); // DO bit
-        this.z = new byte[]{DNSParser.subBits(bytes[byteIndex++], 1, 8), bytes[byteIndex++]}; // remaining 15 bits unused
+        this.z = new byte[] {DNSParser.subBits(bytes[byteIndex++], 1, 8), bytes[byteIndex++]
+        }; // remaining 15 bits unused
         int rdlengthComp = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         this.rdata = new RDataOPTOption(bytes, byteIndex, rdlengthComp);
         this.lastProcessedByte = byteIndex + rdlengthComp;
@@ -31,28 +31,35 @@ public class OPTPseudoResourceRecord extends ResourceRecord {
     public int getExtendedRcode() {
         return extendedRcode;
     }
+
     public void setExtendedRcode(int extendedRcode) {
         this.extendedRcode = extendedRcode;
     }
+
     public int getVersion() {
         return version;
     }
+
     public void setVersion(int version) {
         this.version = version;
     }
+
     public boolean getDNSSecOK() {
         return DNSsecOK;
     }
+
     public void setDNSSecOK(boolean DNSsecOK) {
-        this.DNSsecOK =  DNSsecOK;
+        this.DNSsecOK = DNSsecOK;
     }
 
     public byte[] getZ() {
         return z;
     }
+
     public void setZ(byte[] z) {
         this.z = z;
     }
+
     public int getRequestedPayloadSize() {
         return requestedPayloadSize;
     }
