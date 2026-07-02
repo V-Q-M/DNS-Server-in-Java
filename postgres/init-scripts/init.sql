@@ -119,6 +119,10 @@ CREATE TABLE nsec3param_rdata (
                                   salt bytea
 ) INHERITS (ResourceRecord);
 
+CREATE TABLE unknown_rdata (
+                               type int CHECK(type >= 0 AND type < 65536),
+                               data bytea
+) INHERITS (ResourceRecord);
 
 
 -- ZoneTables
@@ -216,4 +220,9 @@ CREATE TABLE zone_nsec3param_rdata (
                                        flags smallint CHECK(flags >= 0 AND flags <= 255),
                                        iterations usmallint,
                                        salt bytea
+) INHERITS (ZoneResourceRecord);
+
+CREATE TABLE zone_unknown_rdata (
+                                    type int CHECK(type >= 0 AND type < 65536),
+                                    data bytea
 ) INHERITS (ZoneResourceRecord);

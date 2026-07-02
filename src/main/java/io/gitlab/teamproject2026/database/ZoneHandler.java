@@ -32,6 +32,8 @@ public class ZoneHandler {
             "INSERT INTO zone_soa_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum) VALUES (?, ?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String SQL_TXT =
             "INSERT INTO zone_txt_rdata   (zone, name, rrtype, rrclass, ttl, rdlength, txtdata) VALUES (?, ?, 'TXT',  'IN', ?, ?, ?)";
+    private static final String SQL_UNKNOWN =
+            "INSERT INTO zone_unknown_rdata     (zone, name, rrtype, rrclass, ttl, rdlength, type, data) VALUES (?, ?, NULL, 'IN', ?, ?, ?, ?)";
 
     // DNSSEC
     private static final String SQL_DS =
@@ -55,6 +57,8 @@ public class ZoneHandler {
     private static final String DEL_PTR = "DELETE FROM zone_ptr_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_SOA = "DELETE FROM zone_soa_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
     private static final String DEL_TXT = "DELETE FROM zone_txt_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
+    private static final String DEL_UNKNOWN =
+            "DELETE FROM zone_unknown_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ? AND type = ?";
 
     // DNSSEC
     private static final String DEL_DNSKEY = "DELETE FROM zone_dnskey_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ?";
@@ -74,6 +78,7 @@ public class ZoneHandler {
         "zone_ptr_rdata",
         "zone_soa_rdata",
         "zone_txt_rdata",
+        "zone_unknown_rdata",
         "zone_dnskey_rdata",
         "zone_ds_rdata",
         "zone_rrsig_rdata",
@@ -349,7 +354,12 @@ public class ZoneHandler {
                                 rs.getInt("iterations"),
                                 rs.getBytes("salt")));
             default:
-                return new ArrayList<>();
+                return lookupType(
+                        name,
+                        "SELECT * FROM zone_unknown_rdata WHERE LOWER(name) = ? AND LOWER(zone) = ? AND type = " + type,
+                        type,
+                        zone,
+                        rs -> new RDataUnknown(rs.getInt("type"), rs.getBytes("data")));
         }
     }
 
@@ -427,6 +437,13 @@ public class ZoneHandler {
         stmt.setInt(6, rdata.getAlgorithm());
         stmt.setInt(7, rdata.getDigestType());
         stmt.setBytes(8, rdata.getDigest());
+    }
+
+    private void fillUnknown(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
+        RDataUnknown rdata = (RDataUnknown) r.getRdata();
+        fillCommon(stmt, r, zone);
+        stmt.setInt(5, rdata.getType());
+        stmt.setBytes(6, rdata.toBytes());
     }
 
     private void fillDNSKEY(PreparedStatement stmt, ResourceRecord r, String zone) throws SQLException {
@@ -539,6 +556,11 @@ public class ZoneHandler {
             case RRType.NSEC3PARAM:
                 singleInsert(SQL_NSEC3PARAM, record, zone, this::fillNSEC3PARAM);
                 break;
+            default:
+                if (record.getRdata() instanceof RDataUnknown) {
+                    singleInsert(SQL_UNKNOWN, record, zone, this::fillUnknown);
+                }
+                break;
         }
     }
 
@@ -597,13 +619,37 @@ public class ZoneHandler {
                 sql = DEL_NSEC3PARAM;
                 break;
             default:
-                return;
+                sql = DEL_UNKNOWN;
+                break;
         }
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, name);
             stmt.setString(2, zone);
+            if (typeIsUnknown(type)) {
+                stmt.setInt(3, type);
+            }
             stmt.executeUpdate();
         }
+    }
+
+    private boolean typeIsUnknown(int type) {
+        return switch (type) {
+            case RRType.A,
+                    RRType.AAAA,
+                    RRType.CNAME,
+                    RRType.MX,
+                    RRType.NS,
+                    RRType.PTR,
+                    RRType.SOA,
+                    RRType.TXT,
+                    RRType.DNSKEY,
+                    RRType.DS,
+                    RRType.RRSIG,
+                    RRType.NSEC,
+                    RRType.NSEC3,
+                    RRType.NSEC3PARAM -> false;
+            default -> true;
+        };
     }
 
     /**
@@ -670,6 +716,14 @@ public class ZoneHandler {
             batchInsert(byType.getOrDefault(RRType.NSEC, List.of()), zone, SQL_NSEC, this::fillNSEC);
             batchInsert(byType.getOrDefault(RRType.NSEC3, List.of()), zone, SQL_NSEC3, this::fillNSEC3);
             batchInsert(byType.getOrDefault(RRType.NSEC3PARAM, List.of()), zone, SQL_NSEC3PARAM, this::fillNSEC3PARAM);
+
+            List<ResourceRecord> unknownRecords = new ArrayList<>();
+            for (Map.Entry<Integer, List<ResourceRecord>> entry : byType.entrySet()) {
+                if (typeIsUnknown(entry.getKey())) {
+                    unknownRecords.addAll(entry.getValue());
+                }
+            }
+            batchInsert(unknownRecords, zone, SQL_UNKNOWN, this::fillUnknown);
 
             conn.commit();
         } catch (SQLException e) {

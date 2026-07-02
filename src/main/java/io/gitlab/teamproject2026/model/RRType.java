@@ -35,7 +35,7 @@ public final class RRType {
             case DNSKEY -> "DNSKEY";
             case NSEC3 -> "NSEC3";
             case NSEC3PARAM -> "NSEC3PARAM";
-            default -> throw new IllegalStateException("Unexpected value: " + type);
+            default -> null;
         };
     }
 

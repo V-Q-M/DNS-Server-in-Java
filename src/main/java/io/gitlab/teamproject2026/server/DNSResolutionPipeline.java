@@ -288,10 +288,10 @@ public class DNSResolutionPipeline {
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 String domain = request.nameToString();
                 int qType = request.getQtype();
+                String qTypeStr = RRType.mapToString(qType) != null ? RRType.mapToString(qType) : "TYPE" + qType;
                 if (cacheResult.notResolved().contains(request)) {
                     logger.log(
-                            (BLUE + "[CACHE] Miss! Couldn't find: " + RRType.mapToString(qType) + " of \"" + domain
-                                    + "\"" + RESET),
+                            (BLUE + "[CACHE] Miss! Couldn't find: " + qTypeStr + " of \"" + domain + "\"" + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
                             true);
@@ -315,7 +315,7 @@ public class DNSResolutionPipeline {
 
                 } else {
                     logger.log(
-                            (GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET),
+                            (GREEN + "[CACHE] Hit! Found: " + qTypeStr + " Record of " + domain + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.NOTICE,
                             true);
@@ -442,8 +442,9 @@ public class DNSResolutionPipeline {
                                 }
                                 break;
                             }
-                            case RRType.A, RRType.AAAA, RRType.TXT, RRType.SOA, RRType.PTR, RRType.CNAME:
+                            default:
                                 answer.add(record);
+                                break;
                         }
                     }
                 } else if (request.getQtype() != RRType.CNAME) {
