@@ -21,9 +21,11 @@ import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
 import io.gitlab.teamproject2026.resolver.StubResolver;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DNSResolutionPipeline {
     private static final int MAX_CNAME_HOPS = 8;
+    private final AtomicInteger rrsetRotation = new AtomicInteger();
 
     private final CacheHandler cacheHandler;
     private final ZoneHandler zoneHandler;
@@ -58,6 +60,20 @@ public class DNSResolutionPipeline {
         this.minimalResponses = minimalResponses;
         this.forwardMode = forwardMode;
         this.startTime = startTime;
+    }
+
+    /**
+     * Round-robin load balancing: cyclically rotates an authoritative A/AAAA RRset so a different address leads on each
+     * response.
+     *
+     * @param records the records returned for the queried name (rotated in place)
+     * @param qtype the queried record type
+     */
+    void roundRobin(List<ResourceRecord> records, RRType qtype) {
+        if ((qtype == RRType.A || qtype == RRType.AAAA) && records.size() > 1) {
+            int offset = Math.floorMod(rrsetRotation.getAndIncrement(), records.size());
+            Collections.rotate(records, -offset);
+        }
     }
 
     public DNSPayload zoneLookUp(DNSPacket packet, String id) {
@@ -95,6 +111,7 @@ public class DNSResolutionPipeline {
                 try {
                     List<ResourceRecord> directMatches =
                             zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
+                    roundRobin(directMatches, questionSection.getQtype());
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2

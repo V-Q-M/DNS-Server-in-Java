@@ -1,0 +1,20 @@
+; Demo zone for round-robin DNS load balancing.
+; The apex name "loadbalancer.test" has three A records; the server rotates
+; their order on each query, so successive lookups lead with a different address.
+
+$TTL 60
+
+@   IN SOA  ns.loadbalancer.test. admin.loadbalancer.test. (
+        1          ; serial
+        2000       ; refresh
+        1800       ; retry
+        1209600    ; expire
+        86400 )    ; minimum
+
+@   IN NS   ns.loadbalancer.test.
+ns  IN A    203.0.113.53
+
+; multi-A name to load-balance (addresses from RFC 5737 TEST-NET-3)
+@   IN A    203.0.113.1
+@   IN A    203.0.113.2
+@   IN A    203.0.113.3
