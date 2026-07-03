@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.logging;
 
-import static io.gitlab.teamproject2026.AnsiColors.*;
+import static io.gitlab.teamproject2026.AnsiColors.PINK;
+import static io.gitlab.teamproject2026.AnsiColors.RESET;
 
 import io.gitlab.teamproject2026.config.logging.*;
 import io.gitlab.teamproject2026.model.DNSPacket;
@@ -40,24 +41,32 @@ public class Logger {
      */
     public Logger(LoggingSection logging) {
         this.logging = logging;
+
         for (LoggingChannel channel : logging.channels()) {
+            if (channel.fileName() == null || channel.fileName().isBlank()) {
+                continue;
+            }
+
             try {
-                Path path = Path.of(channel.fileName());
-                if (path.getParent() != null) {
-                    Files.createDirectories(path.getParent());
-                }
-                writers.put(
-                        channel.channelName(),
-                        Files.newBufferedWriter(
-                                path,
-                                java.nio.file.StandardOpenOption.CREATE,
-                                java.nio.file.StandardOpenOption.APPEND));
+                writers.put(channel.channelName(), openWriter(channel.fileName(), true));
             } catch (IOException e) {
                 System.err.println("Failed to open log file: " + channel.fileName());
             }
         }
     }
 
+    /**
+     * Opens a buffered writer for the given log file.
+     *
+     * <p>The parent directory is created automatically if it does not already exist. When {@code append} is true, new
+     * log messages are appended to the existing file. When {@code append} is false, the file is truncated and logging
+     * starts from an empty file.
+     *
+     * @param fileName the path of the log file
+     * @param append whether to append to an existing file or truncate it
+     * @return a buffered writer for the log file
+     * @throws IOException if the file or its parent directory cannot be created or opened
+     */
     private BufferedWriter openWriter(String fileName, boolean append) throws IOException {
         Path path = Path.of(fileName);
         if (path.getParent() != null) {
@@ -171,6 +180,15 @@ public class Logger {
         log(loggedMessage, LoggingCategoryType.TRACE, LoggingSeverity.INFO);
     }
 
+    /**
+     * Checks whether the current log file for a channel exceeds its configured maximum size and rotates it if needed.
+     *
+     * <p>If the channel has no file name or no configured file size, no rotation is performed. Rotation only happens
+     * after a log write, so the file may briefly exceed the configured size by roughly one log entry.
+     *
+     * @param channel the logging channel whose file should be checked
+     * @throws IOException if the file size cannot be checked or rotation fails
+     */
     private void rotateFileIfRequired(LoggingChannel channel) throws IOException {
         if (channel.fileName() == null || channel.fileName().isBlank()) {
             return;
@@ -194,6 +212,22 @@ public class Logger {
         rotateLogFile(channel);
     }
 
+    /**
+     * Rotates the log file for a channel according to its configured {@code versions} value.
+     *
+     * <p>The current writer is closed before rotating and a fresh writer is opened afterwards. The supported version
+     * semantics are:
+     *
+     * <ul>
+     *   <li>{@code null}: do not rotate; reopen the current file and continue appending
+     *   <li>{@code -1}: unlimited versions; move the current file to the next free numbered suffix
+     *   <li>{@code 0}: keep no old versions; delete the current file and start fresh
+     *   <li>{@code N > 0}: keep {@code N} old numbered versions
+     * </ul>
+     *
+     * @param channel the channel whose file should be rotated
+     * @throws IOException if closing, moving, deleting, or reopening the log file fails
+     */
     private void rotateLogFile(LoggingChannel channel) throws IOException {
         String channelName = channel.channelName();
         String fileName = channel.fileName();
@@ -246,28 +280,54 @@ public class Logger {
         writers.put(channelName, openWriter(fileName, false));
     }
 
+    /**
+     * Rotates a log file while keeping a fixed number of old versions.
+     *
+     * <p>For example, with {@code versions = 3}, files are rotated like this:
+     *
+     * <pre>
+     * log.1 -> log.2
+     * log.0 -> log.1
+     * log   -> log.0
+     * </pre>
+     *
+     * <p>The oldest file beyond the configured version count is deleted.
+     *
+     * @param currentLog the active log file
+     * @param versions the number of old rotated versions to keep
+     * @throws IOException if deleting or moving files fails
+     */
     private void rotateNumbered(Path currentLog, int versions) throws IOException {
         Path oldest = Path.of(currentLog.toString() + "." + (versions - 1));
         Files.deleteIfExists(oldest);
         for (int i = versions - 2; i >= 0; i--) {
-            Path source = Path.of(currentLog.toString() + "." + i);
-            Path target = Path.of(currentLog.toString() + "." + (i + 1));
+            Path source = Path.of(currentLog + "." + i);
+            Path target = Path.of(currentLog + "." + (i + 1));
             if (Files.exists(source)) {
                 Files.move(source, target);
             }
         }
         if (Files.exists(currentLog)) {
-            Files.move(currentLog, Path.of(currentLog.toString() + ".0"));
+            Files.move(currentLog, Path.of(currentLog + ".0"));
         }
     }
 
+    /**
+     * Rotates a log file using unlimited numbered versions.
+     *
+     * <p>The current log file is moved to the first available suffix, for example {@code log.0}, {@code log.1},
+     * {@code log.2}, and so on. No old rotated files are deleted.
+     *
+     * @param currentLog the active log file
+     * @throws IOException if moving the current file fails
+     */
     private void rotateUnlimited(Path currentLog) throws IOException {
         int i = 0;
         while (Files.exists(Path.of(currentLog.toString() + "." + i))) {
             i++;
         }
         if (Files.exists(currentLog)) {
-            Files.move(currentLog, Path.of(currentLog.toString() + "." + i));
+            Files.move(currentLog, Path.of(currentLog + "." + i));
         }
     }
 }
