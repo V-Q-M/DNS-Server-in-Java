@@ -108,11 +108,19 @@ public class Logger {
             return;
         }
 
-        // Use the global severity override if one has been configured.
-        LoggingSeverity effectiveSeverity = overwriteSeverity != null ? overwriteSeverity : severity;
-
         for (LoggingChannel channel : category.channels()) {
-            if (effectiveSeverity.level() <= channel.severity().level()) {
+            /**
+             * Use the global severity threshold if one has been configured. it checks for which severity is stricter,
+             * the global threshold or the current one it picks the stricter one
+             */
+            LoggingSeverity threshold = channel.severity();
+            if (overwriteSeverity != null) {
+                threshold = channel.severity().level() <= overwriteSeverity.level()
+                        ? channel.severity()
+                        : overwriteSeverity;
+            }
+
+            if (severity.level() <= threshold.level()) {
                 write(channel, message, categoryType, severity, alsoPrintToConsole);
             }
         }
