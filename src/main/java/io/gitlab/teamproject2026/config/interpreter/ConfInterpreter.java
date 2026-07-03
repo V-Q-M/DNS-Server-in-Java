@@ -125,8 +125,23 @@ public class ConfInterpreter {
     /**
      * Interprets a single {@code channel} declaration from the logging section.
      *
-     * <p>Reads the channel name, output file, logging severity, and formatting options. Unknown directives or invalid
-     * values are reported as configuration errors.
+     * <p>Reads the channel name, output file, logging severity, formatting options, and optional file rotation
+     * settings.
+     *
+     * <p>The supported file syntax is:
+     *
+     * <pre>
+     * file "path";
+     * file "path" size 200k;
+     * file "path" versions 3;
+     * file "path" versions 3 size 200k;
+     * file "path" versions unlimited size 50m;
+     * </pre>
+     *
+     * <p>For {@code versions}, {@code null} means the directive was not configured, {@code 0} means no rotated files
+     * are
+     *
+     * <p>kept, and {@code -1} is used as the internal sentinel for {@code unlimited}.
      *
      * @param root the {@link ConfNode} representing the channel declaration
      * @return the resulting {@link LoggingChannel}, or {@code null} if the channel declaration is invalid
@@ -198,8 +213,38 @@ public class ConfInterpreter {
                 channelName, fileName, fileVersions, fileSize, severity, printTime, printCategory, printSeverity);
     }
 
+    /**
+     * Parsed representation of the {@code file} directive inside a logging channel.
+     *
+     * @param fileName the configured log file path
+     * @param versions the number of rotated versions to keep; {@code null} means not configured, {@code 0} means keep
+     *     no old versions, and {@code -1} represents {@code unlimited}
+     * @param sizeBytes the configured rotation size in bytes, or {@code null} if no size was configured
+     */
     private record ParsedFileLogging(String fileName, Integer versions, Long sizeBytes) {}
 
+    /**
+     * Parses the arguments of a logging channel {@code file} directive.
+     *
+     * <p>The first argument is always interpreted as the log file path. Remaining arguments are parsed as ordered
+     * option pairs. Supported options are:
+     *
+     * <pre>
+     * versions &lt;number|unlimited&gt;
+     * size &lt;number[k|m|g]&gt;
+     * </pre>
+     *
+     * <p>Examples:
+     *
+     * <pre>
+     * file "log/named/queries.log";
+     * file "log/named/queries.log" versions 0 size 200k;
+     * file "log/named/queries.log" versions unlimited size 50m;
+     * </pre>
+     *
+     * @param node the {@link ConfNode} representing the {@code file} directive
+     * @return a parsed {@link ParsedFileLogging} value, or {@code null} if the file path is missing
+     */
     private ParsedFileLogging parseFileLoggingArgs(ConfNode node) {
         List<String> args = node.args();
         if (args.isEmpty()) {
@@ -255,6 +300,24 @@ public class ConfInterpreter {
         return new ParsedFileLogging(fileName, versions, sizeBytes);
     }
 
+    /**
+     * Converts a BIND-style size value into bytes.
+     *
+     * <p>Accepted suffixes are {@code k}, {@code m}, and {@code g}. Suffixes are decimal, matching the practical
+     * interpretation used elsewhere in the project:
+     *
+     * <pre>
+     * 200k = 200,000 bytes
+     * 10m  = 10,000,000 bytes
+     * 1g   = 1,000,000,000 bytes
+     * </pre>
+     *
+     * <p>If no suffix is present, the value is interpreted directly as bytes.
+     *
+     * @param value the configured size string
+     * @return the parsed size in bytes
+     * @throws IllegalArgumentException if the value is empty, negative, has an unknown suffix, is not numeric, or
+     */
     private long parseSizeToBytes(String value) {
         String trimmed = value.trim().toLowerCase();
         if (trimmed.isEmpty()) {
@@ -296,6 +359,10 @@ public class ConfInterpreter {
     /**
      * Interprets the {@code options} section of the configuration AST.
      *
+     * <p>Applies default resolver, listener, recursion, forwarding, and directory settings, then overrides them with
+     * any recognized directives from the parsed configuration.
+     *
+     * @param root the root {@link ConfNode} representing the options section
      * @return the resulting {@link OptionSection}
      */
     public OptionSection parseOptionConfig(ConfNode root) {
@@ -413,6 +480,7 @@ public class ConfInterpreter {
     /**
      * Interprets a {@code zone} declaration from the configuration AST.
      *
+     * @param root the root {@link ConfNode} representing the zone declaration
      * @return the resulting {@link ZoneSection}, or {@code null} if validation fails
      */
     public ZoneSection parseZoneConfig(ConfNode root) {
@@ -457,6 +525,14 @@ public class ConfInterpreter {
         return new ZoneSection(name, file, type);
     }
 
+    /**
+     * Parses an integer configuration value and reports a configuration error if parsing fails.
+     *
+     * @param value the raw string value
+     * @param field the human-readable field name used in error messages
+     * @param line the source line number of the value
+     * @return the parsed integer, or {@code 0} if parsing fails
+     */
     private int parseInt(String value, String field, int line) {
         try {
             return Integer.parseInt(value);
@@ -466,6 +542,14 @@ public class ConfInterpreter {
         }
     }
 
+    /**
+     * Parses a long configuration value and reports a configuration error if parsing fails.
+     *
+     * @param value the raw string value
+     * @param field the human-readable field name used in error messages
+     * @param line the source line number of the value
+     * @return the parsed long, or {@code 0} if parsing fails
+     */
     private long parseLong(String value, String field, int line) {
         try {
             return Long.parseLong(value);
@@ -496,6 +580,11 @@ public class ConfInterpreter {
                 true);
     }
 
+    /**
+     * Returns whether interpretation has encountered at least one fatal configuration error.
+     *
+     * @return {@code true} if a fatal interpretation error was reported, otherwise {@code false}
+     */
     public boolean hasInterpreterError() {
         return this.interpreterError;
     }
