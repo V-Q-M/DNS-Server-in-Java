@@ -48,10 +48,15 @@ public class DNS_SERVER {
         // named.conf
         Config serverConfig = ConfigManager.loadConfig("named.conf");
         Logger logger = ConfigManager.logger; // A pointer to the actual logger
-        logger.log(("Starting DNS Server..."), LoggingCategoryType.GENERAL, LoggingSeverity.NOTICE, true);
+        logger.log(("Starting DNS Server..."), LoggingCategoryType.GENERAL, LoggingSeverity.NOTICE);
 
         OptionSection options = serverConfig.options();
         ResolverSection resolverOptions = options.resolverSection();
+
+        ServerCliOptions cliOptions = applyCliArgs(args, options.port(), options.ipAddress(), logger);
+        int portNumber = cliOptions.portNumber();
+        String bindIP = cliOptions.bindIP();
+        boolean minimalResponses = cliOptions.minimalResponses();
 
         long startTime = System.currentTimeMillis();
         // establish Database Connection
@@ -71,12 +76,6 @@ public class DNS_SERVER {
                     true);
             zoneCatalog = new ArrayList<>();
         }
-
-        ServerCliOptions cliOptions = applyCliArgs(args, options.port(), options.ipAddress(), logger);
-
-        int portNumber = cliOptions.portNumber();
-        String bindIP = cliOptions.bindIP();
-        boolean minimalResponses = cliOptions.minimalResponses();
 
         // port check
         if (portNumber < 0 || portNumber > 65535) {
@@ -195,9 +194,9 @@ public class DNS_SERVER {
             } else if (args[i].equals("-a") && i + 1 < args.length) {
                 bindIP = args[i + 1];
                 i++;
-            } else if (args[i].equals("--less-log")) {
+            } else if (args[i].equals("--verbose")) {
                 if (logger != null) {
-                    logger.overwriteSeverity(LoggingSeverity.NOTICE);
+                    logger.overwriteSeverity(LoggingSeverity.DEBUG);
                 }
             } else if (args[i].equals("--quiet")) {
                 if (logger != null) {
@@ -206,6 +205,12 @@ public class DNS_SERVER {
             } else if (args[i].equals("--silent")) {
                 if (logger != null) {
                     logger.overwriteSeverity(LoggingSeverity.CRITICAL);
+                }
+            } else if (args[i].equals("--log-level")) {
+                if (i + 1 >= args.length) {
+                    // error: --log-level requires a value
+                } else {
+                    logger.overwriteSeverity(LoggingSeverity.fromValue(args[++i]));
                 }
             } else if (args[i].equals("--minimal-responses")) {
                 minimalResponses = true;

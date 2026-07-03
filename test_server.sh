@@ -62,7 +62,7 @@ startDatabase() {
 
 startServer() {
     mvn compile
-    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --less-log --minimal-responses" > server.log 2>&1 &
+    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --log-level notice --minimal-responses" > server.log 2>&1 &
     echo "Attempt to start server on port ${1}..."
 }
 
