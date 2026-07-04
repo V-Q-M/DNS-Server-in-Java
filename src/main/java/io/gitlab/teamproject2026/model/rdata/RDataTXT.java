@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Represents a DNS TXT record. Stores arbitrary text data associated with a domain. */
-public class RDataTXT implements RData {
+public final class RDataTXT implements RData {
     private String[] txtdata;
 
     public RDataTXT() {}

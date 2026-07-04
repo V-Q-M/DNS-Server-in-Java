@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class RDataOPTOption implements RData {
+public final class RDataOPTOption implements RData {
     private Map<Integer, byte[]> options = new HashMap<>();
 
     public RDataOPTOption(byte[] bytes, int byteIndex, int rdlength) {

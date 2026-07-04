@@ -2,7 +2,6 @@ package io.gitlab.teamproject2026.data;
 
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
-import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
 public class MockResponses {
 

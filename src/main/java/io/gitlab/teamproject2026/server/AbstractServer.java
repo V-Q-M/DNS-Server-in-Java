@@ -45,7 +45,7 @@ public abstract class AbstractServer implements Runnable {
         // Map byteData to oop classes
         DNSPacket oopPacket = DNSPacket.fromBytes(data);
 
-        // Uncomment this if you need to debug outgoing packets
+        // Uncomment this if you need to debug incoming packets
         // IO.println("[SERVER] Assembled Packet:\n" + oopPacket);
 
         // Respond: If requested RR is cached, return RR else return stub Response

@@ -6,7 +6,7 @@ import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
 /** Represents a DNS NS (Name Server) record. Specifies the authoritative name server for a domain. */
-public class RDataNS implements RData {
+public final class RDataNS implements RData {
     private String[] nsdname;
 
     public RDataNS() {}

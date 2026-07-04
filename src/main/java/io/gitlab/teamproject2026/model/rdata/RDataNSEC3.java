@@ -1,7 +1,7 @@
-package io.gitlab.teamproject2026.model.rdata.dnssec;
+package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.rdata.RData;
+
 import java.util.Base64;
 import java.util.HexFormat;
 

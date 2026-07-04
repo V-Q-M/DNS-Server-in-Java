@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.HexFormat;
 
 /** Represents a DNS AAAA record. Maps a domain name to an IPv6 address (128-bit). */
-public class RDataAAAA implements RData {
+public final class RDataAAAA implements RData {
     private byte[] address;
 
     public RDataAAAA() {
