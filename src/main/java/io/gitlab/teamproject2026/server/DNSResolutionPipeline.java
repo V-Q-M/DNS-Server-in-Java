@@ -65,38 +65,42 @@ public class DNSResolutionPipeline {
     }
 
     /**
-     * Round-robin load balancing: rotates an authoritative RRset in place so a different record leads each response.
+     * Round-robin load balancing: returns the authoritative RRset reordered so a different record leads each response.
+     * The input list is not modified.
      */
-    void roundRobin(List<ResourceRecord> records, String name, RRType qtype) {
-        switch (qtype) {
+    List<ResourceRecord> roundRobin(List<ResourceRecord> records, String name, RRType qtype) {
+        return switch (qtype) {
             case A, AAAA, NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
             case MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
-            default -> {} // other types have no load-balancing semantics
-        }
+            default -> records; // other types have no load-balancing semantics
+        };
     }
 
-    /** Rotates a group of equivalent records one step per call, via a per-key counter. */
-    private void rotate(List<ResourceRecord> group, String key) {
+    /**
+     * Returns a copy of the group rotated one step (per-key counter), or the group unchanged if there is nothing to
+     * rotate.
+     */
+    private List<ResourceRecord> rotate(List<ResourceRecord> group, String key) {
         if (group.size() < 2) {
-            return;
+            return group;
         }
         AtomicInteger counter = rrsetRotations.computeIfAbsent(key, k -> new AtomicInteger());
-        Collections.rotate(group, -Math.floorMod(counter.getAndIncrement(), group.size()));
+        List<ResourceRecord> rotated = new ArrayList<>(group);
+        Collections.rotate(rotated, -Math.floorMod(counter.getAndIncrement(), rotated.size()));
+        return rotated;
     }
 
     /** MX order by preference is required (RFC 5321 §5.1), so only rotate within each equal-preference group. */
-    private void roundRobinMx(List<ResourceRecord> records, String name) {
+    private List<ResourceRecord> roundRobinMx(List<ResourceRecord> records, String name) {
         Map<Integer, List<ResourceRecord>> byPreference = new TreeMap<>();
         for (ResourceRecord rr : records) {
             byPreference
                     .computeIfAbsent(((RDataMX) rr.getRdata()).getPreference(), k -> new ArrayList<>())
                     .add(rr);
         }
-        records.clear();
-        byPreference.forEach((preference, group) -> {
-            rotate(group, name + "|MX|" + preference);
-            records.addAll(group);
-        });
+        List<ResourceRecord> result = new ArrayList<>(records.size());
+        byPreference.forEach((preference, group) -> result.addAll(rotate(group, name + "|MX|" + preference)));
+        return result;
     }
 
     public DNSPayload zoneLookUp(DNSPacket packet, String id) {
@@ -132,9 +136,10 @@ public class DNSResolutionPipeline {
 
                 // Step 3: we are authoritative for this domain
                 try {
-                    List<ResourceRecord> directMatches =
-                            zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
-                    roundRobin(directMatches, currentName, questionSection.getQtype());
+                    List<ResourceRecord> directMatches = roundRobin(
+                            zoneHandler.lookup(currentName, questionSection.getQtype(), zone),
+                            currentName,
+                            questionSection.getQtype());
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
