@@ -21,11 +21,13 @@ import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
 import io.gitlab.teamproject2026.resolver.StubResolver;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DNSResolutionPipeline {
     private static final int MAX_CNAME_HOPS = 8;
-    private final AtomicInteger rrsetRotation = new AtomicInteger();
+    /** Per-RRset rotation counters keyed by "name|type", so each RRset round-robins independently. */
+    private final Map<String, AtomicInteger> rrsetRotations = new ConcurrentHashMap<>();
 
     private final CacheHandler cacheHandler;
     private final ZoneHandler zoneHandler;
@@ -63,17 +65,38 @@ public class DNSResolutionPipeline {
     }
 
     /**
-     * Round-robin load balancing: cyclically rotates an authoritative A/AAAA RRset so a different address leads on each
-     * response.
-     *
-     * @param records the records returned for the queried name (rotated in place)
-     * @param qtype the queried record type
+     * Round-robin load balancing: rotates an authoritative RRset in place so a different record leads each response.
      */
-    void roundRobin(List<ResourceRecord> records, RRType qtype) {
-        if ((qtype == RRType.A || qtype == RRType.AAAA) && records.size() > 1) {
-            int offset = Math.floorMod(rrsetRotation.getAndIncrement(), records.size());
-            Collections.rotate(records, -offset);
+    void roundRobin(List<ResourceRecord> records, String name, RRType qtype) {
+        switch (qtype) {
+            case A, AAAA, NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
+            case MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
+            default -> {} // other types have no load-balancing semantics
         }
+    }
+
+    /** Rotates a group of equivalent records one step per call, via a per-key counter. */
+    private void rotate(List<ResourceRecord> group, String key) {
+        if (group.size() < 2) {
+            return;
+        }
+        AtomicInteger counter = rrsetRotations.computeIfAbsent(key, k -> new AtomicInteger());
+        Collections.rotate(group, -Math.floorMod(counter.getAndIncrement(), group.size()));
+    }
+
+    /** MX order by preference is required (RFC 5321 §5.1), so only rotate within each equal-preference group. */
+    private void roundRobinMx(List<ResourceRecord> records, String name) {
+        Map<Integer, List<ResourceRecord>> byPreference = new TreeMap<>();
+        for (ResourceRecord rr : records) {
+            byPreference
+                    .computeIfAbsent(((RDataMX) rr.getRdata()).getPreference(), k -> new ArrayList<>())
+                    .add(rr);
+        }
+        records.clear();
+        byPreference.forEach((preference, group) -> {
+            rotate(group, name + "|MX|" + preference);
+            records.addAll(group);
+        });
     }
 
     public DNSPayload zoneLookUp(DNSPacket packet, String id) {
@@ -111,7 +134,7 @@ public class DNSResolutionPipeline {
                 try {
                     List<ResourceRecord> directMatches =
                             zoneHandler.lookup(currentName, questionSection.getQtype(), zone);
-                    roundRobin(directMatches, questionSection.getQtype());
+                    roundRobin(directMatches, currentName, questionSection.getQtype());
 
                     if (!directMatches.isEmpty()) {
                         // Step 3a: records found -> route to correct section per RFC1034 4.3.2
