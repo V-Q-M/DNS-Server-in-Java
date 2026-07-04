@@ -1,0 +1,39 @@
+; Demo zone for round-robin DNS load balancing.
+; The apex name "loadbalancer.test" has three A records; the server rotates
+; their order on each query, so successive lookups lead with a different address.
+
+$TTL 60
+
+@   IN SOA  ns.loadbalancer.test. admin.loadbalancer.test. (
+        3          ; serial
+        2000       ; refresh
+        1800       ; retry
+        1209600    ; expire
+        86400 )    ; minimum
+
+; two equivalent name servers -> an NS query rotates the whole set
+@   IN NS   ns.loadbalancer.test.
+@   IN NS   ns2.loadbalancer.test.
+ns  IN A    203.0.113.53
+ns2 IN A    203.0.113.54
+
+; multi-A name to load-balance (addresses from RFC 5737 TEST-NET-3)
+@   IN A    203.0.113.1
+@   IN A    203.0.113.2
+@   IN A    203.0.113.3
+
+; a second multi-A name with only two addresses, so its cycle length differs.
+; rotates independently from the apex thanks to the per-(name,type) counter.
+web IN A    198.51.100.1
+web IN A    198.51.100.2
+
+; MX load balancing (RFC 5321): the three preference-10 exchangers rotate among
+; themselves, while the preference-20 backup always stays last.
+@     IN MX 10 mail1.loadbalancer.test.
+@     IN MX 10 mail2.loadbalancer.test.
+@     IN MX 10 mail3.loadbalancer.test.
+@     IN MX 20 backup.loadbalancer.test.
+mail1 IN A  198.51.100.11
+mail2 IN A  198.51.100.12
+mail3 IN A  198.51.100.13
+backup IN A 198.51.100.20
