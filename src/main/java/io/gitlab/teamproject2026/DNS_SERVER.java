@@ -95,6 +95,15 @@ public class DNS_SERVER {
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.INFO,
                 true);
+
+        // Set and log the EDNS UDP size limit specified in the named.conf file
+        int ednsUdpSizeLimit = options.ednsUdpSizeLimit();
+        logger.log(
+                (GREEN + "[SERVER] Server UDP size limit for EDNS: " + ednsUdpSizeLimit + " Bytes"),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.INFO,
+                true);
+                
         ForwardMode forwardMode = options.forwardMode(); // Determines if we should only forward
         if (forwardMode == null) {
             logger.log(
@@ -163,6 +172,7 @@ public class DNS_SERVER {
                 zoneCatalog,
                 portNumber,
                 bindAddress,
+                ednsUdpSizeLimit,
                 startTime);
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();

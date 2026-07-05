@@ -27,6 +27,8 @@ public abstract class AbstractServer implements Runnable {
     protected final int portNumber;
     protected final InetAddress bindAddress;
 
+    protected final int ednsUdpSizeLimit;
+
     protected final boolean recursionAllowed;
 
     public AbstractServer(ServerContext context) {
@@ -36,6 +38,7 @@ public abstract class AbstractServer implements Runnable {
         this.responseBuilder = context.responseBuilder();
         this.bindAddress = context.bindAddress();
         this.portNumber = context.portNumber();
+        this.ednsUdpSizeLimit = context.ednsUdpSizeLimit();
         this.logger = context.logger();
         this.recursionAllowed = context.serverConfig().options().recursionAllowed();
     }

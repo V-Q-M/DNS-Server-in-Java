@@ -12,6 +12,7 @@ public record OptionSection(
         String dir,
         int port,
         String ipAddress,
+        int ednsUdpSizeLimit,
         boolean recursionAllowed,
         ForwardMode forwardMode,
         List<String> forwarders,
@@ -19,6 +20,6 @@ public record OptionSection(
     public static OptionSection defaultOptions() {
         ResolverSection resolver = new ResolverSection(2000, 2, 100, StubResolverStrategy.FAILOVER);
 
-        return new OptionSection("", 4242, "0.0.0.0", false, null, List.of("1.1.1.1", "8.8.8.8"), resolver);
+        return new OptionSection("", 4242, "0.0.0.0", 512, false, null, List.of("1.1.1.1", "8.8.8.8"), resolver);
     }
 }

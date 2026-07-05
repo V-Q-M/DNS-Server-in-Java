@@ -371,6 +371,7 @@ public class ConfInterpreter {
         int port = 4242;
         String ipAddress = "0.0.0.0";
         String ipv6Address = "0.0.0.0";
+        int ednsUdpSizeLimit = 512;
         boolean recursionAllowed = false;
         ForwardMode forwardMode = null;
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
@@ -405,6 +406,13 @@ public class ConfInterpreter {
                     continue;
                 }
                 ipv6Address = node.children().getFirst().name();
+
+            } else if (node.name().equalsIgnoreCase("edns-udp-size-limit")) {
+                if (node.args().isEmpty()) {
+                    error("options.edns-udp-size-limit requires a value", node.lineNumber());
+                    continue;
+                }
+                ednsUdpSizeLimit = parseInt(node.args().getFirst(), "options.edns-udp-size-limit", node.lineNumber());
             } else if (node.name().equalsIgnoreCase("recursion")) {
                 if (node.args().isEmpty()) {
                     error("options.recursion requires yes or no", node.lineNumber());
@@ -474,7 +482,14 @@ public class ConfInterpreter {
                 new ResolverSection(resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy);
 
         return new OptionSection(
-                directoryPath, port, ipAddress, recursionAllowed, forwardMode, forwarders, resolverSection);
+                directoryPath,
+                port,
+                ipAddress,
+                ednsUdpSizeLimit,
+                recursionAllowed,
+                forwardMode,
+                forwarders,
+                resolverSection);
     }
 
     /**
