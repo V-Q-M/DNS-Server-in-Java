@@ -72,10 +72,10 @@ public class DNSResolutionPipeline {
      * Round-robin load balancing: returns the authoritative RRset reordered so a different record leads each response.
      * The input list is not modified.
      */
-    List<ResourceRecord> roundRobin(List<ResourceRecord> records, String name, RRType qtype) {
+    List<ResourceRecord> roundRobin(List<ResourceRecord> records, String name, int qtype) {
         return switch (qtype) {
-            case A, AAAA, NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
-            case MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
+            case RRType.A, RRType.AAAA, RRType.NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
+            case RRType.MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
             default -> records; // other types have no load-balancing semantics
         };
     }
