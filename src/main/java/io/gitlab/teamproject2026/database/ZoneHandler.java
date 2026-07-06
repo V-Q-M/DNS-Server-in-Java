@@ -732,4 +732,48 @@ public class ZoneHandler {
             conn.setAutoCommit(true);
         }
     }
+
+    public List<String> getOwnerNames(String zone) throws SQLException {
+        Set<String> names = new HashSet<>();
+
+        for (String table : ALL_RDATA_TABLES) {
+            String sql = "SELECT DISTINCT LOWER(name) AS name FROM " + table + " WHERE LOWER(zone) = ?";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, zone.toLowerCase());
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        names.add(rs.getString("name"));
+                    }
+                }
+            }
+        }
+
+        List<String> result = new ArrayList<>(names);
+        result.sort(String::compareTo);
+        return result;
+    }
+
+    public String findPreviousOwnerName(String qname, String zone) throws SQLException {
+        qname = qname.toLowerCase();
+
+        List<String> names = getOwnerNames(zone);
+        if (names.isEmpty()) {
+            throw new NoSuchElementException("Zone has no owner names: " + zone);
+        }
+
+        int pos = Collections.binarySearch(names, qname);
+
+        if (pos >= 0) {
+            return names.get(pos); // exact name exists; use NSEC at qname for NODATA
+        }
+
+        int insertionPoint = -pos - 1;
+        int previousIndex = insertionPoint - 1;
+
+        if (previousIndex < 0) {
+            previousIndex = names.size() - 1; // NSEC wraparound
+        }
+
+        return names.get(previousIndex);
+    }
 }

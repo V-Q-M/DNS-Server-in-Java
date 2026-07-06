@@ -90,14 +90,11 @@ public abstract class AbstractServer implements Runnable {
             // Explicit NS queries are returned in the answer section.
             // Authority may still contain delegation/referral-style records.
 
-            if (payload.notResolved().isEmpty()
-                    && payload.answer().isEmpty()
-                    && payload.authority().isEmpty()) {
-
+            if (payload.rcode() == RCode.NXDOMAIN) {
                 logger.logTrace(
                         "Query contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN,
                         oopPacket);
-                return responseBuilder.nxDomain(oopPacket, true).toBytes();
+                return responseBuilder.nxDomain(payload, oopPacket, true).toBytes();
             }
 
             if (payload.notResolved().isEmpty() && !payload.answer().isEmpty()) {
@@ -172,9 +169,7 @@ public abstract class AbstractServer implements Runnable {
         logger.logTrace("Answered: " + answerString, oopPacket);
 
         if (payload.rcode() == RCode.NXDOMAIN) {
-            DNSPacket response = responseBuilder.nxDomain(oopPacket, authoritative);
-            response.setAuthoritySections(payload.authority().toArray(new ResourceRecord[0]));
-            return response.toBytes();
+            return responseBuilder.nxDomain(payload, oopPacket, authoritative).toBytes();
         }
 
         if (!payload.notResolved().isEmpty()) {

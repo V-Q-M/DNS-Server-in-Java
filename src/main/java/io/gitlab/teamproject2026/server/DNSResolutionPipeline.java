@@ -263,7 +263,34 @@ public class DNSResolutionPipeline {
                             LoggingCategoryType.QUERY_ERRORS,
                             LoggingSeverity.WARNING,
                             true);
-                    break;
+
+                    // Add the SOA response as best practise for negative response
+                    payload.authority().addAll(zoneHandler.lookup(zone, RRType.SOA, zone));
+
+                    if (packet.getEdnsRecord() != null && packet.getEdnsRecord().getDNSSecOK()) {
+                        String previous = zoneHandler.findPreviousOwnerName(currentName, zone);
+
+                        payload.authority().addAll(zoneHandler.lookup(previous, RRType.NSEC, zone));
+
+                        for (ResourceRecord signature : zoneHandler.lookup(zone, RRType.RRSIG, zone)) {
+                            if (((RDataRRSIG) signature.getRdata()).getTypeCovered() == RRType.SOA) {
+                                payload.authority().add(signature);
+                            }
+                        }
+
+                        for (ResourceRecord signature : zoneHandler.lookup(previous, RRType.RRSIG, zone)) {
+                            if (((RDataRRSIG) signature.getRdata()).getTypeCovered() == RRType.NSEC) {
+                                payload.authority().add(signature);
+                            }
+                        }
+                    }
+
+                    return new DNSPayload(
+                            payload.answer(),
+                            payload.authority(),
+                            payload.additional(),
+                            payload.notResolved(),
+                            RCode.NXDOMAIN);
 
                 } catch (SQLException e) {
                     logger.log(

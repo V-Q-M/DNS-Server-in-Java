@@ -36,13 +36,13 @@ public class DNSResponseBuilder {
         return response;
     }
 
-    public DNSPacket nxDomain(DNSPacket query, boolean authoritative) {
+    public DNSPacket nxDomain(DNSPayload payload, DNSPacket query, boolean authoritative) {
         DNSPacket response = baseResponse(query);
         response.setAa(authoritative);
         response.setRcode(RCode.NXDOMAIN);
         response.setAnswerSections(new ResourceRecord[0]);
-        response.setAuthoritySections(new ResourceRecord[0]);
-        response.setAdditionalSections(new ResourceRecord[0]);
+        response.setAuthoritySections(payload.authority().toArray(new ResourceRecord[0]));
+        response.setAdditionalSections(payload.additional().toArray(new ResourceRecord[0]));
         return response;
     }
 
