@@ -347,30 +347,25 @@ public class SListWrapper {
             nameServers = cache.lookup(query, RRType.NS);
 
             for (ResourceRecord nameServer : nameServers) {
-                ResourceRecord[] ipv4;
-                ResourceRecord[] ipv6;
-
-                ipv4 = cache.lookup(String.join(".", ((RDataNS) nameServer.getRdata()).getNsdname()), RRType.A);
-                ipv6 = cache.lookup(String.join(".", ((RDataNS) nameServer.getRdata()).getNsdname()), RRType.AAAA);
+                ResourceRecord[] ipv4 =
+                        cache.lookup(String.join(".", ((RDataNS) nameServer.getRdata()).getNsdname()), RRType.A);
+                ResourceRecord[] ipv6 =
+                        cache.lookup(String.join(".", ((RDataNS) nameServer.getRdata()).getNsdname()), RRType.AAAA);
 
                 if (ipv4.length == 0 && ipv6.length == 0) {
-                    currentMatchLevel = this.sName.length - i;
+                    continue;
+                }
+
+                currentMatchLevel = this.sName.length - i;
+                for (ResourceRecord address : ipv4) {
                     sList.add(new SListEntry(
-                            (RDataNS) nameServer.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
-                } else {
-                    // if no addresses are cached, skip this loop iteration, else add an SListEntry for every address
-                    // and break
-                    currentMatchLevel = this.sName.length - i;
-                    for (ResourceRecord address : ipv4) {
-                        sList.add(new SListEntry(
-                                ((RDataNS) nameServer.getRdata()),
-                                (RDataA) address.getRdata(),
-                                new RDataAAAA(new byte[16])));
-                    }
-                    for (ResourceRecord address : ipv6) {
-                        sList.add(new SListEntry(((RDataNS) nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)
-                                address.getRdata()));
-                    }
+                            ((RDataNS) nameServer.getRdata()),
+                            (RDataA) address.getRdata(),
+                            new RDataAAAA(new byte[16])));
+                }
+                for (ResourceRecord address : ipv6) {
+                    sList.add(new SListEntry(((RDataNS) nameServer.getRdata()), new RDataA(new byte[4]), (RDataAAAA)
+                            address.getRdata()));
                 }
             }
 

@@ -58,7 +58,7 @@ class SListWrapperTest {
         }
 
         if (expected.ipv6() == null || actual.ipv6() == null) {
-            assertEquals(expected.ipv6(), expected.ipv6());
+            assertEquals(expected.ipv6(), actual.ipv6());
         } else {
             assertArrayEquals(expected.ipv6().getAddress(), actual.ipv6().getAddress());
         }
@@ -455,9 +455,61 @@ class SListWrapperTest {
 
         SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen", "de"}, handler);
 
-        assertSListEntryEquals(
-                sList.getBestServer(),
-                new SListEntry((RDataNS) testNS.getRdata(), new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
+        SListEntry expectedRootA = new SListEntry(
+                new RDataNS(new String[] {"a", "root-servers", "net"}),
+                new RDataA(new byte[] {(byte) 198, (byte) 41, (byte) 0, (byte) 4}),
+                new RDataAAAA(new byte[] {
+                    (byte) 0x20, (byte) 0x01, (byte) 0x05, (byte) 0x03,
+                    (byte) 0xba, (byte) 0x3e, (byte) 0x00, (byte) 0x00,
+                    (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+                    (byte) 0x00, (byte) 0x02, (byte) 0x00, (byte) 0x30
+                }));
+
+        assertSListEntryEquals(expectedRootA, sList.getBestServer());
+        assertEquals(0, sList.getCurrentMatchLevel());
+    }
+
+    @Test
+    void skipsGluelessCachedNSAndUsesUsableCachedNS() throws Exception {
+        ResourceRecord gluelessNS =
+                new ResourceRecord(new String[] {"de"}, RRClass.IN, 30000, new RDataNS(new String[] {"missing", "de"}));
+
+        ResourceRecord usableNS =
+                new ResourceRecord(new String[] {"de"}, RRClass.IN, 30000, new RDataNS(new String[] {"example", "de"}));
+
+        handler.insertAll(new ResourceRecord[] {gluelessNS, usableNS, testA});
+
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen", "de"}, handler);
+
+        assertEquals(1, sList.getCurrentMatchLevel());
+        assertEquals(1, sList.getSList().size());
+        assertSListEntryEquals(testEntryA, sList.getBestServer());
+    }
+
+    @Test
+    void skipsAllGluelessCachedNSAndFallsBackToSBelt() throws Exception {
+        ResourceRecord gluelessNS1 = new ResourceRecord(
+                new String[] {"de"}, RRClass.IN, 30000, new RDataNS(new String[] {"missing1", "de"}));
+
+        ResourceRecord gluelessNS2 = new ResourceRecord(
+                new String[] {"de"}, RRClass.IN, 30000, new RDataNS(new String[] {"missing2", "de"}));
+
+        handler.insertAll(new ResourceRecord[] {gluelessNS1, gluelessNS2});
+
+        SListWrapper sList = new SListWrapper(new String[] {"uni-tuebingen", "de"}, handler);
+
+        SListEntry expectedRootA = new SListEntry(
+                new RDataNS(new String[] {"a", "root-servers", "net"}),
+                new RDataA(new byte[] {(byte) 198, (byte) 41, (byte) 0, (byte) 4}),
+                new RDataAAAA(new byte[] {
+                    (byte) 0x20, (byte) 0x01, (byte) 0x05, (byte) 0x03,
+                    (byte) 0xba, (byte) 0x3e, (byte) 0x00, (byte) 0x00,
+                    (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+                    (byte) 0x00, (byte) 0x02, (byte) 0x00, (byte) 0x30
+                }));
+
+        assertEquals(0, sList.getCurrentMatchLevel());
+        assertSListEntryEquals(expectedRootA, sList.getBestServer());
     }
 
     @Test
