@@ -224,8 +224,8 @@ public class DNS_SERVER {
             new Thread(new TCPServer(context, bindIPv4Address, portNumber), "tcp-ipv4-server").start();
         }
         if (bindIPv6Address != null) {
-            new Thread(new UDPServer(context, bindIPv6Address, portNumber), "udp-ipv4-server").start();
-            new Thread(new TCPServer(context, bindIPv6Address, portNumber), "tcp-ipv4-server").start();
+            new Thread(new UDPServer(context, bindIPv6Address, portNumber), "udp-ipv6-server").start();
+            new Thread(new TCPServer(context, bindIPv6Address, portNumber), "tcp-ipv6-server").start();
         }
         new Thread(new ZoneManager(context)).start();
     }
@@ -251,17 +251,22 @@ public class DNS_SERVER {
                     portNumber = OptionSection.defaultOptions().port();
                 }
                 i++;
-            } else if (args[i].equals("-a") && i + 1 < args.length) {
+            } else if (args[i].equals("-a")
+                    || args[i].equals("-4")
+                    || args[i].equals("--ipv4")
+                    || args[i].equals("--listen-on") && i + 1 < args.length) {
                 bindIPv4 = args[i + 1];
                 i++;
-            } else if (args[i].equals("-aaaa") && i + 1 < args.length) {
+            } else if (args[i].equals("-6")
+                    || args[i].equals("--ipv6")
+                    || args[i].equals("--listen-on-6") && i + 1 < args.length) {
                 bindIPv6 = args[i + 1];
                 i++;
-            } else if (args[i].equals("--verbose")) {
+            } else if (args[i].equals("--verbose") || args[i].equals("-v")) {
                 if (logger != null) {
                     logger.overwriteSeverity(LoggingSeverity.DEBUG);
                 }
-            } else if (args[i].equals("--quiet")) {
+            } else if (args[i].equals("--quiet") || args[i].equals("-q")) {
                 if (logger != null) {
                     logger.overwriteSeverity(LoggingSeverity.ERROR);
                 }
