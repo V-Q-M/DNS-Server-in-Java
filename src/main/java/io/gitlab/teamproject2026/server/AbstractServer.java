@@ -97,7 +97,7 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace(
                         "Query contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN,
                         oopPacket);
-                return responseBuilder.nxDomain(oopPacket, authoritative).toBytes();
+                return responseBuilder.nxDomain(oopPacket, true).toBytes();
             }
 
             if (payload.notResolved().isEmpty() && !payload.answer().isEmpty()) {
