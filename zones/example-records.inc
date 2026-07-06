@@ -13,4 +13,4 @@ mx2     IN A    129.0.0.5
 www     IN CNAME example.com.
 
 ; TXT record
-@       IN TXT  "Hello, world!"
+@       IN TXT  "v=spf1 ip4:129.0.0.1 -all"
