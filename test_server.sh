@@ -29,6 +29,51 @@ doLookupNxDomain() {
     verifyResult "${RESULT}" "status: NXDOMAIN" "${TIME}" "${QUESTION}" "${TYPE}"
     verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
 }
+doLookupDnssecNxDomainAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NXDOMAIN" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr aa rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupDnssecNoDataAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NOERROR" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr aa rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupDnssecNoDataNonAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NOERROR" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+}
 
 doLookupNxDomainNonAuthoritative() {
     local QUESTION=${1}
@@ -224,7 +269,7 @@ testNxDomain(){
     doLookupNxDomainNonAuthoritative "does-not-exist-openai-987654321.com" "A" "${HARDLOOKUP}"
 
     # Repeat one to exercise cache/final response path
-    doLookupNxDomainNonAuthoritative "nope.cloudflare.com" "A" "${CACHETIME}"
+    doLookupNxDomainNonAuthoritative "does-not-exist-987654321.cloudflare.com" "A" "${HARDLOOKUP}"
 }
 
 testHardLookups(){
@@ -251,16 +296,23 @@ testHardLookups(){
 testDnssecLookups() {
     echo "Testing DNSSEC lookups..."
 
-    # Local zone lookups
+    # Local positive DNSSEC
     doLookupDnssec "example.com" "A" "status: NOERROR" "${CACHETIME}"
     doLookupDnssec "example.com" "A" "RRSIG[[:space:]]*A" "${CACHETIME}"
     doLookupDnssec "example.com" "DNSKEY" "DNSKEY[[:space:]]*256" "${CACHETIME}"
     doLookupDnssec "example.com" "DNSKEY" "DNSKEY[[:space:]]*257" "${CACHETIME}"
     doLookupDnssec "example.com" "DNSKEY" "RRSIG[[:space:]]*DNSKEY" "${CACHETIME}"
 
-    # external lookups
+    # Local negative DNSSEC: NXDOMAIN with NSEC proof
+    doLookupDnssecNxDomainAuthoritative "nope.example.com" "A" "${CACHETIME}"
+    doLookupDnssecNxDomainAuthoritative "missing-subdomain.example.com" "AAAA" "${CACHETIME}"
+
+    # External positive DNSSEC
     doLookupDnssec "cloudflare.com" "A" "status: NOERROR" "${HARDLOOKUP}"
     doLookupDnssec "cloudflare.com" "A" "RRSIG[[:space:]]*A" "${HARDLOOKUP}"
+
+    # External negative DNSSEC: NODATA, not NXDOMAIN
+    doLookupDnssecNoDataNonAuthoritative "nope.cloudflare.com" "A" "${HARDLOOKUP}"
 }
 
 trap cleanUpAndResult SIGINT
