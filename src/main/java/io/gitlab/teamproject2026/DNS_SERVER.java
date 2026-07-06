@@ -130,8 +130,8 @@ public class DNS_SERVER {
                 resolverOptions.maxRetries(),
                 resolverOptions.retryDelay(),
                 resolverOptions.strategy());
-        RecursiveResolver recursiveResolver =
-                new RecursiveResolver(cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay());
+        RecursiveResolver recursiveResolver = new RecursiveResolver(
+                cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay(), ednsUdpSizeLimit);
         DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed, ednsUdpSizeLimit);
         DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(
                 cacheHandler,
@@ -143,7 +143,8 @@ public class DNS_SERVER {
                 zoneCatalog,
                 minimalResponses,
                 forwardMode,
-                startTime);
+                startTime,
+                ednsUdpSizeLimit);
 
         InetAddress bindAddress;
         try {

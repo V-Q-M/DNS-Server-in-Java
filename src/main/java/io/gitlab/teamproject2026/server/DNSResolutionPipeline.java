@@ -15,6 +15,7 @@ import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
+import io.gitlab.teamproject2026.model.rdata.RDataOPTOption;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
@@ -37,6 +38,7 @@ public class DNSResolutionPipeline {
     private final List<String> zoneCatalog;
     private final boolean minimalResponses;
     private final ForwardMode forwardMode;
+    private final int ednsUdpSizeLimit;
     final ResolverSection resolverOptions;
 
     private long startTime;
@@ -51,7 +53,8 @@ public class DNSResolutionPipeline {
             List<String> zoneCatalog,
             boolean minimalResponses,
             ForwardMode forwardMode,
-            long startTime) {
+            long startTime,
+            int ednsUdpSizeLimit) {
         this.cacheHandler = cacheHandler;
         this.zoneHandler = zoneHandler;
         this.resolverOptions = resolverOptions;
@@ -62,6 +65,7 @@ public class DNSResolutionPipeline {
         this.minimalResponses = minimalResponses;
         this.forwardMode = forwardMode;
         this.startTime = startTime;
+        this.ednsUdpSizeLimit = ednsUdpSizeLimit;
     }
 
     /**
@@ -544,6 +548,11 @@ public class DNSResolutionPipeline {
         DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
         uncachedOOPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
         uncachedOOPacket.setQdcount(payload.notResolved().size());
+
+        // Always attach our own EDNS OPT record queries to upstream servers
+        // even when original query doesn't use edns
+        // this way we can always receive larger UDP responses from upstream
+        uncachedOOPacket.setEdnsRecord(new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
 
         // Get Stub/recursive response
         byte[] rawResponse = null;

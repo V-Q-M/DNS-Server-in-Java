@@ -26,7 +26,7 @@ class QueryCacheCNAMETest {
         cache = new CacheHandler(new DatabaseConnectionProvider());
         cache.clearAll();
         pipeline = new DNSResolutionPipeline(
-                cache, null, null, null, null, logger, List.of(), false, null, System.currentTimeMillis());
+                cache, null, null, null, null, logger, List.of(), false, null, System.currentTimeMillis(), 4096);
     }
 
     @AfterEach

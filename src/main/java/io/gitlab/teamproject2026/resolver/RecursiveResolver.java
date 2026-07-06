@@ -29,17 +29,19 @@ import java.util.concurrent.ThreadLocalRandom;
 public class RecursiveResolver extends AbstractResolver {
 
     private final CacheHandler cache;
+    private final int ednsUdpSizeLimit;
 
     /** Depth limit so NS/glue resolution doesn't loop infinitely. */
     private static final int MAX_DEPTH = 16;
 
     private static final int MAX_NS_ADDRESS_DEPTH = 3;
 
-    public RecursiveResolver(CacheHandler cache, Logger logger, int timeoutMs, long retryDelay) {
+    public RecursiveResolver(CacheHandler cache, Logger logger, int timeoutMs, long retryDelay, int ednsUdpSizeLimit) {
         this.cache = cache;
         this.logger = logger;
         this.timeoutMs = timeoutMs;
         this.retryDelay = retryDelay;
+        this.ednsUdpSizeLimit = ednsUdpSizeLimit;
     }
 
     @Override
@@ -453,7 +455,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param qtype the query type
      * @return the query bytes
      */
-    private static byte[] buildQuery(String[] name, int qtype) {
+    private byte[] buildQuery(String[] name, int qtype) {
         QuestionSection question = new QuestionSection();
         question.setName(name);
         question.setQtype(qtype);
@@ -469,6 +471,7 @@ public class RecursiveResolver extends AbstractResolver {
         packet.setAnswerSections(new ResourceRecord[0]);
         packet.setAuthoritySections(new ResourceRecord[0]);
         packet.setAdditionalSections(new ResourceRecord[0]);
+        packet.setEdnsRecord(new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
         return packet.toBytes();
     }
 
