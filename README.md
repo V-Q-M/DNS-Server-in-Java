@@ -619,7 +619,7 @@ You can change the configuration of the PostgreSQL server both in the `compose.y
 
 Finally, you can configure the initial state of the database by mounting scripts to the `/docker-entrypoint-initdb.d/` directory within the container, as any `.sql` or `.sh` scripts will automatically be executed on container startup. 
 
-## EDNS 
+## Extensions 
 The server can parse EDNS OPT Records and is able to provide the following extensions:
 - dnssec awareness
 - spf

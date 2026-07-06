@@ -407,12 +407,12 @@ public class ConfInterpreter {
                 }
                 ipv6Address = node.children().getFirst().name();
 
-            } else if (node.name().equalsIgnoreCase("edns-udp-size-limit")) {
+            } else if (node.name().equalsIgnoreCase("edns-udp-size")) {
                 if (node.args().isEmpty()) {
-                    error("options.edns-udp-size-limit requires a value", node.lineNumber());
+                    error("options.edns-udp-size requires a value", node.lineNumber());
                     continue;
                 }
-                ednsUdpSizeLimit = parseInt(node.args().getFirst(), "options.edns-udp-size-limit", node.lineNumber());
+                ednsUdpSizeLimit = parseInt(node.args().getFirst(), "options.edns-udp-size", node.lineNumber());
             } else if (node.name().equalsIgnoreCase("recursion")) {
                 if (node.args().isEmpty()) {
                     error("options.recursion requires yes or no", node.lineNumber());

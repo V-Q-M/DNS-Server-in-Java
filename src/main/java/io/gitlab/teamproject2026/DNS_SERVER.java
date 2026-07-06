@@ -97,9 +97,9 @@ public class DNS_SERVER {
                 true);
 
         // Set and log the EDNS UDP size limit specified in the named.conf file
-        int ednsUdpSizeLimit = options.ednsUdpSizeLimit();
+        int ednsUdpSize = options.ednsUdpSize();
         logger.log(
-                (GREEN + "[SERVER] Server UDP size limit for EDNS: " + ednsUdpSizeLimit + " Bytes"),
+                (GREEN + "[SERVER] Server UDP size limit for EDNS: " + ednsUdpSize + " Bytes"),
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.INFO,
                 true);
@@ -131,8 +131,8 @@ public class DNS_SERVER {
                 resolverOptions.retryDelay(),
                 resolverOptions.strategy());
         RecursiveResolver recursiveResolver = new RecursiveResolver(
-                cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay(), ednsUdpSizeLimit);
-        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed, ednsUdpSizeLimit);
+                cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay(), ednsUdpSize);
+        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed, ednsUdpSize);
         DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(
                 cacheHandler,
                 zoneHandler,
@@ -144,7 +144,7 @@ public class DNS_SERVER {
                 minimalResponses,
                 forwardMode,
                 startTime,
-                ednsUdpSizeLimit);
+                ednsUdpSize);
 
         InetAddress bindAddress;
         try {
@@ -173,7 +173,7 @@ public class DNS_SERVER {
                 zoneCatalog,
                 portNumber,
                 bindAddress,
-                ednsUdpSizeLimit,
+                ednsUdpSize,
                 startTime);
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();

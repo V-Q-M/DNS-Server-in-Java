@@ -12,7 +12,7 @@ public record OptionSection(
         String dir,
         int port,
         String ipAddress,
-        int ednsUdpSizeLimit,
+        int ednsUdpSize,
         boolean recursionAllowed,
         ForwardMode forwardMode,
         List<String> forwarders,
