@@ -124,6 +124,7 @@ public class ConfigManager {
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
                     true);
+            e.printStackTrace();
         }
         return zoneCatalog;
     }

@@ -15,6 +15,7 @@ import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
 import io.gitlab.teamproject2026.model.rdata.RDataMX;
 import io.gitlab.teamproject2026.model.rdata.RDataNS;
+import io.gitlab.teamproject2026.model.rdata.RDataOPTOption;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
@@ -37,6 +38,7 @@ public class DNSResolutionPipeline {
     private final List<String> zoneCatalog;
     private final boolean minimalResponses;
     private final ForwardMode forwardMode;
+    private final int ednsUdpSizeLimit;
     final ResolverSection resolverOptions;
 
     private long startTime;
@@ -51,7 +53,8 @@ public class DNSResolutionPipeline {
             List<String> zoneCatalog,
             boolean minimalResponses,
             ForwardMode forwardMode,
-            long startTime) {
+            long startTime,
+            int ednsUdpSizeLimit) {
         this.cacheHandler = cacheHandler;
         this.zoneHandler = zoneHandler;
         this.resolverOptions = resolverOptions;
@@ -62,16 +65,17 @@ public class DNSResolutionPipeline {
         this.minimalResponses = minimalResponses;
         this.forwardMode = forwardMode;
         this.startTime = startTime;
+        this.ednsUdpSizeLimit = ednsUdpSizeLimit;
     }
 
     /**
      * Round-robin load balancing: returns the authoritative RRset reordered so a different record leads each response.
      * The input list is not modified.
      */
-    List<ResourceRecord> roundRobin(List<ResourceRecord> records, String name, RRType qtype) {
+    List<ResourceRecord> roundRobin(List<ResourceRecord> records, String name, int qtype) {
         return switch (qtype) {
-            case A, AAAA, NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
-            case MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
+            case RRType.A, RRType.AAAA, RRType.NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
+            case RRType.MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
             default -> records; // other types have no load-balancing semantics
         };
     }
@@ -157,14 +161,14 @@ public class DNSResolutionPipeline {
                                                 "Local Zone",
                                                 1,
                                                 null,
-                                                null)
+                                                -1)
                                         .toHumanReadable()),
                                 LoggingCategoryType.GENERAL,
                                 LoggingSeverity.INFO);
 
                         for (ResourceRecord record : directMatches) {
                             switch (record.getType()) {
-                                case NS -> {
+                                case RRType.NS -> {
                                     if (questionSection.getQtype() == RRType.NS) {
                                         payload.answer().add(record);
                                     } else {
@@ -182,7 +186,7 @@ public class DNSResolutionPipeline {
                                         }
                                     }
                                 }
-                                case MX -> {
+                                case RRType.MX -> {
                                     // MX records go to answer section
                                     payload.answer().add(record);
                                     // Step 6: add A/AAAA of mail exchange to additional
@@ -253,7 +257,7 @@ public class DNSResolutionPipeline {
                                             DNSEventType.CACHE_ERROR,
                                             null,
                                             null,
-                                            null,
+                                            -1,
                                             System.currentTimeMillis() - startTime,
                                             ResponseSource.CACHE,
                                             null,
@@ -261,7 +265,7 @@ public class DNSResolutionPipeline {
                                             null,
                                             -1,
                                             "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
-                                            null)
+                                            -1)
                                     .toHumanReadable()),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR);
@@ -287,10 +291,11 @@ public class DNSResolutionPipeline {
             DNSPayload cacheResult = queryCache(unresolvedPacket);
             for (QuestionSection request : unresolvedPacket.getQuestionSections()) {
                 String domain = request.nameToString();
-                RRType qType = request.getQtype();
+                int qType = request.getQtype();
+                String qTypeStr = RRType.mapToString(qType) != null ? RRType.mapToString(qType) : "TYPE" + qType;
                 if (cacheResult.notResolved().contains(request)) {
                     logger.log(
-                            (BLUE + "[CACHE] Miss! Couldn't find: " + qType + " of \"" + domain + "\"" + RESET),
+                            (BLUE + "[CACHE] Miss! Couldn't find: " + qTypeStr + " of \"" + domain + "\"" + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.INFO,
                             true);
@@ -307,14 +312,14 @@ public class DNSResolutionPipeline {
                                             "127.0.0.1",
                                             1,
                                             "Not found in database",
-                                            null)
+                                            -1)
                                     .toHumanReadable()),
                             LoggingCategoryType.QUERIES,
                             LoggingSeverity.NOTICE);
 
                 } else {
                     logger.log(
-                            (GREEN + "[CACHE] Hit! Found: " + qType + " Record of " + domain + RESET),
+                            (GREEN + "[CACHE] Hit! Found: " + qTypeStr + " Record of " + domain + RESET),
                             LoggingCategoryType.GENERAL,
                             LoggingSeverity.NOTICE,
                             true);
@@ -332,7 +337,7 @@ public class DNSResolutionPipeline {
                                             "127.0.0.1",
                                             1,
                                             null,
-                                            null)
+                                            -1)
                                     .toHumanReadable()),
                             LoggingCategoryType.QUERIES,
                             LoggingSeverity.INFO);
@@ -352,7 +357,7 @@ public class DNSResolutionPipeline {
                                     DNSEventType.CACHE_ERROR,
                                     null,
                                     null,
-                                    null,
+                                    -1,
                                     System.currentTimeMillis() - cacheStart,
                                     ResponseSource.CACHE,
                                     null,
@@ -360,7 +365,7 @@ public class DNSResolutionPipeline {
                                     null,
                                     -1,
                                     "Connection to cache Server has been lost, assume internal Server error",
-                                    null)
+                                    -1)
                             .toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR,
@@ -381,7 +386,7 @@ public class DNSResolutionPipeline {
                                         "127.0.0.1",
                                         1,
                                         "cache couldn't be reached",
-                                        null)
+                                        -1)
                                 .toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.NOTICE);
@@ -419,7 +424,7 @@ public class DNSResolutionPipeline {
                 if (cachedRecords.length != 0) {
                     for (ResourceRecord record : cachedRecords) {
                         switch (record.getType()) {
-                            case NS: {
+                            case RRType.NS: {
                                 if (request.getQtype() == RRType.NS) {
                                     answer.add(record);
                                 } else {
@@ -432,7 +437,7 @@ public class DNSResolutionPipeline {
                                 }
                                 break;
                             }
-                            case MX: {
+                            case RRType.MX: {
                                 answer.add(record);
                                 if (!minimalResponses) {
                                     String mxHost = String.join(".", ((RDataMX) record.getRdata()).getExchange());
@@ -441,8 +446,9 @@ public class DNSResolutionPipeline {
                                 }
                                 break;
                             }
-                            case A, AAAA, TXT, SOA, PTR, CNAME:
+                            default:
                                 answer.add(record);
+                                break;
                         }
                     }
                 } else if (request.getQtype() != RRType.CNAME) {
@@ -482,8 +488,8 @@ public class DNSResolutionPipeline {
     //                 is longer than MAX_CNAME_HOPS.
     private boolean resolveCnameFromCache(
             String name,
-            RRType targetType,
-            RRClass targetClass,
+            int targetType,
+            int targetClass,
             LinkedList<ResourceRecord> answer,
             LinkedList<QuestionSection> notCached)
             throws SQLException {
@@ -542,6 +548,11 @@ public class DNSResolutionPipeline {
         DNSPacket uncachedOOPacket = DNSPacket.fromBytes(data);
         uncachedOOPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
         uncachedOOPacket.setQdcount(payload.notResolved().size());
+
+        // Always attach our own EDNS OPT record queries to upstream servers
+        // even when original query doesn't use edns
+        // this way we can always receive larger UDP responses from upstream
+        uncachedOOPacket.setEdnsRecord(new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
 
         // Get Stub/recursive response
         byte[] rawResponse = null;
@@ -607,13 +618,16 @@ public class DNSResolutionPipeline {
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         // ----------------------------ReferralAnalyzer-------------------------------------------------
-        RRType queryType = payload.notResolved().isEmpty()
+        int queryType = payload.notResolved().isEmpty()
                 ? RRType.A
                 : payload.notResolved().getFirst().getQtype();
         // stub response
         ReferralAnalyzer.Classification classification = ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
-                ("[ANALYZER]" + classification + queryType), LoggingCategoryType.GENERAL, LoggingSeverity.INFO, true);
+                ("[ANALYZER] " + classification + " type: " + queryType),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.INFO,
+                true);
         switch (classification) {
             case ANSWER, CNAME_CHAIN, NODATA -> {
                 // Extract RRs from Stub Response and cache them if cachHandler is available
@@ -636,7 +650,7 @@ public class DNSResolutionPipeline {
                                                 DNSEventType.CACHE_ERROR,
                                                 null,
                                                 null,
-                                                null,
+                                                -1,
                                                 System.currentTimeMillis() - startTime,
                                                 ResponseSource.CACHE,
                                                 null,
@@ -644,7 +658,7 @@ public class DNSResolutionPipeline {
                                                 null,
                                                 -1,
                                                 "[SERVER-ERROR] Entries couldn't be inserted into Cache. Assume cache connection is lost",
-                                                null)
+                                                -1)
                                         .toHumanReadable()),
                                 LoggingCategoryType.DEFAULT,
                                 LoggingSeverity.ERROR);

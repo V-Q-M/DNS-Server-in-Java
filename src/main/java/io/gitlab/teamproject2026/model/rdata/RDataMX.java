@@ -6,7 +6,7 @@ import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
 /** Represents a DNS MX (Mail Exchange) record. Specifies the mail server responsible for a domain. */
-public class RDataMX implements RData {
+public final class RDataMX implements RData {
     private int preference;
     private String[] exchange;
 
@@ -18,7 +18,7 @@ public class RDataMX implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.MX;
     }
 

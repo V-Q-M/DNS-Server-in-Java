@@ -17,4 +17,5 @@ public record ServerContext(
         List<String> zoneCatalog,
         Integer portNumber,
         InetAddress bindAddress,
+        int ednsUdpSizeLimit,
         long startTime) {}

@@ -1,8 +1,8 @@
-package io.gitlab.teamproject2026.model.rdata.dnssec;
+package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.rdata.RData;
+
 import java.util.Base64;
 
 /**
@@ -26,7 +26,7 @@ public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publick
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.DNSKEY;
     }
 

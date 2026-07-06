@@ -4,7 +4,7 @@ import io.gitlab.teamproject2026.model.RRType;
 import java.util.Arrays;
 
 /** Represents a DNS A record. Maps a domain name to an IPv4 address (32-bit). */
-public class RDataA implements RData {
+public final class RDataA implements RData {
     private byte[] address;
 
     public RDataA() {
@@ -16,7 +16,7 @@ public class RDataA implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.A;
     }
 

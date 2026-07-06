@@ -6,7 +6,7 @@ import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
 /** Represents a DNS CNAME (Canonical Name) record. Aliases one domain name to another. */
-public class RDataCNAME implements RData {
+public final class RDataCNAME implements RData {
     private String[] cname;
 
     public RDataCNAME() {}
@@ -16,7 +16,7 @@ public class RDataCNAME implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.CNAME;
     }
 

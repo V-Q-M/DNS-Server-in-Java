@@ -6,7 +6,7 @@ import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
 
 /** Represents a DNS PTR (Pointer) record. Used for reverse DNS lookups, mapping an IP address back to a domain name. */
-public class RDataPTR implements RData {
+public final class RDataPTR implements RData {
     private String[] ptrdname;
 
     public RDataPTR() {}
@@ -16,7 +16,7 @@ public class RDataPTR implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.PTR;
     }
 

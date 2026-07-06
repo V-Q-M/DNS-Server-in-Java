@@ -1,14 +1,18 @@
 package io.gitlab.teamproject2026.server;
 
 import io.gitlab.teamproject2026.model.DNSPacket;
+import io.gitlab.teamproject2026.model.OPTPseudoResourceRecord;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.ResourceRecord;
+import io.gitlab.teamproject2026.model.rdata.RDataOPTOption;
 
 public class DNSResponseBuilder {
     private final boolean recursionAllowed;
+    private final int ednsUdpSizeLimit;
 
-    public DNSResponseBuilder(boolean recursionAllowed) {
+    public DNSResponseBuilder(boolean recursionAllowed, int ednsUdpSizeLimit) {
         this.recursionAllowed = recursionAllowed;
+        this.ednsUdpSizeLimit = ednsUdpSizeLimit;
     }
 
     public DNSPacket noError(DNSPayload payload, DNSPacket query, boolean authoritative) {
@@ -60,6 +64,15 @@ public class DNSResponseBuilder {
         response.setRd(query.isRd());
         response.setRa(recursionAllowed);
         response.setQuestionSections(query.getQuestionSections());
+
+        OPTPseudoResourceRecord queryEdnsRecord = query.getEdnsRecord();
+        if (queryEdnsRecord != null) {
+            // Send back new OPT RR that includes server udp size limit
+            OPTPseudoResourceRecord ednsResponse = new OPTPseudoResourceRecord(
+                    ednsUdpSizeLimit, 0, 0, queryEdnsRecord.getDNSSecOK(), new RDataOPTOption());
+            response.setEdnsRecord(ednsResponse);
+        }
+
         return response;
     }
 }

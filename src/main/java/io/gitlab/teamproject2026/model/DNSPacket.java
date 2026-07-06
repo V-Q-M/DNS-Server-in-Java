@@ -15,13 +15,17 @@ public class DNSPacket {
     // Header fields
     private byte[] id;
     private boolean qr = true; // false=question, true=answer
-    private OpCode opcode;
+    private int opcode;
     private boolean aa = false;
     private boolean tc = false;
     private boolean rd;
     private boolean ra = true;
     private byte z = 0;
-    private RCode rcode;
+
+    // EDNS Specific fields, only curated on edns
+    private Boolean DNSSecCheckingDisabled = null;
+    private Boolean DNSSecAuthenticatedData = null;
+    private int rcode;
 
     // Section counts
     private int qdcount = 0;
@@ -35,18 +39,20 @@ public class DNSPacket {
     private ResourceRecord[] authoritySections;
     private ResourceRecord[] additionalSections;
 
+    private OPTPseudoResourceRecord ednsRecord;
+
     public DNSPacket() {}
 
     public DNSPacket(
             byte[] id,
             boolean qr,
-            OpCode opcode,
+            int opcode,
             boolean aa,
             boolean tc,
             boolean rd,
             boolean ra,
             byte z,
-            RCode rcode,
+            int rcode,
             QuestionSection[] questionSections,
             ResourceRecord[] answerSections,
             ResourceRecord[] authoritySections,
@@ -92,11 +98,11 @@ public class DNSPacket {
         this.qr = qr;
     }
 
-    public OpCode getOpcode() {
+    public int getOpcode() {
         return opcode;
     }
 
-    public void setOpcode(OpCode opcode) {
+    public void setOpcode(int opcode) {
         this.opcode = opcode;
     }
 
@@ -140,11 +146,11 @@ public class DNSPacket {
         this.z = z;
     }
 
-    public RCode getRcode() {
+    public int getRcode() {
         return rcode;
     }
 
-    public void setRcode(RCode rcode) {
+    public void setRcode(int rcode) {
         this.rcode = rcode;
     }
 
@@ -228,6 +234,53 @@ public class DNSPacket {
         this.additionalSections = additionalSections;
     }
 
+    public OPTPseudoResourceRecord getEdnsRecord() {
+        return ednsRecord;
+    }
+    /**
+     * Addition of EDNS OPTPseudo record changes the meaning of headers and other behaviour, so setting this will
+     * recalculate the Packet as EDNS Packet
+     *
+     * @param ednsRecord A Pseudo record enabling edns with additional info for edns
+     */
+    public void setEdnsRecord(OPTPseudoResourceRecord ednsRecord) {
+
+        // parsing z into human-readable data
+        this.setDNSSecCheckingDisabled(
+                DNSParser.extractBit(this.z, 5)); // Parser shift them to the right so Z = 0x00000abc
+        this.setDNSSecAuthenticatedData(DNSParser.extractBit(this.z, 6));
+
+        // extending Rcode to 12 bits
+        if (this.ednsRecord != null) { // restore previous, simple RCode in case of an OPTRR change
+            this.rcode -= (this.ednsRecord.getExtendedRcode() << 4);
+        }
+        this.rcode += (ednsRecord.getExtendedRcode()
+                << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
+        this.ednsRecord = ednsRecord;
+    }
+
+    public Boolean getDNSSecCheckingDisabled() {
+        return DNSSecCheckingDisabled;
+    }
+
+    public void setDNSSecCheckingDisabled(Boolean DNSSecCheckingDisabled) {
+        this.DNSSecCheckingDisabled = DNSSecCheckingDisabled;
+        this.z = (byte) (((DNSSecCheckingDisabled ? 1 : 0) << 2)
+                | ((DNSParser.extractBit(z, 6) ? 1 : 0) << 1)
+                | (DNSParser.extractBit(z, 7) ? 1 : 0));
+    }
+
+    public Boolean getDNSSecAuthenticatedData() {
+        return DNSSecAuthenticatedData;
+    }
+
+    public void setDNSSecAuthenticatedData(Boolean DNSSecAuthenticatedData) {
+        this.DNSSecAuthenticatedData = DNSSecAuthenticatedData;
+        this.z = (byte) (((DNSParser.extractBit(z, 5) ? 1 : 0) << 2)
+                | ((DNSSecAuthenticatedData ? 1 : 0) << 1)
+                | (DNSParser.extractBit(z, 7) ? 1 : 0));
+    }
+
     public ResourceRecord getAdditionalSection(int index) {
         return additionalSections[index];
     }
@@ -253,7 +306,8 @@ public class DNSPacket {
                 + "questionSections: " + Arrays.toString(questionSections) + "\n"
                 + "answerSections: " + Arrays.toString(answerSections) + "\n"
                 + "authoritySections: " + Arrays.toString(authoritySections) + "\n"
-                + "additionalSections: " + Arrays.toString(additionalSections) + "\n";
+                + "additionalSections: " + Arrays.toString(additionalSections) + "\n"
+                + "ednsPseudoRR: " + ednsRecord + "\n";
     }
 
     /**
@@ -273,7 +327,7 @@ public class DNSPacket {
         // first flag byte
         byte flagsByte1 = 0;
         flagsByte1 |= (byte) ((this.isQr() ? 1 : 0) << 7); // QR
-        flagsByte1 |= (byte) ((this.getOpcode().getValue()) << 3); // Opcode
+        flagsByte1 |= (byte) ((this.getOpcode()) << 3); // Opcode
         flagsByte1 |= (byte) ((this.isAa() ? 1 : 0) << 2); // AA
         flagsByte1 |= (byte) ((this.isTc() ? 1 : 0) << 1); // TC
         flagsByte1 |= (byte) (this.isRd() ? 1 : 0); // RD
@@ -282,10 +336,11 @@ public class DNSPacket {
         // second flag byte
         byte flagsByte2 = 0;
         flagsByte2 |= (byte) ((this.isRa() ? 1 : 0) << 7); // Ra
-        // z bits are zero anyway
-        if (this.getRcode() != null) {
-            flagsByte2 |= (byte) (this.getRcode().getValue() & 0x0F);
-        } // rcode
+        if (this.getEdnsRecord() != null) { // Means Edns is enabled and some z bits are used, otherwise it stays on 0
+            flagsByte2 |= (byte) (this.z << 4); // 3 z-btis are all the way to the right but need to be at index 9-11
+        }
+
+        flagsByte2 |= (byte) (this.getRcode() & 0x0F); // rcode
         header[3] = flagsByte2;
 
         header[4] = (byte) ((this.getQdcount() >> 8) & 0xFF);
@@ -294,8 +349,10 @@ public class DNSPacket {
         header[7] = (byte) (this.getAncount() & 0xFF);
         header[8] = (byte) ((this.getNscount() >> 8) & 0xFF);
         header[9] = (byte) (this.getNscount() & 0xFF);
-        header[10] = (byte) ((this.getArcount() >> 8) & 0xFF);
-        header[11] = (byte) (this.getArcount() & 0xFF);
+        // increase the Arcount if an OPT record exists
+        int arcount = this.getArcount() + (this.getEdnsRecord() != null ? 1 : 0);
+        header[10] = (byte) ((arcount >> 8) & 0xFF);
+        header[11] = (byte) (arcount & 0xFF);
 
         // serialize each section
         byte[][] questions = new byte[this.getQuestionSections().length][];
@@ -318,12 +375,16 @@ public class DNSPacket {
             additionals[i] = this.getAdditionalSections()[i].toBytes();
         }
 
+        byte[] ednsRecordBytes =
+                this.getEdnsRecord() != null ? this.getEdnsRecord().toBytes() : null;
+
         // calculate total size
         int totalSize = header.length;
         for (byte[] q : questions) totalSize += q.length;
         for (byte[] a : answers) totalSize += a.length;
         for (byte[] ns : authorities) totalSize += ns.length;
         for (byte[] ar : additionals) totalSize += ar.length;
+        if (ednsRecordBytes != null) totalSize += ednsRecordBytes.length;
 
         // copy everything into result
         byte[] result = new byte[totalSize];
@@ -349,6 +410,10 @@ public class DNSPacket {
             System.arraycopy(ar, 0, result, pos, ar.length);
             pos += ar.length;
         }
+        if (ednsRecordBytes != null) {
+            System.arraycopy(ednsRecordBytes, 0, result, pos, ednsRecordBytes.length);
+            pos += ednsRecordBytes.length;
+        }
         return result;
     }
 
@@ -368,14 +433,14 @@ public class DNSPacket {
         dnsPacket.setId(new byte[] {bytes[0], bytes[1]});
 
         dnsPacket.setQr(DNSParser.extractBit(bytes[2], 0));
-        dnsPacket.setOpcode(OpCode.fromValue(DNSParser.subBits(bytes[2], 1, 5)));
+        dnsPacket.setOpcode(DNSParser.subBits(bytes[2], 1, 5));
         dnsPacket.setAa(DNSParser.extractBit(bytes[2], 5));
         dnsPacket.setTc(DNSParser.extractBit(bytes[2], 6));
         dnsPacket.setRd(DNSParser.extractBit(bytes[2], 7));
 
         dnsPacket.setRa(DNSParser.extractBit(bytes[3], 0));
         dnsPacket.setZ(DNSParser.subBits(bytes[3], 1, 4));
-        dnsPacket.setRcode(RCode.fromValue(DNSParser.subBits(bytes[3], 4, 7)));
+        dnsPacket.setRcode(DNSParser.subBits(bytes[3], 4, 7));
 
         dnsPacket.setQdcount(DNSParser.as16BitInt(bytes[4], bytes[5]));
         dnsPacket.setAncount(DNSParser.as16BitInt(bytes[6], bytes[7]));
@@ -401,10 +466,23 @@ public class DNSPacket {
 
         dnsPacket.setAdditionalSections(new ResourceRecord[dnsPacket.getArcount()]);
         for (int i = 0; i < dnsPacket.getArcount(); i++) {
-            dnsPacket.getAdditionalSections()[i] = ResourceRecord.fromBytes(bytes, byte_index);
-            byte_index = dnsPacket.getAdditionalSection(i).getLastProcessedByte();
+            ResourceRecord record = ResourceRecord.fromBytes(bytes, byte_index);
+            if (record.getType() == RRType.OPT) {
+                if (dnsPacket.getEdnsRecord() != null) {
+                    throw new IllegalArgumentException(
+                            "Invalid form body. DNS Packets may only have a maximum of 1 EDNS pseudo Record");
+                }
+                dnsPacket.setEdnsRecord(
+                        (OPTPseudoResourceRecord) record); // Should not be forwarded or cached, so stored separately
+            } else {
+                dnsPacket.getAdditionalSections()[i] = record;
+            }
+            byte_index = record.getLastProcessedByte();
         }
-
+        if (dnsPacket.ednsRecord != null) { // truncate additional sections by 1 element as ednsRecord is missing
+            dnsPacket.setAdditionalSections(
+                    Arrays.copyOf(dnsPacket.getAdditionalSections(), dnsPacket.getAdditionalSections().length - 1));
+        }
         return dnsPacket;
     }
 

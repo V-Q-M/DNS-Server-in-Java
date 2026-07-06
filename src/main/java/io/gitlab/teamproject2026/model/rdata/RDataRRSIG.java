@@ -1,9 +1,9 @@
-package io.gitlab.teamproject2026.model.rdata.dnssec;
+package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.rdata.RData;
+
 import java.util.Arrays;
 import java.util.Base64;
 
@@ -12,7 +12,7 @@ import java.util.Base64;
  * information, and signature bytes.
  */
 public record RDataRRSIG(
-        RRType typeCovered,
+        int typeCovered,
         int algorithm,
         int labels,
         long originalTtl,
@@ -23,7 +23,7 @@ public record RDataRRSIG(
         byte[] signature)
         implements RData {
     public RDataRRSIG(byte[] bytes, int byteIndex) {
-        RRType typeCovered = RRType.fromValue(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
+        int typeCovered = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
 
         int algorithm = bytes[byteIndex++] & 0xFF;
         int labels = bytes[byteIndex++] & 0xFF;
@@ -55,7 +55,7 @@ public record RDataRRSIG(
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.RRSIG;
     }
 
@@ -82,8 +82,8 @@ public record RDataRRSIG(
         int pos = 0;
 
         // Type Covered (2 bytes)
-        result[pos] = (byte) (typeCovered.getValue() >> 8);
-        result[pos + 1] = (byte) (typeCovered.getValue());
+        result[pos] = (byte) (typeCovered >> 8);
+        result[pos + 1] = (byte) (typeCovered);
         pos += 2;
 
         // Algorithm (1 byte)
@@ -130,7 +130,7 @@ public record RDataRRSIG(
         return result;
     }
 
-    public RRType getTypeCovered() {
+    public int getTypeCovered() {
         return typeCovered;
     }
 

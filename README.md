@@ -27,69 +27,94 @@
 ## Project Structure
 
 ```text
-src                                                         
-└── main                                                    
-    └── java                                                
-        └── io                                              
-            └── gitlab                                      
-                └── teamproject2026                         
-                    ├── config                              
-                    │   ├── Config.java                     
-                    │   ├── ConfigManager.java              
-                    │   ├── interpreter                     
-                    │   │   ├── ConfInterpreter.java        
-                    │   │   ├── ConfLexer.java              
-                    │   │   ├── ConfNode.java               
-                    │   │   ├── ConfParser.java             
-                    │   │   ├── ConfToken.java              
-                    │   │   └── ConfTokenType.java          
-                    │   ├── options                         
-                    │   │   ├── OptionSection.java          
-                    │   │   └── ResolverSection.java        
-                    │   └── zones                           
-                    │       ├── ZoneSection.java            
-                    │       └── ZoneType.java               
-                    ├── data                                
-                    │   └── MockResponses.java              
-                    ├── database                            
-                    │   ├── CacheHandler.java               
-                    │   ├── DatabaseConnectionProvider.java 
-                    │   └── ZoneHandler.java                
-                    ├── DNS_SERVER.java                     
-                    ├── DNSParser.java                      
-                    ├── DNSZone.java                        
-                    ├── logging                             
-                    │   ├── DNSEventDebug.java              
-                    │   ├── DNSEventInfo.java               
-                    │   ├── DNSEventType.java               
-                    │   └── LoggingFeature.java             
-                    ├── model                               
-                    │   ├── DNSPacket.java                  
-                    │   ├── OpCode.java                     
-                    │   ├── QuestionSection.java            
-                    │   ├── RCode.java                      
-                    │   ├── rdata                           
-                    │   │   ├── RData.java                  
-                    │   │   ├── RDataA.java                 
-                    │   │   ├── RDataAAAA.java              
-                    │   │   ├── RDataCNAME.java             
-                    │   │   ├── RDataMX.java                
-                    │   │   ├── RDataNS.java                
-                    │   │   ├── RDataPTR.java               
-                    │   │   ├── RDataSOA.java               
-                    │   │   └── RDataTXT.java               
-                    │   ├── ResourceRecord.java             
-                    │   ├── RRClass.java                    
-                    │   └── RRType.java                     
-                    ├── resolver                            
-                    │   ├── Forwarder.java                  
-                    │   ├── StubResolver.java               
-                    │   └── StubResolverStrategy.java       
-                    └── zones                               
-                        ├── ZoneLexer.java                  
-                        ├── ZoneParser.java                 
-                        ├── ZoneToken.java                  
-                        └── ZoneTokenType.java              
+teamproject2026
+├── AnsiColors.java
+├── config
+│  ├── Config.java
+│  ├── ConfigManager.java
+│  ├── interpreter
+│  │  ├── ConfInterpreter.java
+│  │  ├── ConfLexer.java
+│  │  ├── ConfNode.java
+│  │  ├── ConfParser.java
+│  │  ├── ConfToken.java
+│  │  └── ConfTokenType.java
+│  ├── logging
+│  │  ├── LoggingCategory.java
+│  │  ├── LoggingCategoryType.java
+│  │  ├── LoggingChannel.java
+│  │  ├── LoggingSection.java
+│  │  └── LoggingSeverity.java
+│  ├── options
+│  │  ├── OptionSection.java
+│  │  └── ResolverSection.java
+│  └── zones
+│     ├── ZoneSection.java
+│     └── ZoneType.java
+├── data
+│  └── MockResponses.java
+├── database
+│  ├── CacheHandler.java
+│  ├── DatabaseConnectionProvider.java
+│  └── ZoneHandler.java
+├── DNS_SERVER.java
+├── DNSParser.java
+├── DNSZone.java
+├── logging
+│  ├── DNSEvent.java
+│  ├── DNSEventType.java
+│  ├── Logger.java
+│  └── ResponseSource.java
+├── model
+│  ├── DNSPacket.java
+│  ├── OpCode.java
+│  ├── OPTPseudoResourceRecord.java
+│  ├── QuestionSection.java
+│  ├── RCode.java
+│  ├── rdata
+│  │  ├── RData.java
+│  │  ├── RDataA.java
+│  │  ├── RDataAAAA.java
+│  │  ├── RDataCNAME.java
+│  │  ├── RDataDNSKEY.java
+│  │  ├── RDataDS.java
+│  │  ├── RDataMX.java
+│  │  ├── RDataNS.java
+│  │  ├── RDataNSEC.java
+│  │  ├── RDataNSEC3.java
+│  │  ├── RDataNSEC3PARAM.java
+│  │  ├── RDataOPTOption.java
+│  │  ├── RDataPTR.java
+│  │  ├── RDataRRSIG.java
+│  │  ├── RDataSOA.java
+│  │  ├── RDataTXT.java
+│  │  └── RDataUnknown.java
+│  ├── ResourceRecord.java
+│  ├── RRClass.java
+│  └── RRType.java
+├── resolver
+│  ├── AbstractResolver.java
+│  ├── ForwardMode.java
+│  ├── NameServer.java
+│  ├── RecursiveResolver.java
+│  ├── ReferralAnalyzer.java
+│  ├── SListWrapper.java
+│  ├── StubResolver.java
+│  └── StubResolverStrategy.java
+├── server
+│  ├── AbstractServer.java
+│  ├── DNSPayload.java
+│  ├── DNSResolutionPipeline.java
+│  ├── DNSResponseBuilder.java
+│  ├── ServerContext.java
+│  ├── TCPServer.java
+│  └── UDPServer.java
+└── zones
+  ├── ZoneLexer.java
+  ├── ZoneManager.java
+  ├── ZoneParser.java
+  ├── ZoneToken.java
+  └── ZoneTokenType.java
 ```
 
 ### Package Overview
@@ -106,6 +131,7 @@ src
 | `model`              | Core DNS protocol models, including packets, questions, resource records, opcodes, and response codes.                                                                   |
 | `model.rdata`        | Implementations of DNS resource-record payloads (RDATA) for supported record types.                                                                                      |
 | `resolver`           | Stub resolver implementation, upstream forwarder definitions, and forwarding strategies used for external DNS resolution.                                                |
+| `server`             | UDP and TCP servers together with utility Classes used to resovle incoming packets through various methods                                                               |
 | `zones`              | BIND-style DNS zone-file lexer, parser, and token definitions for authoritative zone loading.                                                                            |
 | `DNS_SERVER`         | Main server entry point coordinating configuration, networking, caching, authoritative zones, and query processing.                                                      |
 | `DNSParser`          | DNS packet parsing and serialization utilities.                                                                                                                          |
@@ -177,17 +203,19 @@ The CI will run the script test_server.sh. This script contains some black-box t
 > If the CI pipeline fails without any apparent changes to `.gitlab-ci.yml` or `test_server.sh`, the server startup or compilation time may have exceeded the timeout configured in the test script. In this case, increase the timeout value accordingly.
 
 ### Examples on manual tests for the current state of the project
-To test packet parsing and hexdump generation: `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
+To test packet parsing and hexdump generation: 
+- go into `io.gitlab.teamproject2026.server.AbstractServer:handleQuery` and uncomment the packet logging
+- run `dig @127.0.0.1 uni-tuebingen.de AAAA`
 
 To test supported DNS record types:
-- `dig @127.0.0.1 uni-tuebingen.de +noedns A`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns CNAME`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns SOA`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns TXT`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns NS`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns PTR`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns MX`
+- `dig @127.0.0.1 uni-tuebingen.de A`
+- `dig @127.0.0.1 uni-tuebingen.de AAAA`
+- `dig @127.0.0.1 uni-tuebingen.de CNAME`
+- `dig @127.0.0.1 uni-tuebingen.de SOA`
+- `dig @127.0.0.1 uni-tuebingen.de TXT`
+- `dig @127.0.0.1 uni-tuebingen.de NS`
+- `dig @127.0.0.1 uni-tuebingen.de PTR`
+- `dig @127.0.0.1 uni-tuebingen.de MX`
 
 
 ### Monitoring
@@ -591,12 +619,19 @@ You can change the configuration of the PostgreSQL server both in the `compose.y
 
 Finally, you can configure the initial state of the database by mounting scripts to the `/docker-entrypoint-initdb.d/` directory within the container, as any `.sql` or `.sh` scripts will automatically be executed on container startup. 
 
+## Extensions 
+The server can parse EDNS OPT Records and is able to provide the following extensions:
+- dnssec awareness
+- spf
+
 
 ## Known issues and bugs
 - None
 
 # Changelog
 ```diff
+~ edns
+~ resolver
 ~ config/
 ~ zones/
 ~ DNSZone

@@ -1,9 +1,9 @@
-package io.gitlab.teamproject2026.model.rdata.dnssec;
+package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.rdata.RData;
+
 import java.util.Arrays;
 import java.util.HexFormat;
 
@@ -25,7 +25,7 @@ public record RDataNSEC(String[] nextDomainName, byte[] typeBitMaps) implements 
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.NSEC;
     }
 

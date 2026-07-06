@@ -2,7 +2,6 @@ package io.gitlab.teamproject2026.data;
 
 import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
-import io.gitlab.teamproject2026.model.rdata.dnssec.*;
 
 public class MockResponses {
 
@@ -203,28 +202,29 @@ public class MockResponses {
     }
 
     public static DNSPacket respond(DNSPacket requestPacket) {
-        RRType type = requestPacket.getQuestionSections()[0].getQtype();
+        int type = requestPacket.getQuestionSections()[0].getQtype();
 
         return switch (type) {
-            case A -> a(requestPacket);
-            case AAAA -> aaaa(requestPacket);
-            case CNAME -> cname(requestPacket);
-            case MX -> mx(requestPacket);
-            case NS -> ns(requestPacket);
-            case PTR -> ptr(requestPacket);
-            case SOA -> soa(requestPacket);
-            case TXT -> txt(requestPacket);
-            case OPT -> null;
-            case DS -> ds(requestPacket);
-            case RRSIG -> rrsig(requestPacket);
-            case NSEC -> nsec(requestPacket);
-            case DNSKEY -> dnskey(requestPacket);
-            case NSEC3 -> nsec3(requestPacket);
-            case NSEC3PARAM -> nsec3param(requestPacket);
+            case RRType.A -> a(requestPacket);
+            case RRType.AAAA -> aaaa(requestPacket);
+            case RRType.CNAME -> cname(requestPacket);
+            case RRType.MX -> mx(requestPacket);
+            case RRType.NS -> ns(requestPacket);
+            case RRType.PTR -> ptr(requestPacket);
+            case RRType.SOA -> soa(requestPacket);
+            case RRType.TXT -> txt(requestPacket);
+            case RRType.OPT -> null;
+            case RRType.DS -> ds(requestPacket);
+            case RRType.RRSIG -> rrsig(requestPacket);
+            case RRType.NSEC -> nsec(requestPacket);
+            case RRType.DNSKEY -> dnskey(requestPacket);
+            case RRType.NSEC3 -> nsec3(requestPacket);
+            case RRType.NSEC3PARAM -> nsec3param(requestPacket);
+            default -> null;
         };
     }
 
-    private static DNSPacket buildResponse(DNSPacket requestPacket, RRType type, RData rdata) {
+    private static DNSPacket buildResponse(DNSPacket requestPacket, int type, RData rdata) {
         ResourceRecord answer = new ResourceRecord();
         answer.setName(requestPacket.getQuestionSections()[0].getName());
         // answer.setType(type);

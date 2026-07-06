@@ -27,6 +27,8 @@ public abstract class AbstractServer implements Runnable {
     protected final int portNumber;
     protected final InetAddress bindAddress;
 
+    protected final int ednsUdpSizeLimit;
+
     protected final boolean recursionAllowed;
 
     public AbstractServer(ServerContext context) {
@@ -36,6 +38,7 @@ public abstract class AbstractServer implements Runnable {
         this.responseBuilder = context.responseBuilder();
         this.bindAddress = context.bindAddress();
         this.portNumber = context.portNumber();
+        this.ednsUdpSizeLimit = context.ednsUdpSizeLimit();
         this.logger = context.logger();
         this.recursionAllowed = context.serverConfig().options().recursionAllowed();
     }
@@ -45,7 +48,7 @@ public abstract class AbstractServer implements Runnable {
         // Map byteData to oop classes
         DNSPacket oopPacket = DNSPacket.fromBytes(data);
 
-        // Uncomment this if you need to debug outgoing packets
+        // Uncomment this if you need to debug incoming packets
         // IO.println("[SERVER] Assembled Packet:\n" + oopPacket);
 
         // Respond: If requested RR is cached, return RR else return stub Response
@@ -149,7 +152,7 @@ public abstract class AbstractServer implements Runnable {
                                         "127.0.0.1",
                                         1,
                                         "testing is active, do not check cache",
-                                        null)
+                                        RCode.UNASSIGNED)
                                 .toHumanReadable()),
                         LoggingCategoryType.QUERIES,
                         LoggingSeverity.NOTICE);

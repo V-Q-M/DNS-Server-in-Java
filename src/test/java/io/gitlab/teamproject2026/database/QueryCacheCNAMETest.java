@@ -26,7 +26,7 @@ class QueryCacheCNAMETest {
         cache = new CacheHandler(new DatabaseConnectionProvider());
         cache.clearAll();
         pipeline = new DNSResolutionPipeline(
-                cache, null, null, null, null, logger, List.of(), false, null, System.currentTimeMillis());
+                cache, null, null, null, null, logger, List.of(), false, null, System.currentTimeMillis(), 4096);
     }
 
     @AfterEach
@@ -62,7 +62,7 @@ class QueryCacheCNAMETest {
         return rr;
     }
 
-    private static DNSPacket makeQuery(String name, RRType type) {
+    private static DNSPacket makeQuery(String name, int type) {
         QuestionSection q = new QuestionSection();
         q.setName(name.split("\\."));
         q.setQtype(type);

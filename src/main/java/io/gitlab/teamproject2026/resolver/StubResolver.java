@@ -11,7 +11,6 @@ import io.gitlab.teamproject2026.logging.ResponseSource;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
-import io.gitlab.teamproject2026.model.RRType;
 import java.util.List;
 
 public class StubResolver extends AbstractResolver {
@@ -70,7 +69,7 @@ public class StubResolver extends AbstractResolver {
 
             logger.logTrace("Forward query to " + server.name(), queryPacket);
 
-            logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, null);
+            logQuestionEvents(DNSEventType.QUERY_SENT, queryPacket, 0L, server, attempt, null, -1);
             QueryResult result = queryUDP(query, server, timeoutMs); // forward once over UDP
 
             // for all questions
@@ -87,7 +86,7 @@ public class StubResolver extends AbstractResolver {
                                 server,
                                 attempt,
                                 "invalid DNS response",
-                                null);
+                                -1);
                         logger.logTrace("Received invalid DNS response for query, retry", queryPacket);
                         break; // retry
                     }
@@ -123,7 +122,7 @@ public class StubResolver extends AbstractResolver {
                                     server,
                                     attempt,
                                     tcpResult.errorMessage(),
-                                    null);
+                                    -1);
                             break;
                         }
                         result = tcpResult;
@@ -146,12 +145,12 @@ public class StubResolver extends AbstractResolver {
                                 server,
                                 attempt,
                                 "invalid DNS response",
-                                null);
+                                -1);
 
                         logger.logTrace("Received invalid DNS response, retry", queryPacket);
                         break; // retry
                     }
-                    RCode rCode = responsePacket.getRcode();
+                    int rCode = responsePacket.getRcode();
                     // log SUCCESS for every question section separately
                     logQuestionEvents(
                             DNSEventType.SUCCESS,
@@ -181,7 +180,7 @@ public class StubResolver extends AbstractResolver {
                             server,
                             attempt,
                             error,
-                            null); // RCode is null since response is null
+                            -1); // RCode is null since response is null
                     logger.log(
                             (YELLOW + "[STUB] Timeout from: " + server + " after " + result.latencyMs() + " ms"
                                     + RESET),
@@ -219,7 +218,7 @@ public class StubResolver extends AbstractResolver {
                             server,
                             attempt,
                             error,
-                            null); // RCode is null since response is null
+                            -1); // RCode is null since response is null
                     logger.log(
                             (RED + "[STUB-ERROR] I/O error from: " + server + " after: " + result.errorMessage()
                                     + RESET),
@@ -286,14 +285,14 @@ public class StubResolver extends AbstractResolver {
             NameServer server,
             int attempt,
             String error,
-            RCode rCode) {
+            int rCode) {
         String id = packet.getIdString();
         if (packet.getQdcount() == 0 || packet.getQuestionSections() == null) {
             return;
         }
         for (QuestionSection question : packet.getQuestionSections()) {
             String domain = question.nameToString();
-            RRType qType = question.getQtype();
+            int qType = question.getQtype();
             // log info
             if (type == DNSEventType.QUERY_SENT || type == DNSEventType.SUCCESS) {
                 logger.log(

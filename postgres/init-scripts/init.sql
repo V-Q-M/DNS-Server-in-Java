@@ -87,7 +87,7 @@ CREATE TABLE ds_rdata (
 ) INHERITS (ResourceRecord);
 
 CREATE TABLE rrsig_rdata (
-                             type_covered RRTypeEnum,
+                             type_covered uint,
                              algorithm smallint CHECK(algorithm >= 0 AND algorithm <= 255),
                              labels smallint CHECK(labels >= 0 AND labels <= 255),
                              original_ttl uint,
@@ -119,6 +119,10 @@ CREATE TABLE nsec3param_rdata (
                                   salt bytea
 ) INHERITS (ResourceRecord);
 
+CREATE TABLE unknown_rdata (
+                               type int CHECK(type >= 0 AND type < 65536),
+                               data bytea
+) INHERITS (ResourceRecord);
 
 
 -- ZoneTables
@@ -186,7 +190,7 @@ CREATE TABLE zone_ds_rdata (
 ) INHERITS (ZoneResourceRecord);
 
 CREATE TABLE zone_rrsig_rdata (
-                                  type_covered RRTypeEnum,
+                                  type_covered uint,
                                   algorithm smallint CHECK(algorithm >= 0 AND algorithm <= 255),
                                   labels smallint CHECK(labels >= 0 AND labels <= 255),
                                   original_ttl uint,
@@ -216,4 +220,9 @@ CREATE TABLE zone_nsec3param_rdata (
                                        flags smallint CHECK(flags >= 0 AND flags <= 255),
                                        iterations usmallint,
                                        salt bytea
+) INHERITS (ZoneResourceRecord);
+
+CREATE TABLE zone_unknown_rdata (
+                                    type int CHECK(type >= 0 AND type < 65536),
+                                    data bytea
 ) INHERITS (ZoneResourceRecord);

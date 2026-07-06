@@ -4,6 +4,7 @@ import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
+
 import java.sql.*;
 import java.util.*;
 
@@ -26,6 +27,27 @@ public class CacheHandler {
             "INSERT INTO soa_rdata   (name, rrtype, rrclass, ttl, rdlength, mname, rname, serial, refresh, retry, expire, minimum, expires_at) VALUES (?, 'SOA',  'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
     private static final String SQL_TXT =
             "INSERT INTO txt_rdata   (name, rrtype, rrclass, ttl, rdlength, txtdata,  expires_at) VALUES (?, 'TXT',  'IN', ?, ?, ?,          now() + (? * interval '1 second'))";
+    private static final String SQL_UNKNOWN =
+            "INSERT INTO unknown_rdata (name, rrtype, rrclass, ttl, rdlength, type, data, expires_at) VALUES (?, NULL, 'IN', ?, ?, ?, ?, now() + (? * interval '1 second'))";
+
+    // DNSSEC
+    private static final String SQL_DS =
+            "INSERT INTO ds_rdata (name, rrtype, rrclass, ttl, rdlength, key_tag, algorithm, digest_type, digest, expires_at) VALUES (?, 'DS', 'IN', ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
+
+    private static final String SQL_DNSKEY =
+            "INSERT INTO dnskey_rdata (name, rrtype, rrclass, ttl, rdlength, flags, protocol, algorithm, publickey, expires_at) VALUES (?, 'DNSKEY', 'IN', ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
+
+    private static final String SQL_RRSIG =
+            "INSERT INTO rrsig_rdata (name, rrtype, rrclass, ttl, rdlength, type_covered, algorithm, labels, original_ttl, expiration, inception, key_tag, signer_name, signature, expires_at) VALUES (?, 'RRSIG', 'IN', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
+
+    private static final String SQL_NSEC =
+            "INSERT INTO nsec_rdata (name, rrtype, rrclass, ttl, rdlength, next_domain_name, type_bit_maps, expires_at) VALUES (?, 'NSEC', 'IN', ?, ?, ?, ?, now() + (? * interval '1 second'))";
+
+    private static final String SQL_NSEC3 =
+            "INSERT INTO nsec3_rdata (name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt, next_hashed_owner_name, type_bit_maps, expires_at) VALUES (?, 'NSEC3', 'IN', ?, ?, ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
+
+    private static final String SQL_NSEC3PARAM =
+            "INSERT INTO nsec3param_rdata (name, rrtype, rrclass, ttl, rdlength, hash_algorithm, flags, iterations, salt, expires_at) VALUES (?, 'NSEC3PARAM', 'IN', ?, ?, ?, ?, ?, ?, now() + (? * interval '1 second'))";
 
     private static final String DEL_A = "DELETE FROM a_rdata WHERE LOWER(name) = ?";
     private static final String DEL_AAAA = "DELETE FROM aaaa_rdata WHERE LOWER(name) = ?";
@@ -35,9 +57,30 @@ public class CacheHandler {
     private static final String DEL_PTR = "DELETE FROM ptr_rdata WHERE LOWER(name) = ?";
     private static final String DEL_SOA = "DELETE FROM soa_rdata WHERE LOWER(name) = ?";
     private static final String DEL_TXT = "DELETE FROM txt_rdata WHERE LOWER(name) = ?";
+    private static final String DEL_UNKNOWN = "DELETE FROM unknown_rdata WHERE LOWER(name) = ? AND type = ?";
+    private static final String DEL_DNSKEY = "DELETE FROM dnskey_rdata WHERE LOWER(name) = ?";
+    private static final String DEL_DS = "DELETE FROM ds_rdata WHERE LOWER(name) = ?";
+    private static final String DEL_RRSIG = "DELETE FROM rrsig_rdata WHERE LOWER(name) = ?";
+    private static final String DEL_NSEC = "DELETE FROM nsec_rdata WHERE LOWER(name) = ?";
+    private static final String DEL_NSEC3 = "DELETE FROM nsec3_rdata WHERE LOWER(name) = ?";
+    private static final String DEL_NSEC3PARAM = "DELETE FROM nsec3param_rdata WHERE LOWER(name) = ?";
 
     private static final String[] ALL_RDATA_TABLES = {
-        "a_rdata", "aaaa_rdata", "cname_rdata", "mx_rdata", "ns_rdata", "ptr_rdata", "soa_rdata", "txt_rdata"
+        "a_rdata",
+        "aaaa_rdata",
+        "cname_rdata",
+        "mx_rdata",
+        "ns_rdata",
+        "ptr_rdata",
+        "soa_rdata",
+        "txt_rdata",
+        "dnskey_rdata",
+        "ds_rdata",
+        "rrsig_rdata",
+        "nsec_rdata",
+        "nsec3_rdata",
+        "nsec3param_rdata",
+        "unknown_rdata"
     };
 
     @FunctionalInterface
@@ -59,8 +102,7 @@ public class CacheHandler {
         return Math.max(1, seconds);
     }
 
-    private ResourceRecord[] lookupType(String name, String sql, RRType type, RDataRowMapper mapper)
-            throws SQLException {
+    private ResourceRecord[] lookupType(String name, String sql, int type, RDataRowMapper mapper) throws SQLException {
         List<ResourceRecord> records = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, name);
@@ -88,17 +130,17 @@ public class CacheHandler {
      * @return
      * @throws SQLException
      */
-    public ResourceRecord[] lookup(String name, RRType type) throws SQLException {
+    public ResourceRecord[] lookup(String name, int type) throws SQLException {
         name = name.toLowerCase();
         switch (type) {
-            case A:
+            case RRType.A:
                 return lookupType(
                         name, "SELECT * FROM a_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.A, rs -> {
                             RDataA rdata = new RDataA();
                             rdata.setAddress(rs.getBytes("ipv4"));
                             return rdata;
                         });
-            case AAAA:
+            case RRType.AAAA:
                 return lookupType(
                         name,
                         "SELECT * FROM aaaa_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -108,7 +150,7 @@ public class CacheHandler {
                             rdata.setAddress(rs.getBytes("ipv6"));
                             return rdata;
                         });
-            case CNAME:
+            case RRType.CNAME:
                 return lookupType(
                         name,
                         "SELECT * FROM cname_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -118,7 +160,7 @@ public class CacheHandler {
                             rdata.setCname(rs.getString("cname").split("\\."));
                             return rdata;
                         });
-            case MX:
+            case RRType.MX:
                 return lookupType(
                         name, "SELECT * FROM mx_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.MX, rs -> {
                             RDataMX rdata = new RDataMX();
@@ -126,14 +168,14 @@ public class CacheHandler {
                             rdata.setExchange(rs.getString("exchange").split("\\."));
                             return rdata;
                         });
-            case NS:
+            case RRType.NS:
                 return lookupType(
                         name, "SELECT * FROM ns_rdata WHERE LOWER(name) = ? AND now() < expires_at", RRType.NS, rs -> {
                             RDataNS rdata = new RDataNS();
                             rdata.setNsdname(rs.getString("nsdname").split("\\."));
                             return rdata;
                         });
-            case PTR:
+            case RRType.PTR:
                 return lookupType(
                         name,
                         "SELECT * FROM ptr_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -143,7 +185,7 @@ public class CacheHandler {
                             rdata.setPtrdname(rs.getString("ptrdname").split("\\."));
                             return rdata;
                         });
-            case SOA:
+            case RRType.SOA:
                 return lookupType(
                         name,
                         "SELECT * FROM soa_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -159,7 +201,7 @@ public class CacheHandler {
                             rdata.setMinimum(rs.getLong("minimum"));
                             return rdata;
                         });
-            case TXT:
+            case RRType.TXT:
                 return lookupType(
                         name,
                         "SELECT * FROM txt_rdata WHERE LOWER(name) = ? AND now() < expires_at",
@@ -169,8 +211,82 @@ public class CacheHandler {
                             rdata.setTxtdata((String[]) rs.getArray("txtdata").getArray());
                             return rdata;
                         });
+            case RRType.DS:
+                return lookupType(
+                        name,
+                        "SELECT * FROM ds_rdata WHERE LOWER(name) = ? AND now() < expires_at",
+                        RRType.DS,
+                        rs -> new RDataDS(
+                                rs.getInt("key_tag"),
+                                rs.getInt("algorithm"),
+                                rs.getInt("digest_type"),
+                                rs.getBytes("digest")));
+
+            case RRType.DNSKEY:
+                return lookupType(
+                        name,
+                        "SELECT * FROM dnskey_rdata WHERE LOWER(name) = ? AND now() < expires_at",
+                        RRType.DNSKEY,
+                        rs -> new RDataDNSKEY(
+                                rs.getInt("flags"),
+                                rs.getInt("protocol"),
+                                rs.getInt("algorithm"),
+                                rs.getBytes("publickey")));
+
+            case RRType.RRSIG:
+                return lookupType(
+                        name,
+                        "SELECT * FROM rrsig_rdata WHERE LOWER(name) = ? AND now() < expires_at",
+                        RRType.RRSIG,
+                        rs -> new RDataRRSIG(
+                                rs.getInt("type_covered"),
+                                rs.getInt("algorithm"),
+                                rs.getInt("labels"),
+                                rs.getLong("original_ttl"),
+                                rs.getLong("expiration"),
+                                rs.getLong("inception"),
+                                rs.getInt("key_tag"),
+                                rs.getString("signer_name").split("\\."),
+                                rs.getBytes("signature")));
+
+            case RRType.NSEC:
+                return lookupType(
+                        name,
+                        "SELECT * FROM nsec_rdata WHERE LOWER(name) = ? AND now() < expires_at",
+                        RRType.NSEC,
+                        rs -> new RDataNSEC(
+                                rs.getString("next_domain_name").split("\\."), rs.getBytes("type_bit_maps")));
+
+            case RRType.NSEC3:
+                return lookupType(
+                        name,
+                        "SELECT * FROM nsec3_rdata WHERE LOWER(name) = ? AND now() < expires_at",
+                        RRType.NSEC3,
+                        rs -> new RDataNSEC3(
+                                rs.getInt("hash_algorithm"),
+                                rs.getInt("flags"),
+                                rs.getInt("iterations"),
+                                rs.getBytes("salt"),
+                                rs.getBytes("next_hashed_owner_name"),
+                                rs.getBytes("type_bit_maps")));
+
+            case RRType.NSEC3PARAM:
+                return lookupType(
+                        name,
+                        "SELECT * FROM nsec3param_rdata WHERE LOWER(name) = ? AND now() < expires_at",
+                        RRType.NSEC3PARAM,
+                        rs -> new RDataNSEC3PARAM(
+                                rs.getInt("hash_algorithm"),
+                                rs.getInt("flags"),
+                                rs.getInt("iterations"),
+                                rs.getBytes("salt")));
             default:
-                return new ResourceRecord[0];
+                return lookupType(
+                        name,
+                        "SELECT * FROM unknown_rdata WHERE LOWER(name) = ? AND type = " + type
+                                + " AND now() < expires_at",
+                        type,
+                        rs -> new RDataUnknown(rs.getInt("type"), rs.getBytes("data")));
         }
     }
 
@@ -241,6 +357,79 @@ public class CacheHandler {
         stmt.setLong(5, r.getTtl());
     }
 
+    private void fillDS(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataDS rdata = (RDataDS) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setInt(4, rdata.getKeyTag());
+        stmt.setInt(5, rdata.getAlgorithm());
+        stmt.setInt(6, rdata.getDigestType());
+        stmt.setBytes(7, rdata.getDigest());
+        stmt.setLong(8, r.getTtl());
+    }
+
+    private void fillDNSKEY(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataDNSKEY rdata = (RDataDNSKEY) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setInt(4, rdata.getFlags());
+        stmt.setInt(5, rdata.getProtocol());
+        stmt.setInt(6, rdata.getAlgorithm());
+        stmt.setBytes(7, rdata.getPublickey());
+        stmt.setLong(8, r.getTtl());
+    }
+
+    private void fillRRSIG(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataRRSIG rdata = (RDataRRSIG) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setInt(4, rdata.getTypeCovered());
+        stmt.setInt(5, rdata.getAlgorithm());
+        stmt.setInt(6, rdata.getLabels());
+        stmt.setLong(7, rdata.getOriginalTtl());
+        stmt.setLong(8, rdata.getSignatureExpiration());
+        stmt.setLong(9, rdata.getSignatureInception());
+        stmt.setInt(10, rdata.getKeyTag());
+        stmt.setString(11, String.join(".", rdata.getSignerName()));
+        stmt.setBytes(12, rdata.getSignature());
+        stmt.setLong(13, r.getTtl());
+    }
+
+    private void fillNSEC(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataNSEC rdata = (RDataNSEC) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setString(4, String.join(".", rdata.getNextDomainName()));
+        stmt.setBytes(5, rdata.getTypeBitMaps());
+        stmt.setLong(6, r.getTtl());
+    }
+
+    private void fillNSEC3(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataNSEC3 rdata = (RDataNSEC3) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setInt(4, rdata.getHashAlgorithm());
+        stmt.setInt(5, rdata.getFlags());
+        stmt.setInt(6, rdata.getIterations());
+        stmt.setBytes(7, rdata.getSalt());
+        stmt.setBytes(8, rdata.getNextHashedOwnerName());
+        stmt.setBytes(9, rdata.getTypeBitMaps());
+        stmt.setLong(10, r.getTtl());
+    }
+
+    private void fillNSEC3PARAM(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataNSEC3PARAM rdata = (RDataNSEC3PARAM) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setInt(4, rdata.getHashAlgorithm());
+        stmt.setInt(5, rdata.getFlags());
+        stmt.setInt(6, rdata.getIterations());
+        stmt.setBytes(7, rdata.getSalt());
+        stmt.setLong(8, r.getTtl());
+    }
+
+    private void fillUnknown(PreparedStatement stmt, ResourceRecord r) throws SQLException {
+        RDataUnknown rdata = (RDataUnknown) r.getRdata();
+        fillCommon(stmt, r);
+        stmt.setInt(4, rdata.getType());
+        stmt.setBytes(5, rdata.toBytes());
+        stmt.setLong(6, r.getTtl());
+    }
+
     private void singleInsert(String insertSql, ResourceRecord r, StatementFiller filler) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
             filler.fill(stmt, r);
@@ -257,29 +446,52 @@ public class CacheHandler {
     void insert(ResourceRecord record) throws SQLException {
         delete(String.join(".", record.getName()).toLowerCase(), record.getType());
         switch (record.getType()) {
-            case A:
+            case RRType.A:
                 singleInsert(SQL_A, record, this::fillA);
                 break;
-            case AAAA:
+            case RRType.AAAA:
                 singleInsert(SQL_AAAA, record, this::fillAAAA);
                 break;
-            case CNAME:
+            case RRType.CNAME:
                 singleInsert(SQL_CNAME, record, this::fillCNAME);
                 break;
-            case MX:
+            case RRType.MX:
                 singleInsert(SQL_MX, record, this::fillMX);
                 break;
-            case NS:
+            case RRType.NS:
                 singleInsert(SQL_NS, record, this::fillNS);
                 break;
-            case PTR:
+            case RRType.PTR:
                 singleInsert(SQL_PTR, record, this::fillPTR);
                 break;
-            case SOA:
+            case RRType.SOA:
                 singleInsert(SQL_SOA, record, this::fillSOA);
                 break;
-            case TXT:
+            case RRType.TXT:
                 singleInsert(SQL_TXT, record, this::fillTXT);
+                break;
+            case RRType.DS:
+                singleInsert(SQL_DS, record, this::fillDS);
+                break;
+            case RRType.DNSKEY:
+                singleInsert(SQL_DNSKEY, record, this::fillDNSKEY);
+                break;
+            case RRType.RRSIG:
+                singleInsert(SQL_RRSIG, record, this::fillRRSIG);
+                break;
+            case RRType.NSEC:
+                singleInsert(SQL_NSEC, record, this::fillNSEC);
+                break;
+            case RRType.NSEC3:
+                singleInsert(SQL_NSEC3, record, this::fillNSEC3);
+                break;
+            case RRType.NSEC3PARAM:
+                singleInsert(SQL_NSEC3PARAM, record, this::fillNSEC3PARAM);
+                break;
+            default:
+                if (record.getRdata() instanceof RDataUnknown) {
+                    singleInsert(SQL_UNKNOWN, record, this::fillUnknown);
+                }
                 break;
         }
     }
@@ -291,52 +503,95 @@ public class CacheHandler {
      * @param type
      * @throws SQLException
      */
-    public void delete(String name, RRType type) throws SQLException {
+    public void delete(String name, int type) throws SQLException {
         name = name.toLowerCase();
         String sql;
         switch (type) {
-            case A:
+            case RRType.A:
                 sql = DEL_A;
                 break;
-            case AAAA:
+            case RRType.AAAA:
                 sql = DEL_AAAA;
                 break;
-            case CNAME:
+            case RRType.CNAME:
                 sql = DEL_CNAME;
                 break;
-            case MX:
+            case RRType.MX:
                 sql = DEL_MX;
                 break;
-            case NS:
+            case RRType.NS:
                 sql = DEL_NS;
                 break;
-            case PTR:
+            case RRType.PTR:
                 sql = DEL_PTR;
                 break;
-            case SOA:
+            case RRType.SOA:
                 sql = DEL_SOA;
                 break;
-            case TXT:
+            case RRType.TXT:
                 sql = DEL_TXT;
                 break;
+            case RRType.DNSKEY:
+                sql = DEL_DNSKEY;
+                break;
+            case RRType.DS:
+                sql = DEL_DS;
+                break;
+            case RRType.RRSIG:
+                sql = DEL_RRSIG;
+                break;
+            case RRType.NSEC:
+                sql = DEL_NSEC;
+                break;
+            case RRType.NSEC3:
+                sql = DEL_NSEC3;
+                break;
+            case RRType.NSEC3PARAM:
+                sql = DEL_NSEC3PARAM;
+                break;
             default:
-                return;
+                sql = DEL_UNKNOWN;
+                break;
         }
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, name);
+            if (typeIsUnknown(type)) {
+                stmt.setInt(2, type);
+            }
             stmt.executeUpdate();
         }
     }
 
+    private boolean typeIsUnknown(int type) {
+        return switch (type) {
+            case RRType.A,
+                    RRType.AAAA,
+                    RRType.CNAME,
+                    RRType.MX,
+                    RRType.NS,
+                    RRType.PTR,
+                    RRType.SOA,
+                    RRType.TXT,
+                    RRType.DNSKEY,
+                    RRType.DS,
+                    RRType.RRSIG,
+                    RRType.NSEC,
+                    RRType.NSEC3,
+                    RRType.NSEC3PARAM -> false;
+            default -> true;
+        };
+    }
     /**
      * Clears the database tables of all entries
      *
      * @throws SQLException
      */
     public void clearAll() throws SQLException {
-        try (var stmt = conn.createStatement()) {
-            stmt.execute(
-                    "TRUNCATE TABLE a_rdata, aaaa_rdata, cname_rdata, mx_rdata, ns_rdata, ptr_rdata, soa_rdata, txt_rdata");
+        try (Statement stmt = conn.createStatement()) {
+            for (String table : ALL_RDATA_TABLES) {
+                stmt.addBatch("TRUNCATE TABLE " + table);
+            }
+            stmt.executeBatch();
         }
     }
 
@@ -362,12 +617,23 @@ public class CacheHandler {
      * @throws SQLException
      */
     private void deleteGroupNames(String deleteSql, List<ResourceRecord> group) throws SQLException {
-        Set<String> names = new HashSet<>();
-        for (ResourceRecord r : group) names.add(String.join(".", r.getName()).toLowerCase());
+        Set<String> keys = new HashSet<>();
         try (PreparedStatement stmt = conn.prepareStatement(deleteSql)) {
-            for (String name : names) {
-                stmt.setString(1, name);
-                stmt.addBatch();
+            for (ResourceRecord r : group) {
+                String name = String.join(".", r.getName()).toLowerCase();
+                if (r.getRdata() instanceof RDataUnknown unknown) {
+                    String key = name + "|" + unknown.getType();
+                    if (keys.add(key)) {
+                        stmt.setString(1, name);
+                        stmt.setInt(2, unknown.getType());
+                        stmt.addBatch();
+                    }
+                } else {
+                    if (keys.add(name)) {
+                        stmt.setString(1, name);
+                        stmt.addBatch();
+                    }
+                }
             }
             stmt.executeBatch();
         }
@@ -401,7 +667,7 @@ public class CacheHandler {
      * @throws SQLException
      */
     public void insertAll(ResourceRecord[] records) throws SQLException {
-        Map<RRType, List<ResourceRecord>> byType = new EnumMap<>(RRType.class);
+        Map<Integer, List<ResourceRecord>> byType = new HashMap<>();
         for (ResourceRecord record : records) {
             byType.computeIfAbsent(record.getType(), k -> new ArrayList<>()).add(record);
         }
@@ -416,6 +682,24 @@ public class CacheHandler {
             batchInsert(byType.getOrDefault(RRType.PTR, List.of()), DEL_PTR, SQL_PTR, this::fillPTR);
             batchInsert(byType.getOrDefault(RRType.SOA, List.of()), DEL_SOA, SQL_SOA, this::fillSOA);
             batchInsert(byType.getOrDefault(RRType.TXT, List.of()), DEL_TXT, SQL_TXT, this::fillTXT);
+            batchInsert(byType.getOrDefault(RRType.DS, List.of()), DEL_DS, SQL_DS, this::fillDS);
+            batchInsert(byType.getOrDefault(RRType.DNSKEY, List.of()), DEL_DNSKEY, SQL_DNSKEY, this::fillDNSKEY);
+            batchInsert(byType.getOrDefault(RRType.RRSIG, List.of()), DEL_RRSIG, SQL_RRSIG, this::fillRRSIG);
+            batchInsert(byType.getOrDefault(RRType.NSEC, List.of()), DEL_NSEC, SQL_NSEC, this::fillNSEC);
+            batchInsert(byType.getOrDefault(RRType.NSEC3, List.of()), DEL_NSEC3, SQL_NSEC3, this::fillNSEC3);
+            batchInsert(
+                    byType.getOrDefault(RRType.NSEC3PARAM, List.of()),
+                    DEL_NSEC3PARAM,
+                    SQL_NSEC3PARAM,
+                    this::fillNSEC3PARAM);
+
+            List<ResourceRecord> unknownRecords = new ArrayList<>();
+            for (Map.Entry<Integer, List<ResourceRecord>> entry : byType.entrySet()) {
+                if (typeIsUnknown(entry.getKey())) {
+                    unknownRecords.addAll(entry.getValue());
+                }
+            }
+            batchInsert(unknownRecords, DEL_UNKNOWN, SQL_UNKNOWN, this::fillUnknown);
 
             conn.commit();
         } catch (SQLException e) {

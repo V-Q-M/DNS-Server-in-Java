@@ -14,15 +14,9 @@ import java.util.Arrays;
 
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
-    // This will need to be negotiated in edns
-    private int udpResponseSizeLimit = 512;
 
     public UDPServer(ServerContext context) {
         super(context);
-    }
-
-    public void setUdpResponseSizeLimit(int limit) {
-        this.udpResponseSizeLimit = limit;
     }
 
     @Override
@@ -96,13 +90,25 @@ public class UDPServer extends AbstractServer {
     Specialized version of handleQuery which also checks for truncated response
      */
     public byte[] handleUDPQuery(byte[] data) {
-        byte[] result = handleQuery(data);
+        DNSPacket query = DNSPacket.fromBytes(data);
 
-        if (result.length <= udpResponseSizeLimit) {
+        // Set 512 Bytes as the default limit for UDP responses
+        int effectiveLimit = 512;
+
+        // If the query uses EDNS, use the UDP size specified in the OPT record
+        // Must not be larger than the server UDP size limit defined in the server config
+        if (query.getEdnsRecord() != null) {
+            effectiveLimit =
+                    Math.max(512, Math.min(query.getEdnsRecord().getRequestedPayloadSize(), this.ednsUdpSizeLimit));
+        }
+
+        System.out.println(effectiveLimit);
+
+        byte[] result = handleQuery(data);
+        if (result.length <= effectiveLimit) {
             return result;
         }
 
-        DNSPacket query = DNSPacket.fromBytes(data);
         DNSPacket response = DNSPacket.fromBytes(result);
 
         return responseBuilder.truncatedUDPResponse(query, response.isAa()).toBytes();

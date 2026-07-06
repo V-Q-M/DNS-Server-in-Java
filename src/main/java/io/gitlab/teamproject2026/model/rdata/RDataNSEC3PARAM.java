@@ -1,7 +1,7 @@
-package io.gitlab.teamproject2026.model.rdata.dnssec;
+package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.rdata.RData;
+
 import java.util.HexFormat;
 
 /**
@@ -30,7 +30,7 @@ public record RDataNSEC3PARAM(int hashAlgorithm, int flags, int iterations, byte
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.NSEC3PARAM;
     }
 

@@ -6,7 +6,7 @@ public record DNSEvent(
         DNSEventType eventType,
         String id,
         String domain,
-        RRType qType,
+        int qType,
         long latencyMs,
         ResponseSource source,
         // debug fields
@@ -15,14 +15,14 @@ public record DNSEvent(
         String upstream,
         Integer attempt,
         String error,
-        RCode rCode) {
+        int rCode) {
 
     // For detailed logging of query/response
     public static DNSEvent event(
             DNSEventType type,
             String id,
             String domain,
-            RRType qType,
+            int qType,
             long latencyMs,
             ResponseSource source,
             String strategy,
@@ -30,7 +30,7 @@ public record DNSEvent(
             String nsHost,
             int attempt,
             String error,
-            RCode rCode) {
+            int rCode) {
         return new DNSEvent(
                 type, id, domain, qType, latencyMs, source, strategy, nsName, nsHost, attempt, error, rCode);
     }

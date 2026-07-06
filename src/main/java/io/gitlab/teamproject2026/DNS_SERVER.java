@@ -95,6 +95,15 @@ public class DNS_SERVER {
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.INFO,
                 true);
+
+        // Set and log the EDNS UDP size limit specified in the named.conf file
+        int ednsUdpSize = options.ednsUdpSize();
+        logger.log(
+                (GREEN + "[SERVER] Server UDP size limit for EDNS: " + ednsUdpSize + " Bytes"),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.INFO,
+                true);
+
         ForwardMode forwardMode = options.forwardMode(); // Determines if we should only forward
         if (forwardMode == null) {
             logger.log(
@@ -121,9 +130,9 @@ public class DNS_SERVER {
                 resolverOptions.maxRetries(),
                 resolverOptions.retryDelay(),
                 resolverOptions.strategy());
-        RecursiveResolver recursiveResolver =
-                new RecursiveResolver(cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay());
-        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed);
+        RecursiveResolver recursiveResolver = new RecursiveResolver(
+                cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay(), ednsUdpSize);
+        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed, ednsUdpSize);
         DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(
                 cacheHandler,
                 zoneHandler,
@@ -134,7 +143,8 @@ public class DNS_SERVER {
                 zoneCatalog,
                 minimalResponses,
                 forwardMode,
-                startTime);
+                startTime,
+                ednsUdpSize);
 
         InetAddress bindAddress;
         try {
@@ -163,6 +173,7 @@ public class DNS_SERVER {
                 zoneCatalog,
                 portNumber,
                 bindAddress,
+                ednsUdpSize,
                 startTime);
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();
@@ -249,7 +260,7 @@ public class DNS_SERVER {
                                     DNSEventType.CACHE_ERROR,
                                     null,
                                     null,
-                                    null,
+                                    -1,
                                     System.currentTimeMillis() - startTime,
                                     ResponseSource.CACHE,
                                     null,
@@ -257,7 +268,7 @@ public class DNS_SERVER {
                                     null,
                                     -1,
                                     "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
-                                    null)
+                                    -1)
                             .toHumanReadable()),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR);
@@ -286,7 +297,7 @@ public class DNS_SERVER {
                                                     DNSEventType.CACHE_ERROR,
                                                     null,
                                                     null,
-                                                    null,
+                                                    -1,
                                                     System.currentTimeMillis() - cleanUpStarTime,
                                                     ResponseSource.CACHE,
                                                     null,
@@ -294,7 +305,7 @@ public class DNS_SERVER {
                                                     null,
                                                     -1,
                                                     "[SERVER-ERROR] Connection to cache Server has been lost, assume internal Server error",
-                                                    null)
+                                                    -1)
                                             .toHumanReadable()),
                                     LoggingCategoryType.DEFAULT,
                                     LoggingSeverity.ERROR);

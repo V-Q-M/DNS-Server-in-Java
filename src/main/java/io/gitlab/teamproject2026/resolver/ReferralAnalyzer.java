@@ -16,8 +16,8 @@ public class ReferralAnalyzer {
         FORMERR
     }
 
-    public static Classification classify(DNSPacket packet, RRType querytype) {
-        RCode rcode = packet.getRcode();
+    public static Classification classify(DNSPacket packet, int querytype) {
+        int rcode = packet.getRcode();
 
         if (rcode == RCode.SERVFAIL) return Classification.SERVFAIL;
         if (rcode == RCode.FORMERR) return Classification.FORMERR;

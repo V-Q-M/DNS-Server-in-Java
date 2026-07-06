@@ -9,7 +9,7 @@ import io.gitlab.teamproject2026.model.RRType;
  * Represents a DNS SOA (Start of Authority) record. Contains administrative information about a DNS zone. Includes
  * primary nameserver, responsible email, and zone serial number.
  */
-public class RDataSOA implements RData {
+public final class RDataSOA implements RData {
     private String[] mname;
     private String[] rname;
     private long serial;
@@ -31,7 +31,7 @@ public class RDataSOA implements RData {
     }
 
     @Override
-    public RRType getType() {
+    public int getType() {
         return RRType.SOA;
     }
 
