@@ -38,12 +38,14 @@ public class OPTPseudoResourceRecord extends ResourceRecord {
         this.rdata = new RDataOPTOption(bytes, byteIndex, rdlengthComp);
         this.lastProcessedByte = byteIndex + rdlengthComp;
     }
+
     @Override
-    public int getRrclass(){
+    public int getRrclass() {
         return requestedPayloadSize;
     }
+
     @Override
-    public long getTtl(){
+    public long getTtl() {
         return extendedRcode;
     }
 

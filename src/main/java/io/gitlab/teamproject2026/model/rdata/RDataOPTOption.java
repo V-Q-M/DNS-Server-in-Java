@@ -9,6 +9,7 @@ public final class RDataOPTOption implements RData {
     private Map<Integer, byte[]> options = new HashMap<>();
 
     public RDataOPTOption() {}
+
     public RDataOPTOption(Map<Integer, byte[]> options) {
         this.options = options;
     }
@@ -22,15 +23,15 @@ public final class RDataOPTOption implements RData {
         }
     }
 
-    public Map<Integer, byte[]> getOptions(){
+    public Map<Integer, byte[]> getOptions() {
         return options;
     }
 
-    public byte[] getOption(Integer code){
+    public byte[] getOption(Integer code) {
         return options.get(code);
     }
 
-    public void setOptions(Map<Integer, byte[]> options){
+    public void setOptions(Map<Integer, byte[]> options) {
         this.options = options;
     }
 

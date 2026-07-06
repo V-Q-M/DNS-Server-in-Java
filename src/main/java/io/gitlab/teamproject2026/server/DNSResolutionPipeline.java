@@ -202,19 +202,20 @@ public class DNSResolutionPipeline {
                             }
                         }
                         // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
-                        logger.log(
-                                ("[ZONE] Checking for dnssec..."),
-                                LoggingCategoryType.GENERAL,
-                                LoggingSeverity.DEBUG,
-                                true
-                        );
-                        logger.log(
-                                ("[ZONE] DNSSEC = " + packet.getEdnsRecord().getDNSSecOK()),
-                                LoggingCategoryType.GENERAL,
-                                LoggingSeverity.DEBUG,
-                                true
-                        );
-                        if (packet.getEdnsRecord().getDNSSecOK()) {
+                        if (packet.getEdnsRecord() != null) {
+                            logger.log(
+                                    ("[ZONE] Checking for dnssec..."),
+                                    LoggingCategoryType.GENERAL,
+                                    LoggingSeverity.DEBUG,
+                                    true);
+                            logger.log(
+                                    ("[ZONE] DNSSEC = " + packet.getEdnsRecord().getDNSSecOK()),
+                                    LoggingCategoryType.GENERAL,
+                                    LoggingSeverity.DEBUG,
+                                    true);
+                        }
+                        if (packet.getEdnsRecord() != null
+                                && packet.getEdnsRecord().getDNSSecOK()) {
                             List<ResourceRecord> signatures = zoneHandler.lookup(currentName, RRType.RRSIG, zone);
                             for (ResourceRecord signature : signatures) {
                                 if (signature.getRdata() instanceof RDataRRSIG rrsig) {
@@ -306,7 +307,9 @@ public class DNSResolutionPipeline {
         // This preserves zone answers and prevents forwardigns authoritative domains
         DNSPacket unresolvedPacket = new DNSPacket();
         unresolvedPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
-        unresolvedPacket.setEdnsRecord(ednsRecord);
+        if (ednsRecord != null) {
+            unresolvedPacket.setEdnsRecord(ednsRecord);
+        }
 
         try {
             DNSPayload cacheResult = queryCache(unresolvedPacket);
@@ -478,19 +481,19 @@ public class DNSResolutionPipeline {
                         }
                     }
                     // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
-                    logger.log(
-                            ("[CACHE] Checking for dnssec..."),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.DEBUG,
-                            true
-                    );
-                    logger.log(
-                            ("[CACHE] DNSSEC = " + query.getEdnsRecord().getDNSSecOK()),
-                            LoggingCategoryType.GENERAL,
-                            LoggingSeverity.DEBUG,
-                            true
-                    );
-                    if (query.getEdnsRecord().getDNSSecOK()) {
+                    if (query.getEdnsRecord() != null) {
+                        logger.log(
+                                ("[CACHE] Checking for dnssec..."),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.DEBUG,
+                                true);
+                        logger.log(
+                                ("[CACHE] DNSSEC = " + query.getEdnsRecord().getDNSSecOK()),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.DEBUG,
+                                true);
+                    }
+                    if (query.getEdnsRecord() != null && query.getEdnsRecord().getDNSSecOK()) {
                         ResourceRecord[] signatures = cacheHandler.lookup(qname, RRType.RRSIG);
                         if (signatures.length == 0) {
                             answer.clear();
@@ -609,7 +612,9 @@ public class DNSResolutionPipeline {
         // this way we can always receive larger UDP responses from upstream
         // uncachedOOPacket.setEdnsRecord(
         //        new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
-        uncachedOOPacket.setEdnsRecord(ednsRecord);
+        if (ednsRecord != null) {
+            uncachedOOPacket.setEdnsRecord(ednsRecord);
+        }
 
         // Get Stub/recursive response
         byte[] rawResponse = null;
@@ -675,13 +680,15 @@ public class DNSResolutionPipeline {
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         // ----------------------------ReferralAnalyzer-------------------------------------------------
-        int queryType = payload.notResolved().isEmpty() ? RRType.A : payload.notResolved().getFirst().getQtype();
+        int queryType = payload.notResolved().isEmpty()
+                ? RRType.A
+                : payload.notResolved().getFirst().getQtype();
 
         logger.log(
-                ("[UPSTREAM] rcode=" + parsedResponse.getRcode() + " answers=" + parsedResponse.getAnswerSections().length + " qtype=" + queryType),
+                ("[UPSTREAM] rcode=" + parsedResponse.getRcode() + " answers="
+                        + parsedResponse.getAnswerSections().length + " qtype=" + queryType),
                 LoggingCategoryType.GENERAL,
-                LoggingSeverity.DEBUG
-        );
+                LoggingSeverity.DEBUG);
         // stub response
         ReferralAnalyzer.Classification classification = ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
