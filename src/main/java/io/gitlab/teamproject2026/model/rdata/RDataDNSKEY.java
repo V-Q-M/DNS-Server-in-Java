@@ -9,17 +9,17 @@ import java.util.Base64;
  * algorithm, and public key material.
  */
 public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publickey) implements RData {
-    public RDataDNSKEY(byte[] bytes, int byteIndex) {
-        if (bytes.length - byteIndex < 4) {
+    public RDataDNSKEY(byte[] bytes) {
+        if (bytes.length < 4) {
             throw new IllegalArgumentException("DNSKEY RDATA must be at least 4 bytes");
         }
-        int flags = DNSParser.as16BitInt(bytes[byteIndex], bytes[byteIndex + 1]);
+        int flags = DNSParser.as16BitInt(bytes[0], bytes[1]);
 
-        int protocol = (bytes[byteIndex + 2] & 0xff);
-        int algorithm = (bytes[byteIndex + 3] & 0xff);
+        int protocol = (bytes[2] & 0xff);
+        int algorithm = (bytes[3] & 0xff);
 
-        byte[] publicKey = new byte[bytes.length - byteIndex - 4];
-        System.arraycopy(bytes, byteIndex + 4, publicKey, 0, publicKey.length);
+        byte[] publicKey = new byte[bytes.length - 4];
+        System.arraycopy(bytes, 4, publicKey, 0, publicKey.length);
 
         this(flags, protocol, algorithm, publicKey);
     }

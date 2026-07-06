@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
+import java.util.Arrays;
 
 /** Interface for all DNS RDATA types. Each implementing class defines its own type-specific fields. */
 public sealed interface RData
@@ -44,7 +45,13 @@ public sealed interface RData
      * @return a new ResourceRecord instance populated with the parsed data
      */
     static RData fromBytes(byte[] bytes, int byteIndex, int rdlength, int rrType) {
+        if (byteIndex < 0 || rdlength < 0 || byteIndex + rdlength > bytes.length) {
+            throw new IllegalArgumentException("RDATA exceeds packet bounds");
+        }
+        byte[] rdata = Arrays.copyOfRange(bytes, byteIndex, byteIndex + rdlength);
+
         return switch (rrType) {
+            // These can use the complete packet for decompression
             case RRType.A -> RDataA.fromBytes(bytes, byteIndex);
             case RRType.AAAA -> RDataAAAA.fromBytes(bytes, byteIndex);
             case RRType.CNAME -> RDataCNAME.fromBytes(bytes, byteIndex);
@@ -54,12 +61,14 @@ public sealed interface RData
             case RRType.SOA -> RDataSOA.fromBytes(bytes, byteIndex);
             case RRType.TXT -> RDataTXT.fromBytes(bytes, byteIndex, rdlength);
             case RRType.OPT -> new RDataOPTOption(bytes, byteIndex, rdlength);
-            case RRType.DS -> new RDataDS(bytes, byteIndex);
-            case RRType.RRSIG -> new RDataRRSIG(bytes, byteIndex);
-            case RRType.NSEC -> new RDataNSEC(bytes, byteIndex);
-            case RRType.NSEC3 -> new RDataNSEC3(bytes, byteIndex);
-            case RRType.NSEC3PARAM -> new RDataNSEC3PARAM(bytes, byteIndex);
-            case RRType.DNSKEY -> new RDataDNSKEY(bytes, byteIndex);
+            case RRType.RRSIG -> new RDataRRSIG(bytes, byteIndex, rdlength);
+
+            // These don't need the complete packet
+            case RRType.DS -> new RDataDS(rdata);
+            case RRType.NSEC -> new RDataNSEC(rdata);
+            case RRType.NSEC3 -> new RDataNSEC3(rdata);
+            case RRType.NSEC3PARAM -> new RDataNSEC3PARAM(rdata);
+            case RRType.DNSKEY -> new RDataDNSKEY(rdata);
             default -> new RDataUnknown(rrType, bytes, byteIndex, rdlength);
         };
     }

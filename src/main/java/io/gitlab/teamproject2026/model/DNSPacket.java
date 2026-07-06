@@ -440,7 +440,8 @@ public class DNSPacket {
 
         dnsPacket.setRa(DNSParser.extractBit(bytes[3], 0));
         dnsPacket.setZ(DNSParser.subBits(bytes[3], 1, 4));
-        dnsPacket.setRcode(DNSParser.subBits(bytes[3], 4, 7));
+        /// dnsPacket.setRcode(DNSParser.subBits(bytes[3], 4, 7));
+        dnsPacket.setRcode(bytes[3] & 0x0F);
 
         dnsPacket.setQdcount(DNSParser.as16BitInt(bytes[4], bytes[5]));
         dnsPacket.setAncount(DNSParser.as16BitInt(bytes[6], bytes[7]));

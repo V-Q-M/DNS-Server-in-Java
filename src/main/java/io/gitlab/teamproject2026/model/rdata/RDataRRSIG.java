@@ -21,7 +21,15 @@ public record RDataRRSIG(
         String[] signerName,
         byte[] signature)
         implements RData {
-    public RDataRRSIG(byte[] bytes, int byteIndex) {
+    public RDataRRSIG(byte[] bytes, int byteIndex, int rdlength) {
+        if (byteIndex < 0 || rdlength < 0 || byteIndex + rdlength > bytes.length) {
+            throw new IllegalArgumentException("RRSIG RDATA exceeds packet bounds");
+        }
+        if (rdlength < 19) {
+            throw new IllegalArgumentException("RRSIG RDATA too short");
+        }
+
+        int rdataEnd = byteIndex + rdlength;
         int typeCovered = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
 
         int algorithm = bytes[byteIndex++] & 0xFF;
@@ -35,11 +43,21 @@ public record RDataRRSIG(
 
         int keyTag = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
 
+        if (byteIndex >= rdataEnd) {
+            throw new IllegalArgumentException("RRSIG missing signer name");
+        }
+
         String[] signerName = DNSParser.parseName(bytes, byteIndex);
 
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+        if (byteIndex >= rdataEnd) {
+            throw new IllegalArgumentException("RRSIG missing signer name");
+        }
 
-        byte[] signature = Arrays.copyOfRange(bytes, byteIndex, bytes.length);
+        byte[] signature = Arrays.copyOfRange(bytes, byteIndex, rdataEnd);
+        if (signature.length == 0) {
+            throw new IllegalArgumentException("RRSIG missing signature");
+        }
 
         this(
                 typeCovered,

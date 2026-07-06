@@ -8,7 +8,8 @@ import java.util.HexFormat;
  * algorithm, flags, iterations, and salt value.
  */
 public record RDataNSEC3PARAM(int hashAlgorithm, int flags, int iterations, byte[] salt) implements RData {
-    public RDataNSEC3PARAM(byte[] bytes, int byteIndex) {
+    public RDataNSEC3PARAM(byte[] bytes) {
+        int byteIndex = 0;
         if (bytes.length < 5) {
             throw new IllegalArgumentException("NSEC3PARAM RDATA too short");
         }

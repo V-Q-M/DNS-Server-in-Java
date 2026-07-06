@@ -166,13 +166,13 @@ public class RecursiveResolver extends AbstractResolver {
 
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
-                case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
+                case ANSWER, NODATA, NXDOMAIN -> {
                     logger.logTrace("Recursive resolver has finished successfully", queryPacket);
                     return response.toBytes();
                 }
                 // This server could not answer: try the next one.
-                case SERVFAIL -> {
-                    logger.logTrace("Server returned " + verdict.SERVFAIL + ", retry", queryPacket);
+                case SERVFAIL, FORMERR, REFUSED -> {
+                    logger.logTrace("Server returned " + verdict + ", retry", queryPacket);
                     continue;
                 }
                 // Delegation: resolve any missing glue, add the servers, keep walking down.

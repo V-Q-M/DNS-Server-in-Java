@@ -119,7 +119,7 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace("Could not resolve query from Zones, try Cache instead", oopPacket);
             }
 
-            payload = resolutionPipeline.cacheLookUp(payload, id);
+            payload = resolutionPipeline.cacheLookUp(payload, oopPacket.getEdnsRecord(), id);
 
             if (payload.notResolved().isEmpty()) {
                 logger.logTrace("Query resolved from Cache", oopPacket);
@@ -161,7 +161,7 @@ public abstract class AbstractServer implements Runnable {
         // Stub/RecursiveResolver should only be queried if there are queries not answered by the
         // cache and recursion is allowed
         if (recursionAllowed && !payload.notResolved().isEmpty()) {
-            payload = resolutionPipeline.resolveUpstream(payload, data);
+            payload = resolutionPipeline.resolveUpstream(payload, oopPacket.getEdnsRecord(), data);
         }
 
         logger.logTrace("Query was successfully resolved", oopPacket);
@@ -170,6 +170,10 @@ public abstract class AbstractServer implements Runnable {
             answerString += "\n\t\t" + answer.getRdata().toString();
         }
         logger.logTrace("Answered: " + answerString, oopPacket);
+
+        if (!payload.notResolved().isEmpty()) {
+            return responseBuilder.servFail(payload, oopPacket).toBytes();
+        }
 
         return responseBuilder.noError(payload, oopPacket, authoritative).toBytes();
     }

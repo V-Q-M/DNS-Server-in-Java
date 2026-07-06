@@ -46,6 +46,16 @@ public class DNSResponseBuilder {
         return response;
     }
 
+    public DNSPacket servFail(DNSPayload payload, DNSPacket query) {
+        DNSPacket response = baseResponse(query);
+        response.setAa(false);
+        response.setRcode(RCode.SERVFAIL);
+        response.setAnswerSections(payload.answer().toArray(new ResourceRecord[0]));
+        response.setAuthoritySections(payload.authority().toArray(new ResourceRecord[0]));
+        response.setAdditionalSections(payload.additional().toArray(new ResourceRecord[0]));
+        return response;
+    }
+
     public DNSPacket truncatedUDPResponse(DNSPacket query, boolean authoritative) {
         DNSPacket response = baseResponse(query);
         response.setAa(authoritative);

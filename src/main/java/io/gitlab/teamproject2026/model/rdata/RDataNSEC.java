@@ -11,7 +11,8 @@ import java.util.HexFormat;
  * existing RR types for an owner name.
  */
 public record RDataNSEC(String[] nextDomainName, byte[] typeBitMaps) implements RData {
-    public RDataNSEC(byte[] bytes, int byteIndex) {
+    public RDataNSEC(byte[] bytes) {
+        int byteIndex = 0;
         if (bytes.length == 0) {
             throw new IllegalArgumentException("NSEC RDATA cannot be empty");
         }

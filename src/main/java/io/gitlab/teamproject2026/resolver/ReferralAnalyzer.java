@@ -4,6 +4,7 @@ import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
+import io.gitlab.teamproject2026.model.rdata.RDataRRSIG;
 
 public class ReferralAnalyzer {
     public enum Classification {
@@ -13,7 +14,8 @@ public class ReferralAnalyzer {
         NXDOMAIN,
         NODATA,
         SERVFAIL,
-        FORMERR
+        FORMERR,
+        REFUSED
     }
 
     public static Classification classify(DNSPacket packet, int querytype) {
@@ -30,7 +32,12 @@ public class ReferralAnalyzer {
         boolean hasAuthority = authorities != null && authorities.length > 0;
 
         if (hasAnswer) {
-            for (ResourceRecord rr : answers) if (rr.getType() == querytype) return Classification.ANSWER;
+            for (ResourceRecord rr : answers) {
+                if (rr.getType() == querytype) return Classification.ANSWER;
+                if (querytype == RRType.RRSIG && rr.getRdata() instanceof RDataRRSIG) {
+                    return Classification.ANSWER;
+                }
+            }
             if (querytype != RRType.CNAME)
                 for (ResourceRecord rr : answers) if (rr.getType() == RRType.CNAME) return Classification.CNAME_CHAIN;
             return Classification.SERVFAIL;

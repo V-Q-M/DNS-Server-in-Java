@@ -202,15 +202,24 @@ public class DNSResolutionPipeline {
                             }
                         }
                         // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
-                        IO.println("[ZONE] Checking for dnssec...");
-                        IO.println("[ZONE] DNSSEC = " + packet.getEdnsRecord().getDNSSecOK());
+                        logger.log(
+                                ("[ZONE] Checking for dnssec..."),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.DEBUG,
+                                true
+                        );
+                        logger.log(
+                                ("[ZONE] DNSSEC = " + packet.getEdnsRecord().getDNSSecOK()),
+                                LoggingCategoryType.GENERAL,
+                                LoggingSeverity.DEBUG,
+                                true
+                        );
                         if (packet.getEdnsRecord().getDNSSecOK()) {
                             List<ResourceRecord> signatures = zoneHandler.lookup(currentName, RRType.RRSIG, zone);
                             for (ResourceRecord signature : signatures) {
                                 if (signature.getRdata() instanceof RDataRRSIG rrsig) {
                                     if (rrsig.getTypeCovered() == questionSection.getQtype()) {
                                         payload.answer().add(signature);
-                                        break;
                                     }
                                 }
                             }
@@ -289,7 +298,7 @@ public class DNSResolutionPipeline {
         return payload;
     }
 
-    public DNSPayload cacheLookUp(DNSPayload payload, String id) {
+    public DNSPayload cacheLookUp(DNSPayload payload, OPTPseudoResourceRecord ednsRecord, String id) {
         // query cache and safe results in payload
         long cacheStart = System.currentTimeMillis();
 
@@ -297,6 +306,7 @@ public class DNSResolutionPipeline {
         // This preserves zone answers and prevents forwardigns authoritative domains
         DNSPacket unresolvedPacket = new DNSPacket();
         unresolvedPacket.setQuestionSections(payload.notResolved().toArray(new QuestionSection[0]));
+        unresolvedPacket.setEdnsRecord(ednsRecord);
 
         try {
             DNSPayload cacheResult = queryCache(unresolvedPacket);
@@ -429,6 +439,11 @@ public class DNSResolutionPipeline {
             // for each query, check if the requested RR is cached, if not add to the
             // Queries sent to the StubResolver
             for (QuestionSection request : query.getQuestionSections()) {
+                // Signatures can be cached sparsely. Better to resolve fresh when asking for all RRSIG
+                if (request.getQtype() == RRType.RRSIG) {
+                    notCached.add(request);
+                    continue;
+                }
                 String qname = String.join(".", request.getName());
                 ResourceRecord[] cachedRecords = cacheHandler.lookup(qname, request.getQtype());
 
@@ -460,6 +475,35 @@ public class DNSResolutionPipeline {
                             default:
                                 answer.add(record);
                                 break;
+                        }
+                    }
+                    // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
+                    logger.log(
+                            ("[CACHE] Checking for dnssec..."),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.DEBUG,
+                            true
+                    );
+                    logger.log(
+                            ("[CACHE] DNSSEC = " + query.getEdnsRecord().getDNSSecOK()),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.DEBUG,
+                            true
+                    );
+                    if (query.getEdnsRecord().getDNSSecOK()) {
+                        ResourceRecord[] signatures = cacheHandler.lookup(qname, RRType.RRSIG);
+                        if (signatures.length == 0) {
+                            answer.clear();
+                            notCached.add(request);
+                            continue;
+                        }
+                        for (ResourceRecord signature : signatures) {
+                            if (signature.getRdata() instanceof RDataRRSIG rrsig) {
+                                if (rrsig.getTypeCovered() == request.getQtype()) {
+                                    answer.add(signature);
+                                    break;
+                                }
+                            }
                         }
                     }
                 } else if (request.getQtype() != RRType.CNAME) {
@@ -549,7 +593,7 @@ public class DNSResolutionPipeline {
         return false;
     }
 
-    public DNSPayload resolveUpstream(DNSPayload payload, byte[] data) {
+    public DNSPayload resolveUpstream(DNSPayload payload, OPTPseudoResourceRecord ednsRecord, byte[] data) {
         if (payload.notResolved().isEmpty()) {
             return payload;
         }
@@ -563,8 +607,9 @@ public class DNSResolutionPipeline {
         // Always attach our own EDNS OPT record queries to upstream servers
         // even when original query doesn't use edns
         // this way we can always receive larger UDP responses from upstream
-        uncachedOOPacket.setEdnsRecord(
-                new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
+        // uncachedOOPacket.setEdnsRecord(
+        //        new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
+        uncachedOOPacket.setEdnsRecord(ednsRecord);
 
         // Get Stub/recursive response
         byte[] rawResponse = null;
@@ -630,9 +675,13 @@ public class DNSResolutionPipeline {
 
         DNSPacket parsedResponse = DNSPacket.fromBytes(rawResponse);
         // ----------------------------ReferralAnalyzer-------------------------------------------------
-        int queryType = payload.notResolved().isEmpty()
-                ? RRType.A
-                : payload.notResolved().getFirst().getQtype();
+        int queryType = payload.notResolved().isEmpty() ? RRType.A : payload.notResolved().getFirst().getQtype();
+
+        logger.log(
+                ("[UPSTREAM] rcode=" + parsedResponse.getRcode() + " answers=" + parsedResponse.getAnswerSections().length + " qtype=" + queryType),
+                LoggingCategoryType.GENERAL,
+                LoggingSeverity.DEBUG
+        );
         // stub response
         ReferralAnalyzer.Classification classification = ReferralAnalyzer.classify(parsedResponse, queryType);
         logger.log(
@@ -681,6 +730,8 @@ public class DNSResolutionPipeline {
                 Collections.addAll(payload.answer(), parsedResponse.getAnswerSections());
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
                 Collections.addAll(payload.additional(), parsedResponse.getAdditionalSections());
+
+                payload.notResolved().clear();
             }
             case NXDOMAIN -> {
                 logger.logTrace("NXDOMAIN received from upstream", uncachedOOPacket);
