@@ -97,7 +97,7 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace(
                         "Query contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN,
                         oopPacket);
-                return responseBuilder.nxDomain(oopPacket).toBytes();
+                return responseBuilder.nxDomain(oopPacket, authoritative).toBytes();
             }
 
             if (payload.notResolved().isEmpty() && !payload.answer().isEmpty()) {
@@ -170,6 +170,12 @@ public abstract class AbstractServer implements Runnable {
             answerString += "\n\t\t" + answer.getRdata().toString();
         }
         logger.logTrace("Answered: " + answerString, oopPacket);
+
+        if (payload.rcode() == RCode.NXDOMAIN) {
+            DNSPacket response = responseBuilder.nxDomain(oopPacket, authoritative);
+            response.setAuthoritySections(payload.authority().toArray(new ResourceRecord[0]));
+            return response.toBytes();
+        }
 
         if (!payload.notResolved().isEmpty()) {
             return responseBuilder.servFail(payload, oopPacket).toBytes();

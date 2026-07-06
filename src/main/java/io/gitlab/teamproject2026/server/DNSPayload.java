@@ -1,6 +1,7 @@
 package io.gitlab.teamproject2026.server;
 
 import io.gitlab.teamproject2026.model.QuestionSection;
+import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import java.util.LinkedList;
 
@@ -12,4 +13,13 @@ public record DNSPayload(
         LinkedList<ResourceRecord> answer,
         LinkedList<ResourceRecord> authority,
         LinkedList<ResourceRecord> additional,
-        LinkedList<QuestionSection> notResolved) {}
+        LinkedList<QuestionSection> notResolved,
+        int rcode) {
+    public DNSPayload(
+            LinkedList<ResourceRecord> answer,
+            LinkedList<ResourceRecord> authority,
+            LinkedList<ResourceRecord> additional,
+            LinkedList<QuestionSection> notResolved) {
+        this(answer, authority, additional, notResolved, RCode.NOERROR);
+    }
+}

@@ -373,7 +373,11 @@ public class DNSResolutionPipeline {
             payload.authority().addAll(cacheResult.authority());
             payload.additional().addAll(cacheResult.additional());
             return new DNSPayload(
-                    payload.answer(), payload.authority(), payload.additional(), cacheResult.notResolved());
+                    payload.answer(),
+                    payload.authority(),
+                    payload.additional(),
+                    cacheResult.notResolved(),
+                    payload.rcode());
 
         } catch (SQLException e) {
             // log
@@ -749,6 +753,13 @@ public class DNSResolutionPipeline {
                         LoggingSeverity.WARNING,
                         true);
                 Collections.addAll(payload.authority(), parsedResponse.getAuthoritySections());
+                payload.notResolved().clear();
+                payload = new DNSPayload(
+                        payload.answer(),
+                        payload.authority(),
+                        payload.additional(),
+                        payload.notResolved(),
+                        RCode.NXDOMAIN);
             }
             case REFERRAL -> {
                 String referral = "";

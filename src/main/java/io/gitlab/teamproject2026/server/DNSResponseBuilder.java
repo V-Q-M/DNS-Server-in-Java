@@ -36,9 +36,9 @@ public class DNSResponseBuilder {
         return response;
     }
 
-    public DNSPacket nxDomain(DNSPacket query) {
+    public DNSPacket nxDomain(DNSPacket query, boolean authoritative) {
         DNSPacket response = baseResponse(query);
-        response.setAa(true);
+        response.setAa(authoritative);
         response.setRcode(RCode.NXDOMAIN);
         response.setAnswerSections(new ResourceRecord[0]);
         response.setAuthoritySections(new ResourceRecord[0]);
