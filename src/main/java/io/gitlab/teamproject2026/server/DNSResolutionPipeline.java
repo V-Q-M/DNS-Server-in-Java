@@ -71,7 +71,8 @@ public class DNSResolutionPipeline {
      */
     List<ResourceRecord> roundRobin(List<ResourceRecord> records, String name, int qtype) {
         return switch (qtype) {
-            case RRType.A, RRType.AAAA, RRType.NS -> rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
+            case RRType.A, RRType.AAAA, RRType.NS ->
+                rotate(records, name + "|" + qtype); // all equivalent: rotate the whole set
             case RRType.MX -> roundRobinMx(records, name); // keep preference order, rotate equal-preference groups
             default -> records; // other types have no load-balancing semantics
         };
