@@ -18,23 +18,23 @@ public record LoggingSection(List<LoggingChannel> channels, Map<LoggingCategoryT
     public static LoggingSection defaultLogger() {
 
         LoggingChannel defaultLog = new LoggingChannel(
-                "default_log", "log/default/default.log", null, null, LoggingSeverity.INFO, true, true, true);
+                "default_log", "log/default/default.log", 0, 100000L, LoggingSeverity.INFO, true, true, true);
 
         LoggingChannel errorLog = new LoggingChannel(
-                "error_log", "log/default/default-error.log", null, null, LoggingSeverity.ERROR, true, true, true);
+                "error_log", "log/default/default-error.log", 0, 100000L, LoggingSeverity.ERROR, true, true, true);
 
         LoggingChannel criticalLog = new LoggingChannel(
                 "critical_log",
                 "log/default/default-critical.log",
-                null,
-                null,
+                0,
+                100000L,
                 LoggingSeverity.CRITICAL,
                 true,
                 true,
                 true);
 
         LoggingChannel traceLog = new LoggingChannel(
-                "trace_log", "log/default/default-trace.log", null, null, LoggingSeverity.INFO, true, false, false);
+                "trace_log", "log/default/default-trace.log", 0, 100000L, LoggingSeverity.INFO, true, false, false);
 
         return new LoggingSection(
                 List.of(defaultLog, errorLog, criticalLog, traceLog),

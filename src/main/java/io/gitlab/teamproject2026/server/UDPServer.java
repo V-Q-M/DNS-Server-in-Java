@@ -15,8 +15,8 @@ import java.util.Arrays;
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
 
-    public UDPServer(ServerContext context) {
-        super(context);
+    public UDPServer(ServerContext context, InetAddress bindAddress, int portNumber) {
+        super(context, bindAddress, portNumber);
     }
 
     @Override

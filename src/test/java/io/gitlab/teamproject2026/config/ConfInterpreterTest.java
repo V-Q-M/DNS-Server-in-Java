@@ -84,7 +84,8 @@ public class ConfInterpreterTest {
             OptionSection options = config.options();
             assertEquals("zones", options.dir());
             assertEquals(2222, options.port());
-            assertEquals("127.0.0.1", options.ipAddress());
+            assertEquals("127.0.0.1", options.ipv4Address());
+            assertEquals("none", options.ipv6Address());
             assertFalse(options.recursionAllowed());
 
             ZoneSection zone = config.zones().getFirst();
@@ -136,7 +137,8 @@ public class ConfInterpreterTest {
 
             assertEquals("", options.dir());
             assertEquals(4242, options.port());
-            assertEquals("0.0.0.0", options.ipAddress());
+            assertEquals("0.0.0.0", options.ipv4Address());
+            assertEquals("none", options.ipv6Address());
             assertFalse(options.recursionAllowed());
             assertEquals(null, options.forwardMode());
             assertEquals(List.of("1.1.1.1", "8.8.8.8"), options.forwarders());

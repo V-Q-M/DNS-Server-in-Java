@@ -369,9 +369,11 @@ public class ConfInterpreter {
         // Default values
         String directoryPath = "";
         int port = 4242;
-        String ipAddress = "0.0.0.0";
-        String ipv6Address = "0.0.0.0";
+        String ipv4Address = "0.0.0.0";
+        String ipv6Address = "none";
         int ednsUdpSizeLimit = 512;
+        boolean dnssecEnable = false;
+        boolean dnssecValidate = false;
         boolean recursionAllowed = false;
         ForwardMode forwardMode = null;
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
@@ -396,7 +398,7 @@ public class ConfInterpreter {
                     error("options.listen-on requires an IP address or 'none'", node.lineNumber());
                     continue;
                 }
-                ipAddress = node.children().getFirst().name();
+                ipv4Address = node.children().getFirst().name();
             } else if (node.name().equalsIgnoreCase("listen-on-v6")) {
                 if (node.args().size() >= 2 && node.args().getFirst().equalsIgnoreCase("port")) {
                     port = parseInt(node.args().get(1), "options.listen-on port", node.lineNumber());
@@ -413,6 +415,18 @@ public class ConfInterpreter {
                     continue;
                 }
                 ednsUdpSizeLimit = parseInt(node.args().getFirst(), "options.edns-udp-size", node.lineNumber());
+            } else if (node.name().equalsIgnoreCase("dnssec-enable")) {
+                if (node.args().isEmpty()) {
+                    error("options.dnssec-enable requires yes or no", node.lineNumber());
+                    continue;
+                }
+                dnssecEnable = node.args().getFirst().equalsIgnoreCase("yes");
+            } else if (node.name().equalsIgnoreCase("dnssec-validation")) {
+                if (node.args().isEmpty()) {
+                    error("options.dnssec-validation requires yes or no", node.lineNumber());
+                    continue;
+                }
+                dnssecValidate = node.args().getFirst().equalsIgnoreCase("yes");
             } else if (node.name().equalsIgnoreCase("recursion")) {
                 if (node.args().isEmpty()) {
                     error("options.recursion requires yes or no", node.lineNumber());
@@ -484,8 +498,11 @@ public class ConfInterpreter {
         return new OptionSection(
                 directoryPath,
                 port,
-                ipAddress,
+                ipv4Address,
+                ipv6Address,
                 ednsUdpSizeLimit,
+                dnssecEnable,
+                dnssecValidate,
                 recursionAllowed,
                 forwardMode,
                 forwarders,

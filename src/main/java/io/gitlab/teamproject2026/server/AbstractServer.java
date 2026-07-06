@@ -31,13 +31,13 @@ public abstract class AbstractServer implements Runnable {
 
     protected final boolean recursionAllowed;
 
-    public AbstractServer(ServerContext context) {
+    public AbstractServer(ServerContext context, InetAddress bindAddress, int portNumber) {
         this.cacheHandler = context.cacheHandler();
         this.zoneHandler = context.zoneHandler();
         this.resolutionPipeline = context.resolutionPipeline();
         this.responseBuilder = context.responseBuilder();
-        this.bindAddress = context.bindAddress();
-        this.portNumber = context.portNumber();
+        this.bindAddress = bindAddress;
+        this.portNumber = portNumber;
         this.ednsUdpSizeLimit = context.ednsUdpSizeLimit();
         this.logger = context.logger();
         this.recursionAllowed = context.serverConfig().options().recursionAllowed();

@@ -32,9 +32,7 @@ import java.util.List;
  * and UDP/TCP request handling.
  */
 public class DNS_SERVER {
-    // private static final String DEFAULT_IP = "0.0.0.0";
     private static ServerContext context;
-    // public static Logger logger;
 
     /** Initializes the server and starts the UDP, TCP, and zone refresh workers. */
     static void main(String[] args) {
@@ -53,9 +51,11 @@ public class DNS_SERVER {
         OptionSection options = serverConfig.options();
         ResolverSection resolverOptions = options.resolverSection();
 
-        ServerCliOptions cliOptions = applyCliArgs(args, options.port(), options.ipAddress(), logger);
+        ServerCliOptions cliOptions =
+                applyCliArgs(args, options.port(), options.ipv4Address(), options.ipv6Address(), logger);
         int portNumber = cliOptions.portNumber();
-        String bindIP = cliOptions.bindIP();
+        String bindIPv4 = cliOptions.bindIPv4();
+        String bindIPv6 = cliOptions.bindIPv6();
         boolean minimalResponses = cliOptions.minimalResponses();
 
         long startTime = System.currentTimeMillis();
@@ -88,6 +88,19 @@ public class DNS_SERVER {
                     true);
             portNumber = OptionSection.defaultOptions().port();
         }
+
+        boolean dnssecEnable = options.dnssecEnable();
+        logger.log(
+                (GREEN + "[SERVER] Enable DNSSEC: " + dnssecEnable),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.INFO,
+                true);
+        boolean dnssecValidate = options.dnssecValidate();
+        logger.log(
+                (GREEN + "[SERVER] Validate DNSSEC: " + dnssecValidate),
+                LoggingCategoryType.DEFAULT,
+                LoggingSeverity.INFO,
+                true);
 
         boolean recursionAllowed = options.recursionAllowed();
         logger.log(
@@ -132,7 +145,8 @@ public class DNS_SERVER {
                 resolverOptions.strategy());
         RecursiveResolver recursiveResolver = new RecursiveResolver(
                 cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay(), ednsUdpSize);
-        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed, ednsUdpSize);
+        DNSResponseBuilder responseBuilder =
+                new DNSResponseBuilder(ednsUdpSize, dnssecEnable, dnssecValidate, recursionAllowed);
         DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(
                 cacheHandler,
                 zoneHandler,
@@ -144,25 +158,53 @@ public class DNS_SERVER {
                 minimalResponses,
                 forwardMode,
                 startTime,
-                ednsUdpSize);
+                ednsUdpSize,
+                dnssecEnable,
+                dnssecValidate);
 
-        InetAddress bindAddress;
-        try {
-            bindAddress = InetAddress.getByName(bindIP);
-        } catch (Exception e) {
+        InetAddress bindIPv4Address = null;
+        if (bindIPv4 != null && !bindIPv4.equals("none")) {
+            try {
+                bindIPv4Address = InetAddress.getByName(bindIPv4);
+            } catch (Exception e) {
+                logger.log(
+                        (RED + "[SERVER] Invalid IP address: " + bindIPv4 + RESET),
+                        LoggingCategoryType.DEFAULT,
+                        LoggingSeverity.ERROR,
+                        true);
+            }
+        }
+        // Optional IPv6 server
+        InetAddress bindIPv6Address = null;
+        if (bindIPv6 != null && !bindIPv6.equals("none")) {
+            IO.println("DEBUG" + bindIPv6);
+            try {
+                bindIPv6Address = InetAddress.getByName(bindIPv6);
+            } catch (Exception e) {
+                logger.log(
+                        (RED + "[SERVER] Invalid IP address: " + bindIPv6 + RESET),
+                        LoggingCategoryType.DEFAULT,
+                        LoggingSeverity.ERROR,
+                        true);
+            }
+        }
+
+        // Use the default IPv4 address if neither config, nor cli provided addresses
+        if (bindIPv4Address == null && bindIPv6Address == null) {
             logger.log(
-                    (RED + "[SERVER] Invalid IP address: " + bindIP + " — using default "
-                            + OptionSection.defaultOptions().ipAddress() + RESET),
+                    (YELLOW + "[SERVER] No IP address specified, using default + "
+                            + OptionSection.defaultOptions().ipv4Address() + RESET),
                     LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.ERROR,
+                    LoggingSeverity.WARNING,
                     true);
             try {
-                bindAddress =
-                        InetAddress.getByName(OptionSection.defaultOptions().ipAddress());
+                bindIPv4Address =
+                        InetAddress.getByName(OptionSection.defaultOptions().ipv4Address());
             } catch (UnknownHostException ex) {
                 throw new RuntimeException(ex);
             }
         }
+
         context = new ServerContext(
                 cacheHandler,
                 zoneHandler,
@@ -171,20 +213,27 @@ public class DNS_SERVER {
                 responseBuilder,
                 serverConfig,
                 zoneCatalog,
-                portNumber,
-                bindAddress,
                 ednsUdpSize,
+                dnssecEnable,
+                dnssecValidate,
                 startTime);
 
         new Thread(DNS_SERVER::handleCacheCleanUp).start();
-        new Thread(new UDPServer(context), "udp-server").start();
-        new Thread(new TCPServer(context), "tcp-server").start();
+        if (bindIPv4Address != null) {
+            new Thread(new UDPServer(context, bindIPv4Address, portNumber), "udp-ipv4-server").start();
+            new Thread(new TCPServer(context, bindIPv4Address, portNumber), "tcp-ipv4-server").start();
+        }
+        if (bindIPv6Address != null) {
+            new Thread(new UDPServer(context, bindIPv6Address, portNumber), "udp-ipv4-server").start();
+            new Thread(new TCPServer(context, bindIPv6Address, portNumber), "tcp-ipv4-server").start();
+        }
         new Thread(new ZoneManager(context)).start();
     }
 
-    private record ServerCliOptions(int portNumber, String bindIP, boolean minimalResponses) {}
+    private record ServerCliOptions(int portNumber, String bindIPv4, String bindIPv6, boolean minimalResponses) {}
 
-    private static ServerCliOptions applyCliArgs(String[] args, int portNumber, String bindIP, Logger logger) {
+    private static ServerCliOptions applyCliArgs(
+            String[] args, int portNumber, String bindIPv4, String bindIPv6, Logger logger) {
         boolean minimalResponses = false;
         // Overwrite default values
         for (int i = 0; i < args.length; i++) {
@@ -203,7 +252,10 @@ public class DNS_SERVER {
                 }
                 i++;
             } else if (args[i].equals("-a") && i + 1 < args.length) {
-                bindIP = args[i + 1];
+                bindIPv4 = args[i + 1];
+                i++;
+            } else if (args[i].equals("-aaaa") && i + 1 < args.length) {
+                bindIPv6 = args[i + 1];
                 i++;
             } else if (args[i].equals("--verbose")) {
                 if (logger != null) {
@@ -227,7 +279,7 @@ public class DNS_SERVER {
                 minimalResponses = true;
             }
         }
-        return new ServerCliOptions(portNumber, bindIP, minimalResponses);
+        return new ServerCliOptions(portNumber, bindIPv4, bindIPv6, minimalResponses);
     }
 
     private record DatabaseHandlers(CacheHandler cacheHandler, ZoneHandler zoneHandler) {}

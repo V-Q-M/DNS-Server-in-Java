@@ -36,6 +36,8 @@ public class DNSResolutionPipeline {
     private final boolean minimalResponses;
     private final ForwardMode forwardMode;
     private final int ednsUdpSizeLimit;
+    private final boolean dnssecEnabled;
+    private final boolean dnssecValidation;
     final ResolverSection resolverOptions;
 
     private long startTime;
@@ -51,7 +53,9 @@ public class DNSResolutionPipeline {
             boolean minimalResponses,
             ForwardMode forwardMode,
             long startTime,
-            int ednsUdpSizeLimit) {
+            int ednsUdpSizeLimit,
+            boolean dnssecEnabled,
+            boolean dnssecValidation) {
         this.cacheHandler = cacheHandler;
         this.zoneHandler = zoneHandler;
         this.resolverOptions = resolverOptions;
@@ -63,6 +67,8 @@ public class DNSResolutionPipeline {
         this.forwardMode = forwardMode;
         this.startTime = startTime;
         this.ednsUdpSizeLimit = ednsUdpSizeLimit;
+        this.dnssecEnabled = dnssecEnabled;
+        this.dnssecValidation = dnssecValidation;
     }
 
     /**
@@ -203,7 +209,7 @@ public class DNSResolutionPipeline {
                             }
                         }
                         // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
-                        if (packet.getEdnsRecord() != null) {
+                        if (packet.getEdnsRecord() != null && dnssecEnabled) {
                             logger.log(
                                     ("[ZONE] Checking for dnssec..."),
                                     LoggingCategoryType.GENERAL,
@@ -216,7 +222,8 @@ public class DNSResolutionPipeline {
                                     true);
                         }
                         if (packet.getEdnsRecord() != null
-                                && packet.getEdnsRecord().getDNSSecOK()) {
+                                && packet.getEdnsRecord().getDNSSecOK()
+                                && dnssecEnabled) {
                             List<ResourceRecord> signatures = zoneHandler.lookup(currentName, RRType.RRSIG, zone);
                             for (ResourceRecord signature : signatures) {
                                 if (signature.getRdata() instanceof RDataRRSIG rrsig) {
@@ -267,7 +274,7 @@ public class DNSResolutionPipeline {
                     // Add the SOA response as best practise for negative response
                     payload.authority().addAll(zoneHandler.lookup(zone, RRType.SOA, zone));
 
-                    if (packet.getEdnsRecord() != null && packet.getEdnsRecord().getDNSSecOK()) {
+                    if (packet.getEdnsRecord() != null && packet.getEdnsRecord().getDNSSecOK() && dnssecEnabled) {
                         String previous = zoneHandler.findPreviousOwnerName(currentName, zone);
 
                         payload.authority().addAll(zoneHandler.lookup(previous, RRType.NSEC, zone));
@@ -513,7 +520,7 @@ public class DNSResolutionPipeline {
                         }
                     }
                     // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
-                    if (query.getEdnsRecord() != null) {
+                    if (query.getEdnsRecord() != null && dnssecEnabled) {
                         logger.log(
                                 ("[CACHE] Checking for dnssec..."),
                                 LoggingCategoryType.GENERAL,
@@ -525,7 +532,7 @@ public class DNSResolutionPipeline {
                                 LoggingSeverity.DEBUG,
                                 true);
                     }
-                    if (query.getEdnsRecord() != null && query.getEdnsRecord().getDNSSecOK()) {
+                    if (query.getEdnsRecord() != null && query.getEdnsRecord().getDNSSecOK() && dnssecEnabled) {
                         ResourceRecord[] signatures = cacheHandler.lookup(qname, RRType.RRSIG);
                         if (signatures.length == 0) {
                             answer.clear();

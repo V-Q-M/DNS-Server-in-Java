@@ -12,8 +12,8 @@ import java.net.Socket;
 
 public class TCPServer extends AbstractServer {
 
-    public TCPServer(ServerContext context) {
-        super(context);
+    public TCPServer(ServerContext context, InetAddress bindAddress, int portNumber) {
+        super(context, bindAddress, portNumber);
     }
 
     @Override
