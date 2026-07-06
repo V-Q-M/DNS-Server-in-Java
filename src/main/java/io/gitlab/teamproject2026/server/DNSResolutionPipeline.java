@@ -12,10 +12,7 @@ import io.gitlab.teamproject2026.logging.DNSEventType;
 import io.gitlab.teamproject2026.logging.Logger;
 import io.gitlab.teamproject2026.logging.ResponseSource;
 import io.gitlab.teamproject2026.model.*;
-import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
-import io.gitlab.teamproject2026.model.rdata.RDataMX;
-import io.gitlab.teamproject2026.model.rdata.RDataNS;
-import io.gitlab.teamproject2026.model.rdata.RDataOPTOption;
+import io.gitlab.teamproject2026.model.rdata.*;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.ReferralAnalyzer;
@@ -202,6 +199,20 @@ public class DNSResolutionPipeline {
                                 }
                                 // A, AAAA, CNAME, TXT, SOA, PTR -> directly to answer
                                 default -> payload.answer().add(record);
+                            }
+                        }
+                        // If DNSSEC is desired, add the RRSIG records covering that type, if they exist
+                        IO.println("[ZONE] Checking for dnssec...");
+                        IO.println("[ZONE] DNSSEC = " + packet.getEdnsRecord().getDNSSecOK());
+                        if (packet.getEdnsRecord().getDNSSecOK()) {
+                            List<ResourceRecord> signatures = zoneHandler.lookup(currentName, RRType.RRSIG, zone);
+                            for (ResourceRecord signature : signatures) {
+                                if (signature.getRdata() instanceof RDataRRSIG rrsig) {
+                                    if (rrsig.getTypeCovered() == questionSection.getQtype()) {
+                                        payload.answer().add(signature);
+                                        break;
+                                    }
+                                }
                             }
                         }
                         logger.log(
@@ -552,7 +563,8 @@ public class DNSResolutionPipeline {
         // Always attach our own EDNS OPT record queries to upstream servers
         // even when original query doesn't use edns
         // this way we can always receive larger UDP responses from upstream
-        uncachedOOPacket.setEdnsRecord(new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
+        uncachedOOPacket.setEdnsRecord(
+                new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
 
         // Get Stub/recursive response
         byte[] rawResponse = null;

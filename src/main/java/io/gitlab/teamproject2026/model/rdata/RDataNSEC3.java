@@ -1,7 +1,6 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
-
 import java.util.Base64;
 import java.util.HexFormat;
 

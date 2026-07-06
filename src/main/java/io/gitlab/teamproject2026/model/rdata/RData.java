@@ -3,7 +3,23 @@ package io.gitlab.teamproject2026.model.rdata;
 import io.gitlab.teamproject2026.model.RRType;
 
 /** Interface for all DNS RDATA types. Each implementing class defines its own type-specific fields. */
-public sealed interface RData permits RDataA, RDataAAAA, RDataCNAME, RDataDNSKEY, RDataDS, RDataMX, RDataNS, RDataNSEC, RDataNSEC3, RDataNSEC3PARAM, RDataOPTOption, RDataPTR, RDataRRSIG, RDataSOA, RDataTXT, RDataUnknown {
+public sealed interface RData
+        permits RDataA,
+                RDataAAAA,
+                RDataCNAME,
+                RDataDNSKEY,
+                RDataDS,
+                RDataMX,
+                RDataNS,
+                RDataNSEC,
+                RDataNSEC3,
+                RDataNSEC3PARAM,
+                RDataOPTOption,
+                RDataPTR,
+                RDataRRSIG,
+                RDataSOA,
+                RDataTXT,
+                RDataUnknown {
 
     /**
      * Predefined type of the rdata and thus of the ResourceRecord logically identical to testing the instance of the

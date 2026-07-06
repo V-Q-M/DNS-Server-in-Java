@@ -2,7 +2,6 @@ package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.model.RRType;
-
 import java.util.Base64;
 
 /**
