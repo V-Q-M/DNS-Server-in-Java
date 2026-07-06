@@ -14,6 +14,17 @@ public class OPTPseudoResourceRecord extends ResourceRecord {
     private boolean DNSsecOK;
     private byte[] z;
 
+    public OPTPseudoResourceRecord(
+            int requestedPayloadSize, int extendedRcode, int version, boolean dnssecOk, RDataOPTOption rdata) {
+        this.name = new String[] {}; // Must be 0 (root domain). See RFC 6891 6.1.2
+        this.requestedPayloadSize = requestedPayloadSize;
+        this.extendedRcode = extendedRcode;
+        this.version = version;
+        this.DNSsecOK = dnssecOk;
+        this.z = new byte[] {0, 0}; // reserved, must be 0
+        this.rdata = rdata;
+    }
+
     public OPTPseudoResourceRecord(byte[] bytes, int byteIndex) {
         // gets called during ResourceRecord::fromBytes, so byteIndex is already advanced past the Type
         this.name = new String[] {}; // Must be 0 (root domain) according to RFC 6891 6.1.2

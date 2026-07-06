@@ -251,12 +251,12 @@ public class DNSPacket {
         this.setDNSSecAuthenticatedData(DNSParser.extractBit(this.z, 6));
 
         // extending Rcode to 12 bits
-        if(this.ednsRecord != null) { // restore previous, simple RCode in case of an OPTRR change
+        if (this.ednsRecord != null) { // restore previous, simple RCode in case of an OPTRR change
             this.rcode -= (this.ednsRecord.getExtendedRcode() << 4);
         }
-        this.rcode += (ednsRecord.getExtendedRcode() << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
+        this.rcode += (ednsRecord.getExtendedRcode()
+                << 4); // EDNS Rcodes are aaaaaaaabbbb with a from the ednsrecord and b from the original rcode
         this.ednsRecord = ednsRecord;
-
     }
 
     public Boolean getDNSSecCheckingDisabled() {
@@ -349,8 +349,10 @@ public class DNSPacket {
         header[7] = (byte) (this.getAncount() & 0xFF);
         header[8] = (byte) ((this.getNscount() >> 8) & 0xFF);
         header[9] = (byte) (this.getNscount() & 0xFF);
-        header[10] = (byte) ((this.getArcount() >> 8) & 0xFF);
-        header[11] = (byte) (this.getArcount() & 0xFF);
+        // increase the Arcount if an OPT record exists
+        int arcount = this.getArcount() + (this.getEdnsRecord() != null ? 1 : 0);
+        header[10] = (byte) ((arcount >> 8) & 0xFF);
+        header[11] = (byte) (arcount & 0xFF);
 
         // serialize each section
         byte[][] questions = new byte[this.getQuestionSections().length][];
@@ -373,12 +375,16 @@ public class DNSPacket {
             additionals[i] = this.getAdditionalSections()[i].toBytes();
         }
 
+        byte[] ednsRecordBytes =
+                this.getEdnsRecord() != null ? this.getEdnsRecord().toBytes() : null;
+
         // calculate total size
         int totalSize = header.length;
         for (byte[] q : questions) totalSize += q.length;
         for (byte[] a : answers) totalSize += a.length;
         for (byte[] ns : authorities) totalSize += ns.length;
         for (byte[] ar : additionals) totalSize += ar.length;
+        if (ednsRecordBytes != null) totalSize += ednsRecordBytes.length;
 
         // copy everything into result
         byte[] result = new byte[totalSize];
@@ -403,6 +409,10 @@ public class DNSPacket {
         for (byte[] ar : additionals) {
             System.arraycopy(ar, 0, result, pos, ar.length);
             pos += ar.length;
+        }
+        if (ednsRecordBytes != null) {
+            System.arraycopy(ednsRecordBytes, 0, result, pos, ednsRecordBytes.length);
+            pos += ednsRecordBytes.length;
         }
         return result;
     }
@@ -469,8 +479,9 @@ public class DNSPacket {
             }
             byte_index = record.getLastProcessedByte();
         }
-        if(dnsPacket.ednsRecord != null){ // truncate additional sections by 1 element as ednsRecord is missing
-            dnsPacket.setAdditionalSections(Arrays.copyOf(dnsPacket.getAdditionalSections(), dnsPacket.getAdditionalSections().length-1));
+        if (dnsPacket.ednsRecord != null) { // truncate additional sections by 1 element as ednsRecord is missing
+            dnsPacket.setAdditionalSections(
+                    Arrays.copyOf(dnsPacket.getAdditionalSections(), dnsPacket.getAdditionalSections().length - 1));
         }
         return dnsPacket;
     }

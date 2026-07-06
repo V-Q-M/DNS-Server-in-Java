@@ -103,7 +103,7 @@ public class DNS_SERVER {
                 LoggingCategoryType.DEFAULT,
                 LoggingSeverity.INFO,
                 true);
-                
+
         ForwardMode forwardMode = options.forwardMode(); // Determines if we should only forward
         if (forwardMode == null) {
             logger.log(
@@ -132,7 +132,7 @@ public class DNS_SERVER {
                 resolverOptions.strategy());
         RecursiveResolver recursiveResolver =
                 new RecursiveResolver(cacheHandler, logger, resolverOptions.timeout(), resolverOptions.retryDelay());
-        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed);
+        DNSResponseBuilder responseBuilder = new DNSResponseBuilder(recursionAllowed, ednsUdpSizeLimit);
         DNSResolutionPipeline resolutionPipeline = new DNSResolutionPipeline(
                 cacheHandler,
                 zoneHandler,

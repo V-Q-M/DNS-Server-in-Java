@@ -8,6 +8,8 @@ import java.util.Map;
 public final class RDataOPTOption implements RData {
     private Map<Integer, byte[]> options = new HashMap<>();
 
+    public RDataOPTOption() {}
+
     public RDataOPTOption(byte[] bytes, int byteIndex, int rdlength) {
         while (rdlength > 0) {
             int optionCode = bytes[byteIndex++];
@@ -41,10 +43,13 @@ public final class RDataOPTOption implements RData {
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         StringBuilder result = new StringBuilder();
         for (Map.Entry<Integer, byte[]> option : options.entrySet()) {
-            result.append(option.getKey()).append(": ").append(Arrays.toString(option.getValue())).append("\n");
+            result.append(option.getKey())
+                    .append(": ")
+                    .append(Arrays.toString(option.getValue()))
+                    .append("\n");
         }
         return result.toString();
     }
