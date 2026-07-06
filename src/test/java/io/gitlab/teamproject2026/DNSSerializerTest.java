@@ -2,10 +2,16 @@ package io.gitlab.teamproject2026;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
+import io.gitlab.teamproject2026.model.OPTPseudoResourceRecord;
 import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
+
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 public class DNSSerializerTest {
@@ -109,5 +115,37 @@ public class DNSSerializerTest {
                                         + "00000002" // 2 (minimum)
                                 ),
                 resourceRecord.toBytes());
+    }
+    @Test
+    void RREDNSTest() {
+        RDataOPTOption ednsRData = new RDataOPTOption(Map.of(1, new byte[]{0xF, 0xE}, 2, new byte[]{0x0}));
+        ResourceRecord resourceRecord = new OPTPseudoResourceRecord(1, 2, 3, true, ednsRData);
+        byte[] calculatedBytes = resourceRecord.toBytes();
+        assertArrayEquals(HexFormat.of()
+                .parseHex(
+                        "00" // length byte for empty name
+                                + "0029" // RType 41
+                                + "0001" // 2 bytes requestedPayloadSize
+                                + "02" // 2 bytes extendedRcode
+                                + "03" // version
+                                + "8000" // dnsecOK + z
+                                + "0007" // 2 Bytes RData length
+                ), Arrays.copyOfRange(calculatedBytes, 0, 11));
+        calculatedBytes = Arrays.copyOfRange(calculatedBytes, 11, 18);
+
+        // 2 versions due to maps not keeping order
+        if(calculatedBytes[0] == 2){
+            assertArrayEquals(HexFormat.of().parseHex("020100" // code 2, length 1, 00 value
+                                                    + "01020F0E" // code 1, length 2, F0 E0 value
+                    ),
+                    calculatedBytes
+            );
+        } else {
+            assertArrayEquals(HexFormat.of().parseHex("01020F0E" // code 1, length 2, F0 E0 value
+                            + "020100" // code 2, length 1, 00 value
+                    ),
+                    calculatedBytes
+            );
+        }
     }
 }

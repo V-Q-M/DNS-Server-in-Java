@@ -9,6 +9,9 @@ public final class RDataOPTOption implements RData {
     private Map<Integer, byte[]> options = new HashMap<>();
 
     public RDataOPTOption() {}
+    public RDataOPTOption(Map<Integer, byte[]> options) {
+        this.options = options;
+    }
 
     public RDataOPTOption(byte[] bytes, int byteIndex, int rdlength) {
         while (rdlength > 0) {
@@ -17,6 +20,18 @@ public final class RDataOPTOption implements RData {
             options.put(optionCode, Arrays.copyOfRange(bytes, byteIndex, byteIndex + optionLength));
             rdlength -= optionLength + 2;
         }
+    }
+
+    public Map<Integer, byte[]> getOptions(){
+        return options;
+    }
+
+    public byte[] getOption(Integer code){
+        return options.get(code);
+    }
+
+    public void setOptions(Map<Integer, byte[]> options){
+        this.options = options;
     }
 
     @Override
