@@ -43,71 +43,16 @@ public class RecursiveResolver extends AbstractResolver {
 
     @Override
     public byte[] resolve(byte[] query) {
-        /**
-         * DNSPacket queryPacket; queryPacket = DNSPacket.fromBytes(query); // clear RA, RD bit
-         * queryPacket.setRa(false); queryPacket.setRd(false);
-         *
-         * <p>QuestionSection question = queryPacket.getQuestionSections()[0]; // resolve one question. return
-         * resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
-         */
         DNSPacket queryPacket;
         queryPacket = DNSPacket.fromBytes(query);
         // clear RA, RD bit
         queryPacket.setRa(false);
         queryPacket.setRd(false);
 
-        QuestionSection[] questions = queryPacket.getQuestionSections();
-        if (questions == null || questions.length == 0) {
-            return buildServFail(query);
-        }
-
-        // collect all sections of all answered questions
-        List<ResourceRecord> allAnswers = new ArrayList<>();
-        List<ResourceRecord> allAuthorities = new ArrayList<>();
-        List<ResourceRecord> allAdditionals = new ArrayList<>();
-
-        int finalRCode = RCode.NOERROR;
-        DNSPacket singleQueryPacket = new DNSPacket();
-        singleQueryPacket.setId(queryPacket.getId());
-        singleQueryPacket.setOpcode(queryPacket.getOpcode());
-        singleQueryPacket.setQr(false);
-        singleQueryPacket.setRd(false);
-        singleQueryPacket.setRa(false);
-
-        DNSPacket finalResponse = new DNSPacket();
-        finalResponse.setId(queryPacket.getId());
-        finalResponse.setQr(true);
-        finalResponse.setOpcode(queryPacket.getOpcode());
-        finalResponse.setRa(false);
-        finalResponse.setRd(false);
-        finalResponse.setRcode(finalRCode);
-        finalResponse.setQuestionSections(questions);
-
-        // recursive resolve per question section
-        for (QuestionSection question : questions) {
-
-            singleQueryPacket.setQuestionSections(new QuestionSection[] {question});
-            // resolve 1 question
-            DNSPacket singleResponse =
-                    resolve(question.getName(), question.getQtype(), singleQueryPacket, ResolveContext.start());
-
-            // if one question returns rcode other than noerror: whole response gets that rcode
-
-            // add an,ar,ad sections for one question
-            if (singleResponse.getAnswerSections() != null) {
-                finalResponse.setAnswerSections(singleResponse.getAnswerSections());
-            }
-            if (singleResponse.getAuthoritySections() != null) {
-                finalResponse.setAuthoritySections(singleResponse.getAuthoritySections());
-            }
-            if (singleResponse.getAdditionalSections() != null) {
-                finalResponse.setAdditionalSections(singleResponse.getAdditionalSections());
-            }
-        }
-
-        // build response for all questions
-
-        return finalResponse.toBytes();
+        QuestionSection question = queryPacket.getQuestionSections()[0];
+        // resolve one question.
+        return resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start())
+                .toBytes();
     }
 
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
