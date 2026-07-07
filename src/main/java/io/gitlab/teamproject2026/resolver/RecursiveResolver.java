@@ -72,7 +72,8 @@ public class RecursiveResolver extends AbstractResolver {
             // resolve one question.
             DNSPacket singleResponse =
                     resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start());
-            System.out.println(singleResponse.toString());
+            //System.out.println(singleResponse.toString());
+            if (singleResponse.getRcode() != 0){finalResponse.setRcode(singleResponse.getRcode());}
             // add all RRs received as an/ar/ad to final answer
             Collections.addAll(finalAnswers, singleResponse.getAnswerSections());
             Collections.addAll(finalAuthorities, singleResponse.getAuthoritySections());
@@ -82,7 +83,7 @@ public class RecursiveResolver extends AbstractResolver {
         finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));
         finalResponse.setAuthoritySections(finalAuthorities.toArray(new ResourceRecord[0]));
 
-        System.out.println(finalResponse.toString());
+        //System.out.println(finalResponse.toString());
         return finalResponse.toBytes();
     }
 
