@@ -1,31 +1,30 @@
 package io.gitlab.teamproject2026;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+
+import io.gitlab.teamproject2026.model.OPTPseudoResourceRecord;
 import io.gitlab.teamproject2026.model.RRClass;
-import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 import java.util.HexFormat;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
 public class DNSSerializerTest {
     @Test
-    void RDataTest(){
+    void RDataTest() {
         RDataA rdataA = new RDataA();
-        byte[] addressA = new byte[]{ (byte)134, (byte)2, (byte)5, (byte)1 };
+        byte[] addressA = new byte[] {(byte) 134, (byte) 2, (byte) 5, (byte) 1};
         rdataA.setAddress(addressA);
         assertArrayEquals(addressA, rdataA.toBytes());
 
         RDataAAAA rdataAAAA = new RDataAAAA();
-        byte[] addressAAAA = new byte[]{
-                (byte)0x20, (byte)0x01, (byte)0x07, (byte)0xc0,  // 2001:07c0
-                (byte)0x30, (byte)0x0c, (byte)0x30, (byte)0xf0,  // 300c:30f0
-                (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00,  // 0000:0000 (::)
-                (byte)0x86, (byte)0x02, (byte)0x05, (byte)0x01   // 8602:0501
+        byte[] addressAAAA = new byte[] {
+            (byte) 0x20, (byte) 0x01, (byte) 0x07, (byte) 0xc0, // 2001:07c0
+            (byte) 0x30, (byte) 0x0c, (byte) 0x30, (byte) 0xf0, // 300c:30f0
+            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, // 0000:0000 (::)
+            (byte) 0x86, (byte) 0x02, (byte) 0x05, (byte) 0x01 // 8602:0501
         }; // 2001:7c0:300c:30f0::8602:501
         rdataAAAA.setAddress(addressAAAA);
         assertArrayEquals(addressAAAA, rdataAAAA.toBytes());
@@ -55,15 +54,18 @@ public class DNSSerializerTest {
         rDataSoa.setRetry(2);
         rDataSoa.setExpire(2);
         rDataSoa.setMinimum(2);
-        assertArrayEquals(HexFormat.of().parseHex(
-                "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Mname)
-                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
-                + "00000002" // 2 (serial)
-                + "00000002" // 2 (refresh)
-                + "00000002" // 2 (retry)
-                + "00000002" // 2 (expire)
-                + "00000002" // 2 (minimum)
-        ), rDataSoa.toBytes());
+        assertArrayEquals(
+                HexFormat.of()
+                        .parseHex(
+                                "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Mname)
+                                        + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
+                                        + "00000002" // 2 (serial)
+                                        + "00000002" // 2 (refresh)
+                                        + "00000002" // 2 (retry)
+                                        + "00000002" // 2 (expire)
+                                        + "00000002" // 2 (minimum)
+                                ),
+                rDataSoa.toBytes());
 
         RDataTXT rDataTxt = new RDataTXT();
         rDataTxt.setTxtdata("uni-tuebingen.de");
@@ -73,8 +75,9 @@ public class DNSSerializerTest {
         rDataTxtMultiLabel.setTxtdata("hello", "world", "!");
         assertArrayEquals(HexFormat.of().parseHex("0568656c6c6F05776F726C640121"), rDataTxtMultiLabel.toBytes());
     }
+
     @Test
-    void RRTest(){
+    void RRTest() {
         RDataSOA rData = new RDataSOA();
         rData.setMname(new String[] {"uni-tuebingen", "de"});
         rData.setRname(new String[] {"uni-tuebingen", "de"});
@@ -86,25 +89,67 @@ public class DNSSerializerTest {
 
         ResourceRecord resourceRecord = new ResourceRecord();
         resourceRecord.setName(new String[] {"uni-tuebingen", "de"});
-        //resourceRecord.setType(RRType.SOA);
+        // resourceRecord.setType(RRType.SOA);
         resourceRecord.setRrclass(RRClass.IN);
         resourceRecord.setTtl(2);
-        //resourceRecord.setRdlength(rData.toBytes().length);
+        // resourceRecord.setRdlength(rData.toBytes().length);
         resourceRecord.setRdata(rData);
 
-        assertArrayEquals(HexFormat.of().parseHex(
-                "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (name)
-                + "0006" // SOA (type)
-                + "0001" // IN (class)
-                + "00000002" // 2s (ttl)
-                + "0038" // 56 (rdlenght)
-                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Mname)
-                + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
-                + "00000002" // 2 (serial)
-                + "00000002" // 2 (refresh)
-                + "00000002" // 2 (retry)
-                + "00000002" // 2 (expire)
-                + "00000002" // 2 (minimum)
-        ), resourceRecord.toBytes());
+        assertArrayEquals(
+                HexFormat.of()
+                        .parseHex(
+                                "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (name)
+                                        + "0006" // SOA (type)
+                                        + "0001" // IN (class)
+                                        + "00000002" // 2s (ttl)
+                                        + "0038" // 56 (rdlenght)
+                                        + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Mname)
+                                        + "0d756e692d74756562696e67656e02646500" // uni-tuebingen.de (Rname)
+                                        + "00000002" // 2 (serial)
+                                        + "00000002" // 2 (refresh)
+                                        + "00000002" // 2 (retry)
+                                        + "00000002" // 2 (expire)
+                                        + "00000002" // 2 (minimum)
+                                ),
+                resourceRecord.toBytes());
+    }
+
+    @Test
+    void RREDNSTest() {
+        RDataOPTOption ednsRData = new RDataOPTOption(Map.of(1, new byte[] {0xF, 0xE}, 2, new byte[] {0x0}));
+        ResourceRecord resourceRecord = new OPTPseudoResourceRecord(1, 2, 3, true, ednsRData);
+        byte[] calculatedBytes = resourceRecord.toBytes();
+        assertArrayEquals(
+                HexFormat.of()
+                        .parseHex(
+                                "00" // length byte for empty name
+                                        + "0029" // RType 41
+                                        + "0001" // 2 bytes requestedPayloadSize
+                                        + "02" // 2 bytes extendedRcode
+                                        + "03" // version
+                                        + "8000" // dnsecOK + z
+                                        + "0007" // 2 Bytes RData length
+                                ),
+                Arrays.copyOfRange(calculatedBytes, 0, 11));
+        calculatedBytes = Arrays.copyOfRange(calculatedBytes, 11, 18);
+
+        // 2 versions due to maps not keeping order
+        if (calculatedBytes[0] == 2) {
+            assertArrayEquals(
+                    HexFormat.of()
+                            .parseHex(
+                                    "020100" // code 2, length 1, 00 value
+                                            + "01020F0E" // code 1, length 2, F0 E0 value
+                                    ),
+                    calculatedBytes);
+        } else {
+            assertArrayEquals(
+                    HexFormat.of()
+                            .parseHex(
+                                    "01020F0E" // code 1, length 2, F0 E0 value
+                                            + "020100" // code 2, length 1, 00 value
+                                    ),
+                    calculatedBytes);
+        }
     }
 }

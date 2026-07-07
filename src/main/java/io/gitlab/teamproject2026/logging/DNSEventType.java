@@ -1,7 +1,6 @@
 package io.gitlab.teamproject2026.logging;
 
 public enum DNSEventType {
-
     QUERY_SENT,
     SUCCESS,
     TIMEOUT,
@@ -10,7 +9,7 @@ public enum DNSEventType {
     CACHE_ERROR,
     CACHE_HIT,
     CACHE_MISS,
-    //die neue werte
+    // die neue werte
     QUERY_RECEIVED,
     ZONE_HIT,
     ZONE_MISS,
@@ -18,4 +17,3 @@ public enum DNSEventType {
     REFUSED,
     RESPONSE_SENT,
 }
-

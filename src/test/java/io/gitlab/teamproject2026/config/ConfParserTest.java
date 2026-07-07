@@ -1,15 +1,14 @@
 package io.gitlab.teamproject2026.config;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import io.gitlab.teamproject2026.config.interpreter.ConfNode;
 import io.gitlab.teamproject2026.config.interpreter.ConfParser;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 public class ConfParserTest {
 
@@ -149,10 +148,7 @@ public class ConfParserTest {
 
             assertFalse(parser.hasParserError());
 
-            ConfNode directory = parser.getRootNodes()
-                    .getFirst()
-                    .children()
-                    .getFirst();
+            ConfNode directory = parser.getRootNodes().getFirst().children().getFirst();
 
             assertEquals("directory", directory.name());
             assertEquals(List.of("/var/named/zones"), directory.args());

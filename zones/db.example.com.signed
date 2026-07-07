@@ -1,0 +1,119 @@
+; File written on Wed Jun 17 09:51:51 2026
+; dnssec-signzone version 9.20.23
+example.com.		4200	IN SOA	ns0.example.com. admin.example.com. (
+					2026060209 ; serial
+					2000       ; refresh (33 minutes 20 seconds)
+					1800       ; retry (30 minutes)
+					1209600    ; expire (2 weeks)
+					86400      ; minimum (1 day)
+					)
+			4200	RRSIG	SOA 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					G/iYEm5qcHGTIBeJo5NYTjfXifK6Jiq4gug9
+					IVQuUrrTaO+tChAJOo10HIeT13ec9Nne1KIv
+					nzDCQBXU2MmKPA== )
+			4200	NS	ns0.example.com.
+			4200	RRSIG	NS 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					4MMOp9QMO/+sXNd+o2MTjiWRAIkWb9y9czyc
+					2H3SNuCjbJweOmByAhrWLrdyesM99LRzzKu6
+					hb7W3m02Ru7YyQ== )
+			4200	A	129.0.0.1
+			4200	RRSIG	A 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					EdP9CqzR/QIt8KwaLO3DrXAiE7KfqVz3+4mK
+					GQwa9MCgvNoGTTqLsTI6HJHP0EJQaWPo7+Tu
+					37nAeddpvulLCw== )
+			4200	MX	10 mx1.example.com.
+			4200	MX	20 mx2.example.com.
+			4200	RRSIG	MX 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					MNAYOmevYRaTTXxuVpA+VXsy6PIClxHyTlMZ
+					ECW47diE6VYNxImPRoOK4788qsFOV//POvaN
+					i8XHgxHeFxWA4w== )
+			4200	TXT	"Hello, world!"
+			4200	RRSIG	TXT 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					ieHNjSLG9f98F+odJl1BP4lGGIJVfml5zex7
+					w2ypYnBcMCKtH6rShc6739dKwm9Y1QbYuvFc
+					c9FJfCEZmsUSsA== )
+			4200	AAAA	2001:db8::1
+			4200	RRSIG	AAAA 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					YPjVQmXj/euqGCS1dXWtppmFRYZz1sAsezPg
+					p+z9ac3ZIJq6BQ1s3zvn4k29wTWDwRJ+4WaX
+					oBbKnWJW19Vmpw== )
+			4200	NSEC	mx1.example.com. A NS SOA MX TXT AAAA RRSIG NSEC DNSKEY
+			4200	RRSIG	NSEC 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					VG1ZY9nuaiIhWDh8S2vyvBEUR2umhVLI7oDA
+					u72SQcEryJ1RIIQuogahiyTKD7SjuK+PoRd9
+					OmlLVuCrgkXx2Q== )
+			4200	DNSKEY	256 3 13 (
+					lfVUNwtF+suzj6pBwzEFlj3WA6i/RB+6hemG
+					hX1k2Kw0AfJVWwDFBHXWDyhOA3eUnnL1YXLm
+					zjNUlekgkvpVtQ==
+					) ; ZSK; alg = ECDSAP256SHA256 ; key id = 10793
+			4200	DNSKEY	257 3 13 (
+					y4Vulh04keriAouzg6G2/Qf2KMlkbvmoKQy8
+					/g1d1W6NCkdpZlZVNrk+wpZzdclfAMN6von9
+					/BrwaIGNkReYYQ==
+					) ; KSK; alg = ECDSAP256SHA256 ; key id = 54020
+			4200	RRSIG	DNSKEY 13 2 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					FX0AmBSgPVNOKvgu7y5x2DmtmuV4cHG1nhip
+					PKz6rG+fyMHlyt2wepnEm884mlDXovuYXFeH
+					uvSSU8W06lL0fA== )
+			4200	RRSIG	DNSKEY 13 2 4200 (
+					20260717065151 20260617065151 54020 example.com.
+					JxJZrr5sNhaDH17xNMXauyinPSeCRZG3n21a
+					w8huzpJOrwpTp9C2lr8YTRW3nEARFuNFUm/K
+					WiWXGLL2LkLJUg== )
+mx1.example.com.	4200	IN A	129.0.0.4
+			4200	RRSIG	A 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					jYhwyNvGIXcIlFTyLlQE94fDZVHDQC1CAHDZ
+					Pma/RenibxQERI3Q2YwcenAnWCeIr24Oe6CY
+					2txzYzNwJHzvew== )
+			4200	NSEC	mx2.example.com. A RRSIG NSEC
+			4200	RRSIG	NSEC 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					H4MNbt/6t5hQu4HnxiVcAcXBO0JZNVHfEnDF
+					Ltb3j62SDANSFVAz0F1a/EHf3O2LxoECqOoc
+					NvotAraLZFGLtg== )
+mx2.example.com.	4200	IN A	129.0.0.5
+			4200	RRSIG	A 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					HFxCkrLu1Y+x4iDb3WV528JpHnp72PNwSXiK
+					5sGheG7EpzhnlAgegd76EGzaFTw7OufS2dMJ
+					Rh5c5P6fVenSRw== )
+			4200	NSEC	ns0.example.com. A RRSIG NSEC
+			4200	RRSIG	NSEC 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					n2N5R7BsPi7Yx5aZjC/xhXKBgPolMNh4ZUbk
+					f2xk7YLpM5OYHaoFVkf9VIT+Nsyx/RZrAbbp
+					EBXpsnDc0jZP5w== )
+ns0.example.com.	4200	IN A	129.0.0.2
+			4200	RRSIG	A 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					kIjWcoprDjzzZ24R8LzGSXGSuVwy0vsdsoEn
+					lVzFnZL+5/uVDI8BXZxVvhTF4lvePmJltO8F
+					qN3KyI0ttbR/3g== )
+			4200	NSEC	www.example.com. A RRSIG NSEC
+			4200	RRSIG	NSEC 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					I1nyvoRXz3Q8F+jXmwZ0i/8KxEEZSPgHHeRx
+					DVQ0PKQDIHe4gyqPjr1u4116bD0pjhaCzcK/
+					BVwQPuaIvG/VRA== )
+www.example.com.	4200	IN CNAME example.com.
+			4200	RRSIG	CNAME 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					cY2Ke+yVjCRXz25JHmXSRd8FDGr/G8FQR7oL
+					YwS5Q1RY4HBlRduLtQ9y7fwAuhugZupsPUNP
+					ZTP56LHii9Ty5g== )
+			4200	NSEC	example.com. CNAME RRSIG NSEC
+			4200	RRSIG	NSEC 13 3 4200 (
+					20260717065151 20260617065151 10793 example.com.
+					gw5lFsX8BXSejTvTaDvco32cVTUDjtfTX3s2
+					tHj7W/MaAgVbc9OtPxGX5cbksywsgfmVe6YD
+					NDSK8d3wT1whVA== )

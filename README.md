@@ -13,112 +13,150 @@
 - Baum, Kevin, 6386894, kevin.baum@student.uni-tuebingen.de
 - Patnaik, Noemi, 6019008, noemi.patnaik@student.uni-tuebingen.de
 - Zabel, Natalie, 6677093, natalie-aislyn.zabel@student.uni-tuebingen.de
- 
+
 
 ## About
-- Receives and sends correctly assembled DNS packets
-- Stores packets using a robust object-oriented model
-- Supports configuration via configuration files or command-line parameters
-- Forwards DNS queries to upstream name servers using UDP
-- Generates standards-compliant SERVFAIL responses on network errors
-- Supports multiple load-balancing and redundancy strategies
-- Utilizes a thread-safe configuration model with randomized retry jitter
-
+- Implements a DNS server with UDP and TCP support (Ipv4 and Ipv6 addresses work)
+- Receives, parses, resolves, and serializes DNS packets using an object-oriented DNS message model
+- Supports authoritative DNS zones loaded from BIND-style `named.conf` and zone files
+- Supports common DNS record types including `A`, `AAAA`, `NS`, `MX`, `CNAME`, `SOA`, `PTR`, `TXT`, `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`, and EDNS `OPT`
+- Stores authoritative zone data and cached DNS records in PostgreSQL
+- Resolves queries from local authoritative zones, cache, configured forwarders, or the built-in iterative recursive resolver
+- Supports BIND-style forwarding configuration, including `forward only` and `forward first`
+- Provides multiple upstream resolver strategies: failover, round-robin, random, and parallel
+- Performs iterative recursive resolution with root hints, referrals, glue records, glueless delegation handling, CNAME following, and TCP fallback for truncated responses
+- Supports EDNS, including configurable UDP payload size and DNSSEC OK (`DO`) handling
+- Provides DNSSEC-aware responses by returning DNSSEC records such as `DNSKEY`, `DS`, `RRSIG`, and `NSEC` when requested
+- Generates authoritative DNSSEC negative answers for local zones using `SOA`, `NSEC`, `RRSIG SOA`, and `RRSIG NSEC`
+- Supports forwarding of negative DNSSEC answers from upstream resolving
+- Correctly distinguishes between `NOERROR`, `NXDOMAIN`, `SERVFAIL`, and referrals
+- Sets authoritative response flags for local zone answers and preserves non-authoritative behavior for upstream responses
+- Includes fully configurable logging-section with `channel`, `category` and `severity`, according to the BIND-style
+- Includes black-box integration tests, unit tests, code formatting and coverage reporting 
 ## Project Structure
 
 ```text
-src                                                         
-└── main                                                    
-    └── java                                                
-        └── io                                              
-            └── gitlab                                      
-                └── teamproject2026                         
-                    ├── config                              
-                    │   ├── Config.java                     
-                    │   ├── ConfigManager.java              
-                    │   ├── interpreter                     
-                    │   │   ├── ConfInterpreter.java        
-                    │   │   ├── ConfLexer.java              
-                    │   │   ├── ConfNode.java               
-                    │   │   ├── ConfParser.java             
-                    │   │   ├── ConfToken.java              
-                    │   │   └── ConfTokenType.java          
-                    │   ├── options                         
-                    │   │   ├── OptionSection.java          
-                    │   │   └── ResolverSection.java        
-                    │   └── zones                           
-                    │       ├── ZoneSection.java            
-                    │       └── ZoneType.java               
-                    ├── data                                
-                    │   └── MockResponses.java              
-                    ├── database                            
-                    │   ├── CacheHandler.java               
-                    │   ├── DatabaseConnectionProvider.java 
-                    │   └── ZoneHandler.java                
-                    ├── DNS_SERVER.java                     
-                    ├── DNSParser.java                      
-                    ├── DNSZone.java                        
-                    ├── logging                             
-                    │   ├── DNSEventDebug.java              
-                    │   ├── DNSEventInfo.java               
-                    │   ├── DNSEventType.java               
-                    │   └── LoggingFeature.java             
-                    ├── model                               
-                    │   ├── DNSPacket.java                  
-                    │   ├── OpCode.java                     
-                    │   ├── QuestionSection.java            
-                    │   ├── RCode.java                      
-                    │   ├── rdata                           
-                    │   │   ├── RData.java                  
-                    │   │   ├── RDataA.java                 
-                    │   │   ├── RDataAAAA.java              
-                    │   │   ├── RDataCNAME.java             
-                    │   │   ├── RDataMX.java                
-                    │   │   ├── RDataNS.java                
-                    │   │   ├── RDataPTR.java               
-                    │   │   ├── RDataSOA.java               
-                    │   │   └── RDataTXT.java               
-                    │   ├── ResourceRecord.java             
-                    │   ├── RRClass.java                    
-                    │   └── RRType.java                     
-                    ├── resolver                            
-                    │   ├── Forwarder.java                  
-                    │   ├── StubResolver.java               
-                    │   └── StubResolverStrategy.java       
-                    └── zones                               
-                        ├── ZoneLexer.java                  
-                        ├── ZoneParser.java                 
-                        ├── ZoneToken.java                  
-                        └── ZoneTokenType.java              
+teamproject2026
+├── AnsiColors.java
+├── config
+│  ├── Config.java
+│  ├── ConfigManager.java
+│  ├── interpreter
+│  │  ├── ConfInterpreter.java
+│  │  ├── ConfLexer.java
+│  │  ├── ConfNode.java
+│  │  ├── ConfParser.java
+│  │  ├── ConfToken.java
+│  │  └── ConfTokenType.java
+│  ├── logging
+│  │  ├── LoggingCategory.java
+│  │  ├── LoggingCategoryType.java
+│  │  ├── LoggingChannel.java
+│  │  ├── LoggingSection.java
+│  │  └── LoggingSeverity.java
+│  ├── options
+│  │  ├── OptionSection.java
+│  │  └── ResolverSection.java
+│  └── zones
+│     ├── ZoneSection.java
+│     └── ZoneType.java
+├── data
+│  └── MockResponses.java
+├── database
+│  ├── CacheHandler.java
+│  ├── DatabaseConnectionProvider.java
+│  └── ZoneHandler.java
+├── DNS_SERVER.java
+├── DNSParser.java
+├── DNSZone.java
+├── logging
+│  ├── DNSEvent.java
+│  ├── DNSEventType.java
+│  ├── Logger.java
+│  └── ResponseSource.java
+├── model
+│  ├── DNSPacket.java
+│  ├── OpCode.java
+│  ├── OPTPseudoResourceRecord.java
+│  ├── QuestionSection.java
+│  ├── RCode.java
+│  ├── rdata
+│  │  ├── RData.java
+│  │  ├── RDataA.java
+│  │  ├── RDataAAAA.java
+│  │  ├── RDataCNAME.java
+│  │  ├── RDataDNSKEY.java
+│  │  ├── RDataDS.java
+│  │  ├── RDataMX.java
+│  │  ├── RDataNS.java
+│  │  ├── RDataNSEC.java
+│  │  ├── RDataNSEC3.java
+│  │  ├── RDataNSEC3PARAM.java
+│  │  ├── RDataOPTOption.java
+│  │  ├── RDataPTR.java
+│  │  ├── RDataRRSIG.java
+│  │  ├── RDataSOA.java
+│  │  ├── RDataTXT.java
+│  │  └── RDataUnknown.java
+│  ├── ResourceRecord.java
+│  ├── RRClass.java
+│  └── RRType.java
+├── resolver
+│  ├── AbstractResolver.java
+│  ├── ForwardMode.java
+│  ├── NameServer.java
+│  ├── RecursiveResolver.java
+│  ├── ReferralAnalyzer.java
+│  ├── SListWrapper.java
+│  ├── StubResolver.java
+│  └── StubResolverStrategy.java
+├── server
+│  ├── AbstractServer.java
+│  ├── DNSPayload.java
+│  ├── DNSResolutionPipeline.java
+│  ├── DNSResponseBuilder.java
+│  ├── ServerContext.java
+│  ├── TCPServer.java
+│  └── UDPServer.java
+└── zones
+  ├── ZoneLexer.java
+  ├── ZoneManager.java
+  ├── ZoneParser.java
+  ├── ZoneToken.java
+  └── ZoneTokenType.java
 ```
 
 ### Package Overview
 
-| Package / Class      | Purpose                                                                                                                                                                  |
-|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `config`             | Configuration loading and `named.conf` lexing/parsing infrastructure.                                                                                                    |
-| `config.interpreter` | Lexer, parser, and AST components used to interpret `named.conf`.                                                                                                        |
-| `config.options`     | Configuration models for server, resolver, and runtime options.                                                                                                          |
-| `config.zones`       | Configuration models describing authoritative zones.                                                                                                                     |
-| `data`               | Static mock DNS response data used for testing and development.                                                                                                          |
-| `database`           | Database access layer for caching and authoritative zone persistence. Includes cache management (`CacheHandler`), zone storage (`ZoneHandler`), and connection handling. |
-| `logging`            | DNS event logging infrastructure and event representations used for monitoring and debugging.                                                                            |
-| `model`              | Core DNS protocol models, including packets, questions, resource records, opcodes, and response codes.                                                                   |
-| `model.rdata`        | Implementations of DNS resource-record payloads (RDATA) for supported record types.                                                                                      |
-| `resolver`           | Stub resolver implementation, upstream forwarder definitions, and forwarding strategies used for external DNS resolution.                                                |
-| `zones`              | BIND-style DNS zone-file lexer, parser, and token definitions for authoritative zone loading.                                                                            |
-| `DNS_SERVER`         | Main server entry point coordinating configuration, networking, caching, authoritative zones, and query processing.                                                      |
-| `DNSParser`          | DNS packet parsing and serialization utilities.                                                                                                                          |
-| `DNSZone`            | Representation of a parsed authoritative DNS zone, including metadata and resource records.                                                                              |
- 
+| Package / Class      | Purpose                                                                                                                                                                                                                                          |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `config`             | Loads and represents server configuration, including command-line and `named.conf` based settings.                                                                                                                                               |
+| `config.interpreter` | Lexer, parser, token, and AST infrastructure for interpreting BIND-style `named.conf` files.                                                                                                                                                     |
+| `config.logging`     | Logging configuration models, including categories, channels, and severity levels.                                                                                                                                                               |
+| `config.options`     | Runtime option models for server and resolver behavior, including `EDNS` size and `DNSSEC` enable.                                                                                                                                               
+| `config.zones`       | Configuration models for authoritative zone declarations and zone types.                                                                                                                                                                         |
+| `data`               | Static mock DNS response data used by development utilities and during the early stages.                                                                                                                                                         |
+| `database`           | PostgreSQL access layer for authoritative zone storage and DNS cache management. Includes `CacheHandler`, `ZoneHandler`, and database connection handling.                                                                                       |
+| `logging`            | Structured DNS event logging, event types, response-source tracking, and logger implementation.                                                                                                                                                  |
+| `model`              | Core DNS protocol model, including packets, questions, resource records, opcodes, response codes, classes, types, and EDNS OPT records.                                                                                                          |
+| `model.rdata`        | RDATA implementations for supported DNS record types, including `A`, `AAAA`, `NS`, `MX`, `CNAME`, `SOA`, `PTR`, `TXT`, `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `OPT`, and unknown record data.                                   |
+| `resolver`           | Stub and iterative recursive resolver implementation. Handles forwarding, upstream resolver strategies, root-hint based recursion, referrals, glue and glueless delegation handling, CNAME chains, NODATA, NXDOMAIN, and TCP fallback.           |
+| `server`             | UDP/TCP server implementation and query-resolution pipeline. Coordinates authoritative zone lookup, cache lookup, upstream resolution, response construction, response flags, RCODE handling, minimal responses, and DNSSEC-aware local answers. |
+| `zones`              | BIND-style zone-file lexer, parser, token definitions, and zone loading support. Handles `$ORIGIN`, `$TTL`, `$INCLUDE`, comments, multiline records, escaped labels, and TXT strings.                                                            |
+| `DNS_SERVER`         | Main entry point. Initializes configuration, logging, database connections, zone loading, cache, resolvers, and UDP/TCP servers.                                                                                                                 |
+| `DNSParser`          | Low-level DNS parsing and serialization utilities for names, labels, wire-format data, flags, and byte conversions.                                                                                                                              |
+| `DNSZone`            | In-memory representation of a parsed authoritative zone, including origin, default TTL, SOA validation, and resource records.                                                                                                                    | 
+
 ## Requirements
+
 - Java 25
 - Docker CLI tools (including Docker Compose) or Docker Desktop
 
 ## How to start
-1. Compile the project with 
+
+1. Compile and package the project with 
 ```bash
-mvn compile
+mvn clean package
 ```
 
 2. Start the PostgreSQL server using either
@@ -130,64 +168,95 @@ If there were changes to the database scheme since you last started the server, 
 ```bash
 docker compose down -v
 ```
-3. Start the DNS server with 
+ 
+### Unix
+Start the DNS server from the project root with
 ```bash
-mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER"
+java -jar target/dns-server.jar
 ```
 
-### Unix
 Alternatively, add an alias of your choice
 ```bash
-alias run='mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER"'
+alias run='java -jar target/dns-server.jar'
 ```
 You can then start the server using the alias and optionally pass command-line parameters:
 ```bash
-run -Dexec.args="-p 2222"
+run -p 2222
 ```
 ### Windows
+Start the DNS server from the project root with
+```bash
+java -jar target\dns-server.jar
+```
+
 Alternatively, add a function shortcut 
 ```PowerShell
-function run { mvn exec:java "-Dexec.mainClass=io.gitlab.teamproject2026.DNS_SERVER"}
+function run { java -jar target\dns-server.jar }
 ```
 
 You can then start the server using the shortcut and optionally pass command-line parameters:
 ```PowerShell
-run -Dexec.args="-p 2222"
+run -p 2222
 ```
 
 ## Testing
 
 The current project is tested using both black-box tests executed via a Bash script and unit tests.
 
-### Unit Tests
+### Unit tests
 
-| Test                       | Description                                                |
-|----------------------------|------------------------------------------------------------|
-| testSuccessfulResolution   | Verifies successful DNS resolution and packet integrity    |
-| testTimeoutAndServFail     | Ensures timeouts generate RFC-compliant SERVFAIL responses |
-| testFailoverSwitchesServer | Verifies automatic failover to backup servers              |
-| testRoundRobinStrategy     | Verifies round-robin load balancing                        |
+Run the unit tests with
+```bash
+mvn test
+```
+make sure do have an instance of `postgresql` running (e.g. via docker). The server will remind you.
+
+If there are issues with the database tests, try shutting down the database (via `docker compose down -v`) and then restarting it. Use the same fix if the DNS cache ever gets corrupted.
 
 ### Black-box testing
 
 The CI will run the script test_server.sh. This script contains some black-box tests for the DNS server. 
 
-> **Note**
->
-> If the CI pipeline fails without any apparent changes to `.gitlab-ci.yml` or `test_server.sh`, the server startup or compilation time may have exceeded the timeout configured in the test script. In this case, increase the timeout value accordingly.
+The test file can also be ran locally. This is usefull for testing a bunch of different queries at once
+```bash
+./test_server.sh
+```
+Again, make sure to have an instance of `postgressql` running.
+
+The test file contains many different versions of `dig` queries. 
+- Regular lookups test the correctness of `DNS` queries
+- Domains which often change addresses or are managed by cloudflare should only be checked on having no errors 
+- `NXDOMAIN` lookups test the server ability to handle errors
+
+Some queries take randomly longer in the CI. This is very likely due to internal delays at gitlabs `postgres` server. We have thus disabled pipelines failing when a query takes longer then expected. Just retry the pipeline a few times and you shall see, that this is not an issue of the `DNS` server.
+
 
 ### Examples on manual tests for the current state of the project
-To test packet parsing and hexdump generation: `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
+
+To test packet parsing and hexdump generation: 
+- go into `io.gitlab.teamproject2026.server.AbstractServer:handleQuery` and uncomment the packet logging
+- run `dig @127.0.0.1 uni-tuebingen.de AAAA`
 
 To test supported DNS record types:
-- `dig @127.0.0.1 uni-tuebingen.de +noedns A`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns AAAA`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns CNAME`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns SOA`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns TXT`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns NS`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns PTR`
-- `dig @127.0.0.1 uni-tuebingen.de +noedns MX`
+- `dig @127.0.0.1 uni-tuebingen.de A`
+- `dig @127.0.0.1 uni-tuebingen.de AAAA`
+- `dig @127.0.0.1 uni-tuebingen.de CNAME`
+- `dig @127.0.0.1 uni-tuebingen.de SOA`
+- `dig @127.0.0.1 uni-tuebingen.de TXT`
+- `dig @127.0.0.1 uni-tuebingen.de NS`
+- `dig @127.0.0.1 uni-tuebingen.de PTR`
+- `dig @127.0.0.1 uni-tuebingen.de MX`
+- `dig @127.0.0.1 cloudflare.com DNSSKEY`
+- `dig @127.0.0.1 cloudflare.com RRSIG`
+- `dig @127.0.0.1 cloudflare.com NSEC`
+- `dig @127.0.0.1 cloudflare.com DS`
+
+To test `DNSSEC` do function:
+- `dig @127.0.0.1 cloudflare.com A +dnssec`
+- `dig @127.0.0.1 none.existant.cloudflare.com A +dnssec`
+
+The first query should contain `RRSIG` signatures in the answer section.
+The second query should contain `NSEC` proofs of non-existence in the authority section.
 
 
 ### Monitoring
@@ -207,33 +276,50 @@ Use the following credentials to log in:
 ## Command line
 The parameter `-p` is used in the command line to specify a custom port. 
 ```bash
-mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p 2222"
+java -jar target/dns-server.java -p 2222
 ```
 
-The parameter `-a` is used to specify a custom IP address.
+The parameter `--ipv4` is used to specify a custom IPv4 address (alternatives: `-a`, `-4`, `--listen-on`).
 ```bash
-mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-a 0.0.0.0"
+java -jar target/dns-server.java --ipv4 "0.0.0.0"
 ```
 
-The parameter `--less-log` is used to disable a few server messages. This increases the performance a bit. Useful for CI. 
+The parameter `--ipv6` is used to specify a custom IPv6 address (alternatives: `-6`, `--listen-on-6`).
 ```bash
-mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="--less-log"
+java -jar target/dns-server.java --ipv4 "::1"
+```
+
+The parameter `--verbose` or `-v` sets the logging severity to `DEBUG`, enabling all logging of all possible messages.
+```bash
+java -jar target/dns-server.java --verbose 
+```
+
+The parameter `--quiet` or `-q` sets the logging severity to `ERROR`, enabling all only logging of error related messages.
+```bash
+java -jar target/dns-server.java --quiet 
+```
+
+The parameter `--silent` is used to disable a almost all server messages. 
+```bash
+java -jar target/dns-server.java --silent
 ``` 
 
-The parameter `--minimal-responses` is used to disable glue data for `NS` and `MX` records. This should only be used for CI testing or if performance is important 
+The parameter `--log-level` + `{CRITICAL, ERROR, NOTICE, INFO, DEBUG}` is used to set a specific log level. The CI uses `NOTICE` by default, which minimizes logging.
 ```bash
-mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="--minimal-responses"
+java -jar target/dns-server.java --log-level NOTICE
 ``` 
 
+The parameter `--minimal-responses` is used to disable glue data for `NS` and `MX` records. This option exists in `BIND` and can increase performance. It is used by the CI aswell.
+```bash
+java -jar target/dns-server.java --minimal-responses
+``` 
 
 ## DNS server config file (`named.conf`)
 The DNS server supports a BIND-style configuration file called `named.conf`.
 
 
-
-If a file called `named.conf` exists in the server’s working directory, it can be used to configure default server settings such as the listening address, port, and zone definitions. Command-line arguments take precedence over values defined in the configuration file.
+The file called `named.conf` in the server’s working directory, can be used to configure default server settings such as the listening address, port, and zone definitions. Command-line arguments take precedence over values defined in the configuration file.
 Example config;
-
 
 ```aiignore
 # DNS server configuration
@@ -485,8 +571,8 @@ which correspond to:
 ```
 
 
-## Stub Resolver Configuration
-The stub resolver can be configured in the `options` section of `named.conf`.
+## Resolver Configuration
+The resolver can be configured in the `options` section of `named.conf`.
 
 If a setting is not specified, a built-in default value is used.
 
@@ -515,7 +601,7 @@ options {
 
 ### Forwarders
 
-The forwarders section defines one or more upstream DNS servers to which queries are forwarded.
+The forwarders section defines one or more upstream DNS servers to which queries are forwarded, if an eligible forwarding mode is used.
 
 ```conf
 forwarders {
@@ -534,7 +620,9 @@ forward only;
 ```
 
 - only - Queries are sent exclusively to the configured forwarders.
-- first - Queries are sent to the configured forwarders first. If all forwarders fail, the server performs recursive resolution itself.
+- first - Queries are sent to the configured forwarders first. If all forwarders fail, the server performs resolution itself.
+
+If no such line exists in the config, the server always performs resolution itself (this is `BIND` behaviour).
 
 ### Resolver options
 
@@ -591,14 +679,22 @@ You can change the configuration of the PostgreSQL server both in the `compose.y
 
 Finally, you can configure the initial state of the database by mounting scripts to the `/docker-entrypoint-initdb.d/` directory within the container, as any `.sql` or `.sh` scripts will automatically be executed on container startup. 
 
+## DNS Extensions 
+The server supports:
+- `EDNS`, allowing for custom `UDP-sizes` and other goodies such as `dnssec-do` to request `DNSSEC` aware answers.
+- `DNSSEC` awareness, allowing for querying and parsing `DNSSEC` records and generating correct `DNSSEC` answers from local zones. `DNSSEC` answers from upstream are forwarded aswell. Validation of `DNSSEC` is not supported.
+- `SPF`, by adding a `SPF` TXT-Record in one of the local zones
 
 ## Known issues and bugs
 - None
 
 # Changelog
 ```diff
+~ edns
+~ resolver
 ~ config/
 ~ zones/
 ~ DNSZone
 ~ DNS_SERVER
+~ README.md
 ```

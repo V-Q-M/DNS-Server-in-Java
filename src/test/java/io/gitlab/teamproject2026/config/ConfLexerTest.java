@@ -1,14 +1,13 @@
 package io.gitlab.teamproject2026.config;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import io.gitlab.teamproject2026.config.interpreter.ConfLexer;
 import io.gitlab.teamproject2026.config.interpreter.ConfToken;
 import io.gitlab.teamproject2026.config.interpreter.ConfTokenType;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 public class ConfLexerTest {
     @Test
@@ -35,6 +34,7 @@ public class ConfLexerTest {
             assertEquals(expectedTok.literal(), ourTok.literal());
         }
     }
+
     @Test
     void testAtomTokens() {
         String input = """
@@ -88,6 +88,7 @@ public class ConfLexerTest {
             assertEquals(expectedTok.literal(), ourTok.literal());
         }
     }
+
     @Test
     void testForwardersAndResolverTokens() {
         String input = """
@@ -155,6 +156,7 @@ public class ConfLexerTest {
             assertEquals(expectedTok.literal(), ourTok.literal());
         }
     }
+
     @Test
     void testQuotedStrings() {
         String input = """
@@ -174,6 +176,7 @@ public class ConfLexerTest {
         assertEquals(ConfTokenType.STRING, path.type());
         assertEquals("/var/named/my zones", path.literal());
     }
+
     @Test
     void testCommentsIgnored() {
         String input = """
@@ -192,8 +195,7 @@ public class ConfLexerTest {
                 new ConfToken(ConfTokenType.SEMICOLON, ";"),
                 new ConfToken(ConfTokenType.RBRACE, "}"),
                 new ConfToken(ConfTokenType.SEMICOLON, ";"),
-                new ConfToken(ConfTokenType.EOF, "")
-        );
+                new ConfToken(ConfTokenType.EOF, ""));
 
         ConfLexer lexer = new ConfLexer(input);
 
@@ -204,6 +206,4 @@ public class ConfLexerTest {
             assertEquals(expected.literal(), actual.literal());
         }
     }
-
-
 }

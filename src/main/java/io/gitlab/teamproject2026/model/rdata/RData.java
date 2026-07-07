@@ -1,19 +1,34 @@
 package io.gitlab.teamproject2026.model.rdata;
 
 import io.gitlab.teamproject2026.model.RRType;
+import java.util.Arrays;
 
-/**
- * Interface for all DNS RDATA types.
- * Each implementing class defines its own type-specific fields.
- */
-public interface RData {
+/** Interface for all DNS RDATA types. Each implementing class defines its own type-specific fields. */
+public sealed interface RData
+        permits RDataA,
+                RDataAAAA,
+                RDataCNAME,
+                RDataDNSKEY,
+                RDataDS,
+                RDataMX,
+                RDataNS,
+                RDataNSEC,
+                RDataNSEC3,
+                RDataNSEC3PARAM,
+                RDataOPTOption,
+                RDataPTR,
+                RDataRRSIG,
+                RDataSOA,
+                RDataTXT,
+                RDataUnknown {
 
     /**
-     * Predefined type of the rdata and thus of the ResourceRecord
-     * logically identical to testing the instance of the RData
+     * Predefined type of the rdata and thus of the ResourceRecord logically identical to testing the instance of the
+     * RData
+     *
      * @return rrtype of the RData and thus of the ResourceRecord
      */
-    RRType getType();
+    int getType();
 
     /**
      * Serializes this resource record into its binary DNS wire format.
@@ -29,16 +44,32 @@ public interface RData {
      * @param rrType the rrType of the resource record from an incoming DNS packet
      * @return a new ResourceRecord instance populated with the parsed data
      */
-    static RData fromBytes(byte[] bytes, int byteIndex, int rdlength, RRType rrType) {
+    static RData fromBytes(byte[] bytes, int byteIndex, int rdlength, int rrType) {
+        if (byteIndex < 0 || rdlength < 0 || byteIndex + rdlength > bytes.length) {
+            throw new IllegalArgumentException("RDATA exceeds packet bounds");
+        }
+        byte[] rdata = Arrays.copyOfRange(bytes, byteIndex, byteIndex + rdlength);
+
         return switch (rrType) {
-            case A -> RDataA.fromBytes(bytes, byteIndex);
-            case AAAA -> RDataAAAA.fromBytes(bytes, byteIndex);
-            case CNAME -> RDataCNAME.fromBytes(bytes, byteIndex);
-            case MX -> RDataMX.fromBytes(bytes, byteIndex);
-            case NS -> RDataNS.fromBytes(bytes, byteIndex);
-            case PTR -> RDataPTR.fromBytes(bytes, byteIndex);
-            case SOA -> RDataSOA.fromBytes(bytes, byteIndex);
-            case TXT -> RDataTXT.fromBytes(bytes, byteIndex, rdlength);
+            // These can use the complete packet for decompression
+            case RRType.A -> RDataA.fromBytes(bytes, byteIndex);
+            case RRType.AAAA -> RDataAAAA.fromBytes(bytes, byteIndex);
+            case RRType.CNAME -> RDataCNAME.fromBytes(bytes, byteIndex);
+            case RRType.MX -> RDataMX.fromBytes(bytes, byteIndex);
+            case RRType.NS -> RDataNS.fromBytes(bytes, byteIndex);
+            case RRType.PTR -> RDataPTR.fromBytes(bytes, byteIndex);
+            case RRType.SOA -> RDataSOA.fromBytes(bytes, byteIndex);
+            case RRType.TXT -> RDataTXT.fromBytes(bytes, byteIndex, rdlength);
+            case RRType.OPT -> new RDataOPTOption(bytes, byteIndex, rdlength);
+            case RRType.RRSIG -> new RDataRRSIG(bytes, byteIndex, rdlength);
+
+            // These don't need the complete packet
+            case RRType.DS -> new RDataDS(rdata);
+            case RRType.NSEC -> new RDataNSEC(rdata);
+            case RRType.NSEC3 -> new RDataNSEC3(rdata);
+            case RRType.NSEC3PARAM -> new RDataNSEC3PARAM(rdata);
+            case RRType.DNSKEY -> new RDataDNSKEY(rdata);
+            default -> new RDataUnknown(rrType, bytes, byteIndex, rdlength);
         };
     }
 }

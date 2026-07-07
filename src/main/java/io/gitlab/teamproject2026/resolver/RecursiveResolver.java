@@ -1,29 +1,20 @@
 package io.gitlab.teamproject2026.resolver;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.database.CacheHandler;
-import io.gitlab.teamproject2026.database.*;
-import io.gitlab.teamproject2026.model.DNSPacket;
-import io.gitlab.teamproject2026.model.QuestionSection;
-import io.gitlab.teamproject2026.model.RCode;
-import io.gitlab.teamproject2026.model.RRType;
-import io.gitlab.teamproject2026.model.OpCode;
-import io.gitlab.teamproject2026.model.ResourceRecord;
-import io.gitlab.teamproject2026.model.rdata.RData;
-import io.gitlab.teamproject2026.model.rdata.RDataA;
-import io.gitlab.teamproject2026.model.rdata.RDataAAAA;
-import io.gitlab.teamproject2026.model.rdata.RDataNS;
-import io.gitlab.teamproject2026.resolver.SListWrapper.*;
-import io.gitlab.teamproject2026.model.RRClass;
-import io.gitlab.teamproject2026.model.rdata.RDataCNAME;
-
+import io.gitlab.teamproject2026.logging.Logger;
+import io.gitlab.teamproject2026.model.*;
+import io.gitlab.teamproject2026.model.rdata.*;
+import io.gitlab.teamproject2026.resolver.SListWrapper.SListEntry;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.Set;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 /*
  * Iterative resolver loop (equivalent to RFC 1034 5.3.3).
@@ -35,43 +26,46 @@ import java.util.HashSet;
  * - resolve(name, ...) is recursive on purpose. CNAME restart and glue-less
  *   lookups (Step 2/3) just call it again with a different name.
  */
-public class RecursiveResolver extends AbstractResolver{
+public class RecursiveResolver extends AbstractResolver {
 
     private final CacheHandler cache;
+    private final int ednsUdpSizeLimit;
 
     /** Depth limit so NS/glue resolution doesn't loop infinitely. */
     private static final int MAX_DEPTH = 16;
+
     private static final int MAX_NS_ADDRESS_DEPTH = 3;
 
-    public RecursiveResolver(CacheHandler cache, int timeoutMs, long retryDelay) {
+    public RecursiveResolver(CacheHandler cache, Logger logger, int timeoutMs, long retryDelay, int ednsUdpSizeLimit) {
         this.cache = cache;
-        this.timeoutMs=timeoutMs;
-        this.retryDelay=retryDelay;
+        this.logger = logger;
+        this.timeoutMs = timeoutMs;
+        this.retryDelay = retryDelay;
+        this.ednsUdpSizeLimit = ednsUdpSizeLimit;
     }
 
     @Override
-        public byte[] resolve(byte[] query){
-            DNSPacket queryPacket;
-            queryPacket = DNSPacket.fromBytes(query);
-            //clear RA, RD bit
-            queryPacket.setRa(false);
-            queryPacket.setRd(false);
+    public byte[] resolve(byte[] query) {
+        DNSPacket queryPacket;
+        queryPacket = DNSPacket.fromBytes(query);
+        // clear RA, RD bit
+        queryPacket.setRa(false);
+        queryPacket.setRd(false);
 
-            QuestionSection question= queryPacket.getQuestionSections()[0];
-            // resolve one question.
-            return resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
-        }
-
-
-
+        QuestionSection question = queryPacket.getQuestionSections()[0];
+        // resolve one question.
+        return resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
+    }
 
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
-    // Terminates because the SLIST strictly shrinks: 
+    // Terminates because the SLIST strictly shrinks:
     // - each pass either returns or removes a server.
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, RRType qtype, byte[] query, ResolveContext ctx){
+    private byte[] resolve(String[] sname, int qtype, byte[] query, ResolveContext ctx) {
+        // OOP QueryPacket for logging
+        DNSPacket queryPacket = DNSPacket.fromBytes(query);
 
         // Cap glue/CNAME resolution to avoid infinite recursion.
         if (ctx.depth() > MAX_DEPTH) {
@@ -97,16 +91,17 @@ public class RecursiveResolver extends AbstractResolver{
             //  find the best server
             SListEntry bestNsserver = slistWrap.getBestServer();
             // SLIST empty.
-            if (bestNsserver == null ||
-                    (bestNsserver.ipv4().toString().equals("0.0.0.0") && bestNsserver.ipv6().toString().equals("0000:0000:0000:0000:0000:0000:0000:0000"))
-                    ||bestNsserver.nsName().getNsdname().length == 0){
+            if (bestNsserver == null
+                    || (bestNsserver.ipv4().toString().equals("0.0.0.0")
+                            && bestNsserver.ipv6().toString().equals("0000:0000:0000:0000:0000:0000:0000:0000"))
+                    || bestNsserver.nsName().getNsdname().length == 0) {
                 return buildServFail(query);
             }
 
-            //build NameServer for queryUDP/queryTCP
+            // build NameServer for queryUDP/queryTCP
             String ipv4Str = bestNsserver.ipv4().toString();
             String ipv6Str = bestNsserver.ipv6().toString();
-            String nsName =  bestNsserver.nsName().toString();
+            String nsName = bestNsserver.nsName().toString();
 
             NameServer queriedServerIpv4 = new NameServer(ipv4Str, 53, nsName);
             NameServer queriedServerIpv6 = new NameServer(ipv6Str, 53, nsName);
@@ -114,29 +109,29 @@ public class RecursiveResolver extends AbstractResolver{
             // send iterative query
             QueryResult result = null;
             NameServer currentServer = null;
-            //query UDP: try ipv4, if not available use ipv6
+            // query UDP: try ipv4, if not available use ipv6
             if (!queriedServerIpv4.host().equals("0.0.0.0")) {
                 currentServer = queriedServerIpv4;
-                logger.logTrace(PINK + "[TRACE] Sending query: " + String.join(".",sname) + ". to " + currentServer.name()+ RESET);
+                logger.logTrace("Sending query to " + currentServer.name(), queryPacket);
                 result = queryUDP(query, queriedServerIpv4, timeoutMs);
-            } else if (!queriedServerIpv6.host().equals("0000:0000:0000:0000:0000:0000:0000:0000")){
+            } else if (!queriedServerIpv6.host().equals("0000:0000:0000:0000:0000:0000:0000:0000")) {
                 currentServer = queriedServerIpv6;
-                logger.logTrace(PINK + "[TRACE] Sending query: " + String.join(".",sname) + ". to " + currentServer.name()+ RESET);
+                logger.logTrace("Sending query to " + currentServer.name(), queryPacket);
                 result = queryUDP(query, queriedServerIpv6, timeoutMs);
             }
 
-            //handle failures: new while iteration with new server
-            if (result==null||result.status()==Status.TIMEOUT||result.status()==Status.IO_ERROR) {
+            // handle failures: new while iteration with new server
+            if (result == null || result.status() == Status.TIMEOUT || result.status() == Status.IO_ERROR) {
                 sleep(retryDelay);
-                logger.logTrace(PINK + "[TRACE] Query failure, retry"+ RESET);
+                logger.logTrace("Query failure, retry", queryPacket);
                 continue;
             }
 
-            //fallback to TCP in case of truncation
+            // fallback to TCP in case of truncation
             if (isTruncated(result.response())) {
-                logger.logTrace(PINK + "[TRACE] Query truncated, retrying over TCP"+ RESET);
+                logger.logTrace("Query truncated, retrying over TCP", queryPacket);
                 QueryResult tcpResult = queryTCP(query, currentServer, timeoutMs);
-                //handle failures: new while iteration with new server
+                // handle failures: new while iteration with new server
                 if (tcpResult == null || tcpResult.status() != Status.SUCCESS) {
                     sleep(retryDelay);
                     continue;
@@ -156,9 +151,8 @@ public class RecursiveResolver extends AbstractResolver{
                 logger.log(
                         (RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET),
                         LoggingCategoryType.DEFAULT,
-                        LoggingSeverity.ERROR
-                );
-                //IO.println(RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET);
+                        LoggingSeverity.ERROR);
+                // IO.println(RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET);
             }
 
             // which branch of the RCODE decision tree is this?
@@ -172,12 +166,13 @@ public class RecursiveResolver extends AbstractResolver{
 
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.
-                case ANSWER, NODATA, NXDOMAIN, FORMERR -> {
+                case ANSWER, NODATA, NXDOMAIN -> {
+                    logger.logTrace("Recursive resolver has finished successfully", queryPacket);
                     return response.toBytes();
                 }
                 // This server could not answer: try the next one.
-                case SERVFAIL -> {
-                    logger.logTrace(PINK + "[TRACE] Server returned " + verdict.SERVFAIL + ", retry"+ RESET);
+                case SERVFAIL, FORMERR, REFUSED -> {
+                    logger.logTrace("Server returned " + verdict + ", retry", queryPacket);
                     continue;
                 }
                 // Delegation: resolve any missing glue, add the servers, keep walking down.
@@ -192,20 +187,34 @@ public class RecursiveResolver extends AbstractResolver{
                         }
                         slistWrap.addSListEntry(d.ns(), d.ipv4(), d.ipv6());
                         addedAny = true;
+                        logger.logTrace(
+                                "Received glueful referral from: " + currentServer.name() + " to: " + d.toString(),
+                                queryPacket);
                     }
 
                     // PASS 2: only if no glueful referral was usable, resolve glue-less NS names.
                     if (!addedAny) {
+                        logger.logTrace("No glueful referrals recieved, try glueless referalls: ", queryPacket);
                         for (Delegation d : delegations) {
                             if (d.hasGlue()) {
                                 continue;
                             }
-
+                            logger.logTrace(
+                                    "Recieved glueless referral from: " + currentServer.name() + " to: "
+                                            + String.join(".", ((RDataNS) d.ns.getRdata()).getNsdname())
+                                            + ". resolving:",
+                                    queryPacket);
                             Delegation resolved = resolveNsAddress(d, ctx.deeper());
                             if (!resolved.hasGlue()) {
+                                logger.logTrace(
+                                        "No gluerecord found for: "
+                                                + String.join(".", ((RDataNS) d.ns.getRdata()).getNsdname())
+                                                + ". continue to next referral",
+                                        queryPacket);
                                 continue;
                             }
 
+                            logger.logTrace("Recieved gluerecord for: " + resolved.toString(), queryPacket);
                             slistWrap.addSListEntry(resolved.ns(), resolved.ipv4(), resolved.ipv6());
                             addedAny = true;
 
@@ -225,29 +234,31 @@ public class RecursiveResolver extends AbstractResolver{
                         return buildServFail(query);
                     }
                     // loop guard: a target we have already followed means a CNAME loop
-                    logger.logTrace(PINK + "[TRACE] Received CNAME for: " + String.join(".", sname) + ". to: " + String.join(".",target) + "."+ RESET);
+                    logger.logTrace(
+                            "Received CNAME for: " + String.join(".", sname) + ". to: " + String.join(".", target)
+                                    + ".",
+                            queryPacket);
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
                         return buildServFail(query);
                     }
                     // resolve the target via cache (following cached CNAMEs) then iterate the tail
-                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx)).toBytes();
+                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx))
+                            .toBytes();
                 }
             }
-
         }
     }
-
 
     /** Per-resolution state: recursion depth (capped) and the CNAME loop guard. */
     record ResolveContext(int depth, Set<String> cnamesSeen) {
         static ResolveContext start() {
             return new ResolveContext(0, new HashSet<>());
         }
+
         ResolveContext deeper() {
             return new ResolveContext(depth + 1, cnamesSeen);
         }
     }
-
 
     /**
      * Resolves a glue-less delegation's name server address (cache first, then iterative).
@@ -256,7 +267,6 @@ public class RecursiveResolver extends AbstractResolver{
      * @param ctx the resolution context
      * @return the delegation with its address, or unchanged if it cannot be resolved
      */
-
     Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
         String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
 
@@ -270,7 +280,6 @@ public class RecursiveResolver extends AbstractResolver{
         }
         return d;
     }
-
 
     /*
     Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
@@ -298,7 +307,7 @@ public class RecursiveResolver extends AbstractResolver{
      * @param ctx the resolution context
      * @return the matching address rdata, or null if it cannot be resolved
      */
-    RData resolveAddress(String[] name, RRType type, ResolveContext ctx) {
+    RData resolveAddress(String[] name, int type, ResolveContext ctx) {
         try {
             ResourceRecord[] cached = cache.lookup(String.join(".", name), type);
             if (cached.length > 0) {
@@ -307,11 +316,12 @@ public class RecursiveResolver extends AbstractResolver{
         } catch (SQLException e) {
             // cache unavailable: fall through to an iterative lookup
             logger.log(
-                    (RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET),
+                    (RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage()
+                            + RESET),
                     LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.INFO
-            );
-            //IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
+                    LoggingSeverity.INFO);
+            // IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage()
+            // + RESET);
         }
         byte[] response = resolve(name, type, buildQuery(name, type), ctx.deeper());
         DNSPacket parsed = DNSPacket.fromBytes(response);
@@ -331,7 +341,6 @@ public class RecursiveResolver extends AbstractResolver{
         }
         return null;
     }
-
 
     /**
      * The canonical name a CNAME response points to.
@@ -370,15 +379,15 @@ public class RecursiveResolver extends AbstractResolver{
     }
 
     /**
-     * Resolves a name using the cache as far as it reaches: it follows cached CNAME
-     * records and only resolves the remaining tail of the chain iteratively.
+     * Resolves a name using the cache as far as it reaches: it follows cached CNAME records and only resolves the
+     * remaining tail of the chain iteratively.
      *
      * @param name the name to resolve
      * @param qtype the wanted record type
      * @param ctx the resolution context
      * @return a response, cached CNAMEs prepended onto the resolved tail
      */
-    DNSPacket resolveCnameTarget(String[] name, RRType qtype, ResolveContext ctx) {
+    DNSPacket resolveCnameTarget(String[] name, int qtype, ResolveContext ctx) {
         // the wanted type is cached directly
         DNSPacket direct = cachedResponse(name, qtype);
         if (direct != null) {
@@ -405,18 +414,19 @@ public class RecursiveResolver extends AbstractResolver{
      * @param qtype the record type
      * @return a NOERROR response with the cached records, or null if not cached
      */
-    DNSPacket cachedResponse(String[] name, RRType qtype) {
+    DNSPacket cachedResponse(String[] name, int qtype) {
         ResourceRecord[] cached;
         try {
             cached = cache.lookup(String.join(".", name), qtype);
         } catch (SQLException e) {
             // treat a cache error like a miss so the caller falls back to iterating
             logger.log(
-                    (RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET),
+                    (RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage()
+                            + RESET),
                     LoggingCategoryType.DEFAULT,
-                    LoggingSeverity.INFO
-            );
-            //IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage() + RESET);
+                    LoggingSeverity.INFO);
+            // IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage()
+            // + RESET);
             return null;
         }
         if (cached.length == 0) {
@@ -431,7 +441,7 @@ public class RecursiveResolver extends AbstractResolver{
         packet.setId(randomId());
         packet.setOpcode(OpCode.QUERY);
         packet.setRcode(RCode.NOERROR);
-        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setQuestionSections(new QuestionSection[] {question});
         packet.setAnswerSections(cached);
         packet.setAuthoritySections(new ResourceRecord[0]);
         packet.setAdditionalSections(new ResourceRecord[0]);
@@ -445,7 +455,7 @@ public class RecursiveResolver extends AbstractResolver{
      * @param qtype the query type
      * @return the query bytes
      */
-    private static byte[] buildQuery(String[] name, RRType qtype) {
+    private byte[] buildQuery(String[] name, int qtype) {
         QuestionSection question = new QuestionSection();
         question.setName(name);
         question.setQtype(qtype);
@@ -457,10 +467,11 @@ public class RecursiveResolver extends AbstractResolver{
         packet.setQr(false);
         packet.setRd(false);
         packet.setRcode(RCode.NOERROR);
-        packet.setQuestionSections(new QuestionSection[]{question});
+        packet.setQuestionSections(new QuestionSection[] {question});
         packet.setAnswerSections(new ResourceRecord[0]);
         packet.setAuthoritySections(new ResourceRecord[0]);
         packet.setAdditionalSections(new ResourceRecord[0]);
+        packet.setEdnsRecord(new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
         return packet.toBytes();
     }
 
@@ -471,7 +482,6 @@ public class RecursiveResolver extends AbstractResolver{
         return id;
     }
 
-
     // Glue extraction: pull the NS records and their glue out of a referral response.
 
     // One delegation from a referral: NS record + glue addresses.
@@ -480,11 +490,21 @@ public class RecursiveResolver extends AbstractResolver{
         boolean hasGlue() {
             return !isZero(ipv4.getAddress()) || !isZero(ipv6.getAddress());
         }
+
+        @Override
+        public String toString() {
+            String nsName = String.join(".", ((RDataNS) ns.getRdata()).getNsdname()) + ".";
+
+            String ipv4Text = isZero(ipv4.getAddress()) ? "none" : ipv4.toString();
+            String ipv6Text = isZero(ipv6.getAddress()) ? "none" : ipv6.toString();
+
+            return "ns=" + nsName + " ipv4=" + ipv4Text + " ipv6=" + ipv6Text;
+        }
     }
 
     /**
-     * Pulls the NS records from the authority section and matches their glue
-     * (A / AAAA) from the additional section. One Delegation per NS record.
+     * Pulls the NS records from the authority section and matches their glue (A / AAAA) from the additional section.
+     * One Delegation per NS record.
      *
      * @param response - a referral response from a name server
      * @return one Delegation per NS record, with zero-address glue where none was provided
@@ -507,19 +527,19 @@ public class RecursiveResolver extends AbstractResolver{
 
             if (!ipv4Glue.isEmpty()) {
                 for (RDataA a : ipv4Glue) {
-                    delegations.add(new Delegation(rr, a, new RDataAAAA(new byte[16]) ));
+                    delegations.add(new Delegation(rr, a, new RDataAAAA(new byte[16])));
                 }
                 continue;
             }
 
             if (!ipv6Glue.isEmpty()) {
                 for (RDataAAAA aaaa : ipv6Glue) {
-                    delegations.add(new Delegation(rr, new RDataA(new byte[4]), aaaa ));
+                    delegations.add(new Delegation(rr, new RDataA(new byte[4]), aaaa));
                 }
                 continue;
             }
 
-            delegations.add(new Delegation(rr, new RDataA(new byte[4]), new RDataAAAA(new byte[16]) ));
+            delegations.add(new Delegation(rr, new RDataA(new byte[4]), new RDataAAAA(new byte[16])));
         }
         return delegations;
     }
@@ -530,8 +550,7 @@ public class RecursiveResolver extends AbstractResolver{
             return out;
         }
         for (ResourceRecord rr : additional) {
-            if (rr.getType() == RRType.A
-                    && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
+            if (rr.getType() == RRType.A && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
                 out.add((RDataA) rr.getRdata());
             }
         }
@@ -544,23 +563,22 @@ public class RecursiveResolver extends AbstractResolver{
             return out;
         }
         for (ResourceRecord rr : additional) {
-            if (rr.getType() == RRType.AAAA
-                    && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
+            if (rr.getType() == RRType.AAAA && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
                 out.add((RDataAAAA) rr.getRdata());
             }
         }
         return out;
     }
 
-    /** probably obsolete?
-     * Finds the glue rdata of a given type for a name server in the additional section.
+    /**
+     * probably obsolete? Finds the glue rdata of a given type for a name server in the additional section.
      *
      * @param additional the additional section of a response (may be null)
-     * @param nsHost     the name server's host name
-     * @param type       the record type to look for (A or AAAA)
+     * @param nsHost the name server's host name
+     * @param type the record type to look for (A or AAAA)
      * @return the matching rdata, or null if none is present
      */
-    private static RData findGlue(ResourceRecord[] additional, String nsHost, RRType type) {
+    private static RData findGlue(ResourceRecord[] additional, String nsHost, int type) {
         if (additional == null) {
             return null;
         }
@@ -589,5 +607,4 @@ public class RecursiveResolver extends AbstractResolver{
         }
         return true;
     }
-
 }

@@ -1,8 +1,7 @@
 package io.gitlab.teamproject2026.zones;
 
 /**
- * Lexical analyzer for BIND-style DNS zone files.
- * Converts raw zone file input into a stream of {@link ZoneToken}s
+ * Lexical analyzer for BIND-style DNS zone files. Converts raw zone file input into a stream of {@link ZoneToken}s
  * consumed by the zone parser.
  */
 public class ZoneLexer {
@@ -13,23 +12,20 @@ public class ZoneLexer {
     int lineCount = 1;
 
     /**
-     * Creates a lexer for the provided zone file input.
-     * Initializes the lexer by reading the first character.
+     * Creates a lexer for the provided zone file input. Initializes the lexer by reading the first character.
      *
      * @param input raw DNS zone file content
      */
     public ZoneLexer(String input) {
-        this.input = input.replace("\r\n", "\n")
-                          .replace("\r", "\n");
+        this.input = input.replace("\r\n", "\n").replace("\r", "\n");
         this.readNextChar();
     }
 
     /**
-     * Advances the lexer to the next character in the input stream.
-     * Reaches '\0' when the end of input is encountered.
+     * Advances the lexer to the next character in the input stream. Reaches '\0' when the end of input is encountered.
      */
-    private void readNextChar(){
-        if (this.readPosition >= input.length()){
+    private void readNextChar() {
+        if (this.readPosition >= input.length()) {
             this.ch = '\0';
         } else {
             this.ch = input.charAt(readPosition);
@@ -39,18 +35,17 @@ public class ZoneLexer {
     }
 
     /**
-     * Produces the next token from the input stream.
-     * Handles punctuation, directives, identifiers,
-     * quoted TXT strings, comments, and end-of-file markers.
+     * Produces the next token from the input stream. Handles punctuation, directives, identifiers, quoted TXT strings,
+     * comments, and end-of-file markers.
      *
      * @return next parsed token
      */
-    public ZoneToken nextToken(){
+    public ZoneToken nextToken() {
         ZoneToken tok;
 
         this.skipComments();
 
-        switch(this.ch) {
+        switch (this.ch) {
             case ' ', '\t' -> {
                 tok = new ZoneToken(ZoneTokenType.SPACE, this.ch, lineCount);
                 // collapse consecutive spaces/tabs into one SPACE token
@@ -75,7 +70,6 @@ public class ZoneLexer {
                     tok = new ZoneToken(ZoneTokenType.ILLEGAL, this.ch, lineCount);
                 }
             }
-
         }
 
         this.readNextChar();
@@ -83,8 +77,7 @@ public class ZoneLexer {
     }
 
     /**
-     * Reads a quoted TXT string token.
-     * Supports escaped quotes and escaped backslashes.
+     * Reads a quoted TXT string token. Supports escaped quotes and escaped backslashes.
      *
      * @return TXT token containing the unescaped string value
      */
@@ -94,7 +87,7 @@ public class ZoneLexer {
         // consume opening quote
         this.readNextChar();
         while (this.ch != '\0') {
-            if (this.ch == '\n' || this.ch == '\r'){
+            if (this.ch == '\n' || this.ch == '\r') {
                 return new ZoneToken(ZoneTokenType.ILLEGAL, "Unterminated TXT string", lineCount);
             }
             if (escaped) {
@@ -113,13 +106,12 @@ public class ZoneLexer {
         return new ZoneToken(ZoneTokenType.ILLEGAL, "Unterminated TXT string", lineCount);
     }
     /**
-     * Parses an identifier-like token and determines its concrete type.
-     * Supports DNS directives, RR types, IP addresses, numeric literals,
-     * and generic ATOM values.
+     * Parses an identifier-like token and determines its concrete type. Supports DNS directives, RR types, IP
+     * addresses, numeric literals, and generic ATOM values.
      *
      * @return parsed token with inferred TokenType
      */
-    private ZoneToken determineIdentifier(){
+    private ZoneToken determineIdentifier() {
         int startPosition = this.position;
         boolean escaped = false;
 
@@ -136,22 +128,35 @@ public class ZoneLexer {
                 continue;
             }
 
-            if (Character.isWhitespace(this.ch) || this.ch == '(' || this.ch == ')' || this.ch == '"' || this.ch == ';') {
+            if (Character.isWhitespace(this.ch)
+                    || this.ch == '('
+                    || this.ch == ')'
+                    || this.ch == '"'
+                    || this.ch == ';') {
                 break;
             }
             this.readNextChar();
-
         }
         String literal = this.input.substring(startPosition, this.position);
 
-        if (literal.equals("$ORIGIN")) { return new ZoneToken(ZoneTokenType.ORIGIN, literal, lineCount); }
-        if (literal.equals("$TTL")) { return new ZoneToken(ZoneTokenType.TTL, literal, lineCount); }
+        if (literal.equals("$ORIGIN")) {
+            return new ZoneToken(ZoneTokenType.ORIGIN, literal, lineCount);
+        }
+        if (literal.equals("$TTL")) {
+            return new ZoneToken(ZoneTokenType.TTL, literal, lineCount);
+        }
 
-        if (isValidIPv4(literal)) { return new ZoneToken(ZoneTokenType.IPV4_ADDRESS, literal, lineCount); }
-        if (literal.contains(":")) { return new ZoneToken(ZoneTokenType.IPV6_ADDRESS, literal, lineCount); }
-        if (isInteger(literal)) { return new ZoneToken(ZoneTokenType.NUMBER, literal, lineCount); }
+        if (isValidIPv4(literal)) {
+            return new ZoneToken(ZoneTokenType.IPV4_ADDRESS, literal, lineCount);
+        }
+        if (literal.contains(":")) {
+            return new ZoneToken(ZoneTokenType.IPV6_ADDRESS, literal, lineCount);
+        }
+        if (isInteger(literal)) {
+            return new ZoneToken(ZoneTokenType.NUMBER, literal, lineCount);
+        }
 
-        return  new ZoneToken(ZoneToken.lookUpIdentifier(literal),literal, lineCount);
+        return new ZoneToken(ZoneToken.lookUpIdentifier(literal), literal, lineCount);
     }
 
     private boolean isInteger(String s) {
@@ -165,9 +170,8 @@ public class ZoneLexer {
     }
 
     /**
-     * Skips semicolon comments.
-     * Stops before newline characters because they are meaningful tokens
-     * in DNS zone file syntax.
+     * Skips semicolon comments. Stops before newline characters because they are meaningful tokens in DNS zone file
+     * syntax.
      */
     private void skipComments() {
         while (this.ch == ';') {
@@ -178,7 +182,16 @@ public class ZoneLexer {
     }
 
     private boolean isLetter(char ch) {
-        return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '.' || ch == ':' || ch == '$' || ch == '@' || ch == '-' || ch == '_' || ch == '+' || ch == '/';
+        return 'a' <= ch && ch <= 'z'
+                || 'A' <= ch && ch <= 'Z'
+                || ch == '.'
+                || ch == ':'
+                || ch == '$'
+                || ch == '@'
+                || ch == '-'
+                || ch == '_'
+                || ch == '+'
+                || ch == '/';
     }
 
     private boolean isValidIPv4(String s) {
@@ -196,5 +209,4 @@ public class ZoneLexer {
         }
         return true;
     }
-
 }

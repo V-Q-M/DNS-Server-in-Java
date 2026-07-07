@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.config.interpreter;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.config.Config;
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.logging.*;
@@ -9,17 +11,14 @@ import io.gitlab.teamproject2026.config.zones.ZoneSection;
 import io.gitlab.teamproject2026.config.zones.ZoneType;
 import io.gitlab.teamproject2026.resolver.ForwardMode;
 import io.gitlab.teamproject2026.resolver.StubResolverStrategy;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Interprets the configuration AST represented by {@link ConfNode}s and
- * converts it into validated {@link Config} objects. Responsible for
- * applying defaults, validating directives, and reporting semantic
- * configuration errors.
+ * Interprets the configuration AST represented by {@link ConfNode}s and converts it into validated {@link Config}
+ * objects. Responsible for applying defaults, validating directives, and reporting semantic configuration errors.
  */
 public class ConfInterpreter {
     private boolean interpreterError = false;
@@ -30,15 +29,15 @@ public class ConfInterpreter {
      * @param rootNodes top-level {@link ConfNode}s produced by the parser
      * @return the interpreted {@link Config}, or {@code null} if interpretation fails
      */
-    public Config fromAst(List<ConfNode> rootNodes){
+    public Config fromAst(List<ConfNode> rootNodes) {
         LoggingSection logging = null;
         OptionSection option = null;
         List<ZoneSection> zones = new ArrayList<>();
 
         for (ConfNode node : rootNodes) {
             String name = node.name().toLowerCase();
-            switch (name){
-                case "logging" ->{
+            switch (name) {
+                case "logging" -> {
                     if (logging == null) {
                         logging = parseLoggingConfig(node);
                     } else {
@@ -68,10 +67,9 @@ public class ConfInterpreter {
 
     /**
      * Interprets the {@code logging} section of the configuration AST.
-     * <p>
-     * Parses all logging channels and categories, validates references between
-     * them, and constructs the resulting {@link LoggingSection}. Categories may
-     * reference one or more previously defined channels.
+     *
+     * <p>Parses all logging channels and categories, validates references between them, and constructs the resulting
+     * {@link LoggingSection}. Categories may reference one or more previously defined channels.
      *
      * @param root the root {@link ConfNode} representing the logging section
      * @return the resulting {@link LoggingSection}
@@ -101,10 +99,7 @@ public class ConfInterpreter {
                 try {
                     // Convert BIND syntax (e.g. "query-errors") into the enum name (QUERY_ERRORS).
                     type = LoggingCategoryType.valueOf(
-                            node.args().getFirst()
-                                    .replace('-', '_')
-                                    .toUpperCase()
-                    );
+                            node.args().getFirst().replace('-', '_').toUpperCase());
                 } catch (IllegalArgumentException e) {
                     error("Unknown logging category: " + node.args().getFirst(), node.lineNumber());
                     continue;
@@ -129,14 +124,27 @@ public class ConfInterpreter {
 
     /**
      * Interprets a single {@code channel} declaration from the logging section.
-     * <p>
-     * Reads the channel name, output file, logging severity, and formatting
-     * options. Unknown directives or invalid values are reported as
-     * configuration errors.
+     *
+     * <p>Reads the channel name, output file, logging severity, formatting options, and optional file rotation
+     * settings.
+     *
+     * <p>The supported file syntax is:
+     *
+     * <pre>
+     * file "path";
+     * file "path" size 200k;
+     * file "path" versions 3;
+     * file "path" versions 3 size 200k;
+     * file "path" versions unlimited size 50m;
+     * </pre>
+     *
+     * <p>For {@code versions}, {@code null} means the directive was not configured, {@code 0} means no rotated files
+     * are
+     *
+     * <p>kept, and {@code -1} is used as the internal sentinel for {@code unlimited}.
      *
      * @param root the {@link ConfNode} representing the channel declaration
-     * @return the resulting {@link LoggingChannel}, or {@code null} if the
-     * channel declaration is invalid
+     * @return the resulting {@link LoggingChannel}, or {@code null} if the channel declaration is invalid
      */
     public LoggingChannel parseLoggingChannel(ConfNode root) {
         if (root.args().isEmpty()) {
@@ -145,6 +153,9 @@ public class ConfInterpreter {
         }
         String channelName = root.args().getFirst();
         String fileName = "";
+        Integer fileVersions = null; // null = not configured; -1 = unlimited
+        Long fileSize = null; // bytes; null = not configured
+
         LoggingSeverity severity = LoggingSeverity.INFO;
         boolean printTime = false;
         boolean printCategory = false;
@@ -153,11 +164,12 @@ public class ConfInterpreter {
         for (ConfNode node : root.children()) {
             switch (node.name().toLowerCase()) {
                 case "file" -> {
-                    if (node.args().isEmpty()) {
-                        error("logging.channel.file requires a path", node.lineNumber());
-                        continue;
+                    ParsedFileLogging parsed = parseFileLoggingArgs(node);
+                    if (parsed != null) {
+                        fileName = parsed.fileName();
+                        fileVersions = parsed.versions();
+                        fileSize = parsed.sizeBytes();
                     }
-                    fileName = node.args().getFirst();
                 }
                 case "severity" -> {
                     if (node.args().isEmpty()) {
@@ -193,25 +205,175 @@ public class ConfInterpreter {
                     }
                     printSeverity = node.args().getFirst().equalsIgnoreCase("yes");
                 }
-                default ->
-                        warning( "Unknown logging channel directive: \"" + node.name() + "\"", node.lineNumber() );
+                default -> warning("Unknown logging channel directive: \"" + node.name() + "\"", node.lineNumber());
             }
         }
 
-        return new LoggingChannel(channelName, fileName, severity, printTime, printCategory, printSeverity);
+        return new LoggingChannel(
+                channelName, fileName, fileVersions, fileSize, severity, printTime, printCategory, printSeverity);
+    }
+
+    /**
+     * Parsed representation of the {@code file} directive inside a logging channel.
+     *
+     * @param fileName the configured log file path
+     * @param versions the number of rotated versions to keep; {@code null} means not configured, {@code 0} means keep
+     *     no old versions, and {@code -1} represents {@code unlimited}
+     * @param sizeBytes the configured rotation size in bytes, or {@code null} if no size was configured
+     */
+    private record ParsedFileLogging(String fileName, Integer versions, Long sizeBytes) {}
+
+    /**
+     * Parses the arguments of a logging channel {@code file} directive.
+     *
+     * <p>The first argument is always interpreted as the log file path. Remaining arguments are parsed as ordered
+     * option pairs. Supported options are:
+     *
+     * <pre>
+     * versions &lt;number|unlimited&gt;
+     * size &lt;number[k|m|g]&gt;
+     * </pre>
+     *
+     * <p>Examples:
+     *
+     * <pre>
+     * file "log/named/queries.log";
+     * file "log/named/queries.log" versions 0 size 200k;
+     * file "log/named/queries.log" versions unlimited size 50m;
+     * </pre>
+     *
+     * @param node the {@link ConfNode} representing the {@code file} directive
+     * @return a parsed {@link ParsedFileLogging} value, or {@code null} if the file path is missing
+     */
+    private ParsedFileLogging parseFileLoggingArgs(ConfNode node) {
+        List<String> args = node.args();
+        if (args.isEmpty()) {
+            error("logging.channel.file requires a path", node.lineNumber());
+            return null;
+        }
+        String fileName = args.get(0);
+        Integer versions = null;
+        Long sizeBytes = null;
+        int i = 1;
+        while (i < args.size()) {
+            String keyword = args.get(i).toLowerCase();
+            switch (keyword) {
+                case "versions" -> {
+                    if (i + 1 >= args.size()) {
+                        error("logging.channel.file versions requires a value", node.lineNumber());
+                        return new ParsedFileLogging(fileName, versions, sizeBytes);
+                    }
+                    String value = args.get(i + 1);
+                    if (value.equalsIgnoreCase("unlimited")) {
+                        versions = -1; // sentinel for unlimited
+                    } else {
+                        try {
+                            versions = Integer.parseInt(value);
+                            if (versions < 0) {
+                                error("logging.channel.file versions cannot be negative", node.lineNumber());
+                            }
+                        } catch (NumberFormatException e) {
+                            error("Invalid logging.channel.file versions value: " + value, node.lineNumber());
+                        }
+                    }
+                    i += 2;
+                }
+                case "size" -> {
+                    if (i + 1 >= args.size()) {
+                        error("logging.channel.file size requires a value", node.lineNumber());
+                        return new ParsedFileLogging(fileName, versions, sizeBytes);
+                    }
+                    String value = args.get(i + 1);
+                    try {
+                        sizeBytes = parseSizeToBytes(value);
+                    } catch (IllegalArgumentException e) {
+                        error("Invalid logging.channel.file size value: " + value, node.lineNumber());
+                    }
+                    i += 2;
+                }
+                default -> {
+                    warning("Unknown logging.channel.file option: \"" + args.get(i) + "\"", node.lineNumber());
+                    i++;
+                }
+            }
+        }
+        return new ParsedFileLogging(fileName, versions, sizeBytes);
+    }
+
+    /**
+     * Converts a BIND-style size value into bytes.
+     *
+     * <p>Accepted suffixes are {@code k}, {@code m}, and {@code g}. Suffixes are decimal, matching the practical
+     * interpretation used elsewhere in the project:
+     *
+     * <pre>
+     * 200k = 200,000 bytes
+     * 10m  = 10,000,000 bytes
+     * 1g   = 1,000,000,000 bytes
+     * </pre>
+     *
+     * <p>If no suffix is present, the value is interpreted directly as bytes.
+     *
+     * @param value the configured size string
+     * @return the parsed size in bytes
+     * @throws IllegalArgumentException if the value is empty, negative, has an unknown suffix, is not numeric, or
+     */
+    private long parseSizeToBytes(String value) {
+        String trimmed = value.trim().toLowerCase();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("empty size");
+        }
+        long multiplier = 1;
+        char last = trimmed.charAt(trimmed.length() - 1);
+        String numberPart = trimmed;
+        switch (last) {
+            case 'k' -> {
+                multiplier = 1_000L;
+                numberPart = trimmed.substring(0, trimmed.length() - 1);
+            }
+            case 'm' -> {
+                multiplier = 1_000_000L;
+                numberPart = trimmed.substring(0, trimmed.length() - 1);
+            }
+            case 'g' -> {
+                multiplier = 1_000_000_000L;
+                numberPart = trimmed.substring(0, trimmed.length() - 1);
+            }
+            default -> {
+                if (!Character.isDigit(last)) {
+                    throw new IllegalArgumentException("unknown size suffix: " + last);
+                }
+            }
+        }
+        try {
+            long number = Long.parseLong(numberPart);
+            if (number < 0) {
+                throw new IllegalArgumentException("negative size");
+            }
+            return Math.multiplyExact(number, multiplier);
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw new IllegalArgumentException("invalid size: " + value, e);
+        }
     }
 
     /**
      * Interprets the {@code options} section of the configuration AST.
      *
+     * <p>Applies default resolver, listener, recursion, forwarding, and directory settings, then overrides them with
+     * any recognized directives from the parsed configuration.
+     *
+     * @param root the root {@link ConfNode} representing the options section
      * @return the resulting {@link OptionSection}
      */
     public OptionSection parseOptionConfig(ConfNode root) {
         // Default values
         String directoryPath = "";
         int port = 4242;
-        String ipAddress = "0.0.0.0";
-        String ipv6Address = "0.0.0.0";
+        String ipv4Address = "0.0.0.0";
+        String ipv6Address = "none";
+        int ednsUdpSizeLimit = 512;
+        boolean dnssecEnable = false;
+        boolean dnssecValidate = false;
         boolean recursionAllowed = false;
         ForwardMode forwardMode = null;
         List<String> forwarders = List.of("1.1.1.1", "8.8.8.8");
@@ -221,14 +383,14 @@ public class ConfInterpreter {
         long resolverRetryDelay = 100;
         StubResolverStrategy resolverStrategy = StubResolverStrategy.FAILOVER;
 
-        for (ConfNode node : root.children()){
-            if (node.name().equalsIgnoreCase("directory")){
+        for (ConfNode node : root.children()) {
+            if (node.name().equalsIgnoreCase("directory")) {
                 if (node.args().isEmpty()) {
                     error("options.directory requires a path", node.lineNumber());
                     continue;
                 }
                 directoryPath = node.args().getFirst();
-            } else if (node.name().equalsIgnoreCase("listen-on")){
+            } else if (node.name().equalsIgnoreCase("listen-on")) {
                 if (node.args().size() >= 2 && node.args().getFirst().equalsIgnoreCase("port")) {
                     port = parseInt(node.args().get(1), "options.listen-on port", node.lineNumber());
                 }
@@ -236,8 +398,8 @@ public class ConfInterpreter {
                     error("options.listen-on requires an IP address or 'none'", node.lineNumber());
                     continue;
                 }
-                ipAddress = node.children().getFirst().name();
-            } else if (node.name().equalsIgnoreCase("listen-on-v6")){
+                ipv4Address = node.children().getFirst().name();
+            } else if (node.name().equalsIgnoreCase("listen-on-v6")) {
                 if (node.args().size() >= 2 && node.args().getFirst().equalsIgnoreCase("port")) {
                     port = parseInt(node.args().get(1), "options.listen-on port", node.lineNumber());
                 }
@@ -246,58 +408,77 @@ public class ConfInterpreter {
                     continue;
                 }
                 ipv6Address = node.children().getFirst().name();
-            } else if (node.name().equalsIgnoreCase("recursion")){
+
+            } else if (node.name().equalsIgnoreCase("edns-udp-size")) {
+                if (node.args().isEmpty()) {
+                    error("options.edns-udp-size requires a value", node.lineNumber());
+                    continue;
+                }
+                ednsUdpSizeLimit = parseInt(node.args().getFirst(), "options.edns-udp-size", node.lineNumber());
+            } else if (node.name().equalsIgnoreCase("dnssec-enable")) {
+                if (node.args().isEmpty()) {
+                    error("options.dnssec-enable requires yes or no", node.lineNumber());
+                    continue;
+                }
+                dnssecEnable = node.args().getFirst().equalsIgnoreCase("yes");
+            } else if (node.name().equalsIgnoreCase("dnssec-validation")) {
+                if (node.args().isEmpty()) {
+                    error("options.dnssec-validation requires yes or no", node.lineNumber());
+                    continue;
+                }
+                dnssecValidate = node.args().getFirst().equalsIgnoreCase("yes");
+            } else if (node.name().equalsIgnoreCase("recursion")) {
                 if (node.args().isEmpty()) {
                     error("options.recursion requires yes or no", node.lineNumber());
                     continue;
                 }
                 recursionAllowed = node.args().getFirst().equalsIgnoreCase("yes");
-            } else if (node.name().equalsIgnoreCase("forwarders")){
+            } else if (node.name().equalsIgnoreCase("forwarders")) {
                 if (node.children().isEmpty()) {
                     error("options.forwarders requires at least one server", node.lineNumber());
                     continue;
                 }
-                forwarders = node.children()
-                        .stream()
-                        .map(ConfNode::name)
-                        .toList();
-            } else if (node.name().equalsIgnoreCase("forward")){
+                forwarders = node.children().stream().map(ConfNode::name).toList();
+            } else if (node.name().equalsIgnoreCase("forward")) {
                 if (node.args().isEmpty()) {
                     error("forward requires one mode", node.lineNumber());
                     continue;
                 }
                 forwardMode = ForwardMode.fromValue(node.args().getFirst());
-            } else if (node.name().equalsIgnoreCase("resolver")){
+            } else if (node.name().equalsIgnoreCase("resolver")) {
                 if (node.children().isEmpty()) {
                     error("options.resolver requires at least one entry", node.lineNumber());
                     continue;
                 }
-                for (ConfNode child : node.children()){
-                    if (child.name().equalsIgnoreCase("timeout")){
+                for (ConfNode child : node.children()) {
+                    if (child.name().equalsIgnoreCase("timeout")) {
                         if (child.args().isEmpty()) {
                             error("resolver.timeout requires a value", child.lineNumber());
                             continue;
                         }
                         resolverTimeOut = parseInt(child.args().getFirst(), "resolver.timeout", child.lineNumber());
-                    } else if (child.name().equalsIgnoreCase("max-retries")){
+                    } else if (child.name().equalsIgnoreCase("max-retries")) {
                         if (child.args().isEmpty()) {
                             error("resolver.max-retries requires a value", child.lineNumber());
                             continue;
                         }
-                        resolverMaxRetries = parseInt(child.args().getFirst(), "resolver.max-retries", child.lineNumber());
-                    } else if (child.name().equalsIgnoreCase("retry-delay")){
+                        resolverMaxRetries =
+                                parseInt(child.args().getFirst(), "resolver.max-retries", child.lineNumber());
+                    } else if (child.name().equalsIgnoreCase("retry-delay")) {
                         if (child.args().isEmpty()) {
                             error("resolver.retry-delay requires a value", child.lineNumber());
                             continue;
                         }
-                        resolverRetryDelay = parseLong(child.args().getFirst(), "resolver.retry-delay", child.lineNumber());
-                    } else if (child.name().equalsIgnoreCase("strategy")){
+                        resolverRetryDelay =
+                                parseLong(child.args().getFirst(), "resolver.retry-delay", child.lineNumber());
+                    } else if (child.name().equalsIgnoreCase("strategy")) {
                         if (child.args().isEmpty()) {
                             error("resolver.strategy requires a value", child.lineNumber());
                             continue;
                         }
                         try {
-                            resolverStrategy = StubResolverStrategy.fromValue(child.args().getFirst());
+                            resolverStrategy =
+                                    StubResolverStrategy.fromValue(child.args().getFirst());
                         } catch (IllegalArgumentException e) {
                             error("Invalid resolver.strategy: \"" + child.args().getFirst() + "\"", child.lineNumber());
                         }
@@ -311,14 +492,27 @@ public class ConfInterpreter {
         }
 
         // Build the resolverSection first. It's syntactically part of options but logically its own thing
-        ResolverSection resolverSection = new ResolverSection( resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy );
+        ResolverSection resolverSection =
+                new ResolverSection(resolverTimeOut, resolverMaxRetries, resolverRetryDelay, resolverStrategy);
 
-        return new OptionSection(directoryPath, port, ipAddress, recursionAllowed, forwardMode, forwarders, resolverSection);
+        return new OptionSection(
+                directoryPath,
+                port,
+                ipv4Address,
+                ipv6Address,
+                ednsUdpSizeLimit,
+                dnssecEnable,
+                dnssecValidate,
+                recursionAllowed,
+                forwardMode,
+                forwarders,
+                resolverSection);
     }
 
     /**
      * Interprets a {@code zone} declaration from the configuration AST.
      *
+     * @param root the root {@link ConfNode} representing the zone declaration
      * @return the resulting {@link ZoneSection}, or {@code null} if validation fails
      */
     public ZoneSection parseZoneConfig(ConfNode root) {
@@ -330,15 +524,15 @@ public class ConfInterpreter {
         String file = "";
         ZoneType type = null;
 
-        for (ConfNode node : root.children()){
-            if (node.name().equalsIgnoreCase("file")){
-                if (node.args().isEmpty()){
+        for (ConfNode node : root.children()) {
+            if (node.name().equalsIgnoreCase("file")) {
+                if (node.args().isEmpty()) {
                     error("zone " + name + " file requires a path", node.lineNumber());
                     continue;
                 }
                 file = node.args().getFirst();
-            } else if (node.name().equalsIgnoreCase("type")){
-                if (node.args().isEmpty()){
+            } else if (node.name().equalsIgnoreCase("type")) {
+                if (node.args().isEmpty()) {
                     error("zone " + name + " type requires a value", node.lineNumber());
                     continue;
                 }
@@ -363,6 +557,14 @@ public class ConfInterpreter {
         return new ZoneSection(name, file, type);
     }
 
+    /**
+     * Parses an integer configuration value and reports a configuration error if parsing fails.
+     *
+     * @param value the raw string value
+     * @param field the human-readable field name used in error messages
+     * @param line the source line number of the value
+     * @return the parsed integer, or {@code 0} if parsing fails
+     */
     private int parseInt(String value, String field, int line) {
         try {
             return Integer.parseInt(value);
@@ -372,6 +574,14 @@ public class ConfInterpreter {
         }
     }
 
+    /**
+     * Parses a long configuration value and reports a configuration error if parsing fails.
+     *
+     * @param value the raw string value
+     * @param field the human-readable field name used in error messages
+     * @param line the source line number of the value
+     * @return the parsed long, or {@code 0} if parsing fails
+     */
     private long parseLong(String value, String field, int line) {
         try {
             return Long.parseLong(value);
@@ -381,37 +591,33 @@ public class ConfInterpreter {
         }
     }
 
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String CYAN   = "\u001B[36m";
-    private static final String BOLD   = "\u001B[1m";
-
-    /**
-     * Reports a fatal config interpreting error and marks the interpreter as failed.
-     */
+    /** Reports a fatal config interpreting error and marks the interpreter as failed. */
     private void error(String message, int lineNumber) {
         ConfigManager.logger.log(
-                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET),
+                (RED + BOLD + "[CONFIG-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED
+                        + ": " + message + RESET),
                 LoggingCategoryType.CONFIG,
                 LoggingSeverity.ERROR,
-                true
-        );
+                true);
         interpreterError = true;
     }
 
-    /**
-     * Reports a non-fatal config  warning.
-     */
+    /** Reports a non-fatal config warning. */
     private void warning(String message, int lineNumber) {
         ConfigManager.logger.log(
-                (YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET),
+                (YELLOW + BOLD + "[CONFIG-WARNING]" + RESET + YELLOW + " line " + RESET + CYAN + lineNumber + RESET
+                        + YELLOW + ": " + message + RESET),
                 LoggingCategoryType.CONFIG,
                 LoggingSeverity.WARNING,
-                true
-        );
+                true);
     }
-    public boolean hasInterpreterError(){
+
+    /**
+     * Returns whether interpretation has encountered at least one fatal configuration error.
+     *
+     * @return {@code true} if a fatal interpretation error was reported, otherwise {@code false}
+     */
+    public boolean hasInterpreterError() {
         return this.interpreterError;
     }
 }

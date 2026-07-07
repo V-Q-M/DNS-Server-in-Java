@@ -10,6 +10,7 @@ build:
   image: maven:4.0.0-rc-5-eclipse-temurin-25-noble
   script:
     - echo "Building the project..."
+    - mvn spotless:check
     - mvn clean compile
 
 tests:

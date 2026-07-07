@@ -1,5 +1,7 @@
 package io.gitlab.teamproject2026.zones;
 
+import static io.gitlab.teamproject2026.AnsiColors.*;
+
 import io.gitlab.teamproject2026.config.ConfigManager;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
@@ -7,34 +9,30 @@ import io.gitlab.teamproject2026.model.RRClass;
 import io.gitlab.teamproject2026.model.RRType;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.*;
-
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Base64;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.regex.Pattern;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.regex.Pattern;
 
 /**
- * Parses BIND-style DNS zone files into validated {@link ResourceRecord}s.
- * Supports common DNS resource records, zone directives, owner-name
- * inheritance, multiline records, and selected DNSSEC record types.
+ * Parses BIND-style DNS zone files into validated {@link ResourceRecord}s. Supports common DNS resource records, zone
+ * directives, owner-name inheritance, multiline records, and selected DNSSEC record types.
  */
 public class ZoneParser {
-    /** Tokens belonging to the currently parsed logical resource record.*/
+    /** Tokens belonging to the currently parsed logical resource record. */
     private final List<ZoneToken> tokenBuffer = new ArrayList<>();
-    /** Parsed resource records from the zone file.*/
+    /** Parsed resource records from the zone file. */
     private final List<ResourceRecord> zoneRecords = new ArrayList<>();
     /** The lexer which manages tokens */
     private final ZoneLexer lexer;
@@ -56,20 +54,15 @@ public class ZoneParser {
     /** Whether a multiline record has been opened by a bracket. */
     private boolean bracketOpen = false;
 
-    private static final Pattern TTL_PATTERN =
-            Pattern.compile("\\d+[smhdwSMHDW]?");
+    private static final Pattern TTL_PATTERN = Pattern.compile("\\d+[smhdwSMHDW]?");
 
-    /**
-     * Creates a parser for a standalone zone file.
-     */
+    /** Creates a parser for a standalone zone file. */
     public ZoneParser(String input) {
         this.lexer = new ZoneLexer(input);
         parseZone();
     }
 
-    /**
-     * Creates a parser with optional SOA/NS validation (otherwise always check).
-     */
+    /** Creates a parser with optional SOA/NS validation (otherwise always check). */
     public ZoneParser(String input, boolean checkForSOA) {
         this.lexer = new ZoneLexer(input);
         this.seenSoaRecord = !checkForSOA; // Act as though a SOA already exists
@@ -77,18 +70,14 @@ public class ZoneParser {
         parseZone();
     }
 
-    /**
-     * Creates a parser using a predefined zone origin.
-     */
+    /** Creates a parser using a predefined zone origin. */
     public ZoneParser(String input, String origin) {
         this.lexer = new ZoneLexer(input);
         this.origin = origin;
         parseZone();
     }
 
-    /**
-     * Creates a parser using predefined origin and TTL values.
-     */
+    /** Creates a parser using predefined origin and TTL values. */
     public ZoneParser(String input, String origin, String defaultTtl, boolean checkForSOA) {
         this.lexer = new ZoneLexer(input);
         this.origin = origin;
@@ -121,38 +110,34 @@ public class ZoneParser {
      *
      * @return the default TTL in seconds, or {@code 0} if none was defined
      */
-    public long getTTL() { return defaultTtl.isEmpty() ? 0 : Long.parseLong(defaultTtl); }
+    public long getTTL() {
+        return defaultTtl.isEmpty() ? 0 : Long.parseLong(defaultTtl);
+    }
 
-    private static final EnumSet<ZoneTokenType> RR_TYPES =
-            EnumSet.of(
-                    ZoneTokenType.A_RECORD,
-                    ZoneTokenType.AAAA_RECORD,
-                    ZoneTokenType.MX_RECORD,
-                    ZoneTokenType.NS_RECORD,
-                    ZoneTokenType.CNAME_RECORD,
-                    ZoneTokenType.TXT_RECORD,
-                    ZoneTokenType.SOA_RECORD,
-                    ZoneTokenType.PTR_RECORD
-            );
-    private static final EnumSet<ZoneTokenType> DNSSEC_TYPES =
-            EnumSet.of(
-                    ZoneTokenType.DNSKEY_RECORD,
-                    ZoneTokenType.DS_RECORD,
-                    ZoneTokenType.RRSIG_RECORD,
-                    ZoneTokenType.NSEC_RECORD,
-                    ZoneTokenType.NSEC3_RECORD,
-                    ZoneTokenType.NSEC3PARAM_RECORD
-            );
+    private static final EnumSet<ZoneTokenType> RR_TYPES = EnumSet.of(
+            ZoneTokenType.A_RECORD,
+            ZoneTokenType.AAAA_RECORD,
+            ZoneTokenType.MX_RECORD,
+            ZoneTokenType.NS_RECORD,
+            ZoneTokenType.CNAME_RECORD,
+            ZoneTokenType.TXT_RECORD,
+            ZoneTokenType.SOA_RECORD,
+            ZoneTokenType.PTR_RECORD);
+    private static final EnumSet<ZoneTokenType> DNSSEC_TYPES = EnumSet.of(
+            ZoneTokenType.DNSKEY_RECORD,
+            ZoneTokenType.DS_RECORD,
+            ZoneTokenType.RRSIG_RECORD,
+            ZoneTokenType.NSEC_RECORD,
+            ZoneTokenType.NSEC3_RECORD,
+            ZoneTokenType.NSEC3PARAM_RECORD);
 
-    private static final EnumSet<ZoneTokenType> ALL_RR_TYPES =
-            EnumSet.copyOf(RR_TYPES);
+    private static final EnumSet<ZoneTokenType> ALL_RR_TYPES = EnumSet.copyOf(RR_TYPES);
+
     static {
         ALL_RR_TYPES.addAll(DNSSEC_TYPES);
     }
 
-    /**
-     * Starts lexing and parsing the input zone file.
-     */
+    /** Starts lexing and parsing the input zone file. */
     private void parseZone() {
         while (true) {
             ZoneToken tok = lexer.nextToken();
@@ -170,23 +155,25 @@ public class ZoneParser {
          */
     }
 
-    private void validateZoneEnd(){
+    private void validateZoneEnd() {
         if (!parserError && !seenSoaRecord) {
-            error("Zone must contain exactly one SOA record", tokenBuffer.isEmpty() ? 0 : tokenBuffer.getLast().lineNumber());
+            error(
+                    "Zone must contain exactly one SOA record",
+                    tokenBuffer.isEmpty() ? 0 : tokenBuffer.getLast().lineNumber());
         }
         if (!parserError && !seenNSRecord) {
-            error("Zone must contain at least one NS record", tokenBuffer.isEmpty() ? 0 : tokenBuffer.getLast().lineNumber());
+            error(
+                    "Zone must contain at least one NS record",
+                    tokenBuffer.isEmpty() ? 0 : tokenBuffer.getLast().lineNumber());
         }
     }
 
-    /**
-     * Groups tokens into logical resource records and handles zone directives.
-     */
+    /** Groups tokens into logical resource records and handles zone directives. */
     private void parseToken(ZoneToken t) {
         if (parserError) {
             return;
         }
-        //IO.println(t.getLiteral() + ":" + t.getType());
+        // IO.println(t.getLiteral() + ":" + t.getType());
 
         switch (t.type()) {
             case ORIGIN -> {
@@ -224,7 +211,7 @@ public class ZoneParser {
                     return;
                 }
                 bracketOpen = false;
-                //finishRecordIfPresent();
+                // finishRecordIfPresent();
             }
             case SPACE -> {
                 if (tokenBuffer.isEmpty()) {
@@ -266,11 +253,11 @@ public class ZoneParser {
         return t;
     }
 
-    private void parseOriginDirective(){
+    private void parseOriginDirective() {
         ZoneToken originToken = skipSpaces();
 
-        if (originToken.type() == ZoneTokenType.EOF){
-            error("No origin found",originToken.lineNumber());
+        if (originToken.type() == ZoneTokenType.EOF) {
+            error("No origin found", originToken.lineNumber());
             return;
         }
         if (originToken.type() != ZoneTokenType.ATOM) {
@@ -287,7 +274,7 @@ public class ZoneParser {
     private void parseTtlDirective() {
         ZoneToken ttlToken = skipSpaces();
 
-        if (ttlToken.type() == ZoneTokenType.EOF){
+        if (ttlToken.type() == ZoneTokenType.EOF) {
             error("No TTL found", ttlToken.lineNumber());
             return;
         }
@@ -297,7 +284,9 @@ public class ZoneParser {
         }
 
         long ttl = parseTTL(ttlToken, "$TTL");
-        if (parserError) { return; }
+        if (parserError) {
+            return;
+        }
 
         defaultTtl = String.valueOf(ttl);
     }
@@ -305,7 +294,7 @@ public class ZoneParser {
     private void parseIncludeDirective() {
         ZoneToken includeToken = skipSpaces();
 
-        if (includeToken.type() == ZoneTokenType.EOF){
+        if (includeToken.type() == ZoneTokenType.EOF) {
             error("No INCLUDE FILE found", includeToken.lineNumber());
             return;
         }
@@ -361,7 +350,6 @@ public class ZoneParser {
                 || ALL_RR_TYPES.contains(t.type());
     }
 
-
     private boolean isTTLToken(ZoneToken t) {
         if (t.type() != ZoneTokenType.NUMBER && t.type() != ZoneTokenType.ATOM) {
             return false;
@@ -370,22 +358,22 @@ public class ZoneParser {
     }
 
     private String normalizeOrigin(String value) {
-        if (value.endsWith(".")) { return value; }
-        return  value + ".";
+        if (value.endsWith(".")) {
+            return value;
+        }
+        return value + ".";
     }
 
-    /**
-     * Parses the current token buffer into a ResourceRecord.
-     */
-    private void buildRecord () {
+    /** Parses the current token buffer into a ResourceRecord. */
+    private void buildRecord() {
         if (tokenBuffer.isEmpty()) {
             return;
         }
 
         String recordName;
         String recordTtlLocal = "";
-        RRClass recordClass = RRClass.IN;
-        RRType recordType = null;
+        int recordClass = RRClass.IN;
+        int recordType = RRType.UNASSIGNED;
 
         int i = 0;
 
@@ -397,7 +385,9 @@ public class ZoneParser {
         }
 
         if (recordName == null || recordName.isEmpty()) {
-            error("Record has no owner name and no previous owner name", tokenBuffer.getLast().lineNumber());
+            error(
+                    "Record has no owner name and no previous owner name",
+                    tokenBuffer.getLast().lineNumber());
             return;
         }
 
@@ -437,13 +427,15 @@ public class ZoneParser {
             error("Unexpected token before RR type: " + t.literal(), t.lineNumber());
             return;
         }
-        if (recordType == null) {
+        if (recordType == RRType.UNASSIGNED) {
             error("Record has no RR type", tokenBuffer.getLast().lineNumber());
             return;
         }
         if (recordType == RRType.SOA) {
             if (seenSoaRecord) {
-                error("Zone must not contain more than one SOA record", tokenBuffer.getLast().lineNumber());
+                error(
+                        "Zone must not contain more than one SOA record",
+                        tokenBuffer.getLast().lineNumber());
                 return;
             }
             seenSoaRecord = true;
@@ -453,16 +445,22 @@ public class ZoneParser {
         }
 
         if (i >= tokenBuffer.size()) {
-            error("Missing RDATA for " + recordType + " record", tokenBuffer.getLast().lineNumber());
+            error(
+                    "Missing RDATA for " + RRType.mapToString(recordType) + " record",
+                    tokenBuffer.getLast().lineNumber());
             return;
         }
 
-        String[] name = parseDomainLabels(recordName, "Record name", tokenBuffer.getLast().lineNumber());
+        String[] name = parseDomainLabels(
+                recordName, "Record name", tokenBuffer.getLast().lineNumber());
         if (parserError) return;
 
         int rdataStart = i;
 
         RData rdata = parseRdata(recordType, rdataStart);
+        if (parserError || rdata == null) {
+            return;
+        }
 
         long ttlValue;
         if (!recordTtlLocal.isEmpty()) {
@@ -470,10 +468,11 @@ public class ZoneParser {
         } else if (!defaultTtl.isEmpty()) {
             ttlValue = Long.parseLong(defaultTtl);
         } else {
-            error( "Record has no TTL and no $TTL/default SOA minimum is available", tokenBuffer.getLast().lineNumber() );
+            error(
+                    "Record has no TTL and no $TTL/default SOA minimum is available",
+                    tokenBuffer.getLast().lineNumber());
             return;
         }
-
 
         ResourceRecord record = new ResourceRecord(name, recordClass, ttlValue, rdata);
 
@@ -483,26 +482,22 @@ public class ZoneParser {
         }
     }
 
-    /**
-     * Parses RDATA based on the already identified RR type.
-     */
-    private RData parseRdata(RRType type, int rdataStart){
+    /** Parses RDATA based on the already identified RR type. */
+    private RData parseRdata(int type, int rdataStart) {
         return switch (type) {
-            case A -> parseIPv4(rdataStart);
-            case AAAA -> parseIPv6(rdataStart);
-            case NS, CNAME, PTR -> parseDomainName(type, rdataStart);
-            case MX -> parseMX(rdataStart);
-            case TXT -> parseTXT(rdataStart);
-            case SOA -> parseSOA(rdataStart);
+            case RRType.A -> parseIPv4(rdataStart);
+            case RRType.AAAA -> parseIPv6(rdataStart);
+            case RRType.NS, RRType.CNAME, RRType.PTR -> parseDomainName(type, rdataStart);
+            case RRType.MX -> parseMX(rdataStart);
+            case RRType.TXT -> parseTXT(rdataStart);
+            case RRType.SOA -> parseSOA(rdataStart);
             // DNSSEC
-            /* Not implemented yet
-            case DNSKEY -> parseDNSKEY(rdataStart);
-            case DS -> parseDS(rdataStart);
-            case RRSIG -> parseRRSIG(rdataStart);
-            case NSEC -> parseNSEC(rdataStart);
-            case NSEC3 -> parseNSEC3(rdataStart);
-            case NSEC3PARAM -> parseNSEC3PARAM(rdataStart);
-             */
+            case RRType.DNSKEY -> parseDNSKEY(rdataStart);
+            case RRType.DS -> parseDS(rdataStart);
+            case RRType.RRSIG -> parseRRSIG(rdataStart);
+            case RRType.NSEC -> parseNSEC(rdataStart);
+            case RRType.NSEC3 -> parseNSEC3(rdataStart);
+            case RRType.NSEC3PARAM -> parseNSEC3PARAM(rdataStart);
 
             default -> {
                 error("Unknown record type: " + type, tokenBuffer.getLast().lineNumber());
@@ -517,7 +512,7 @@ public class ZoneParser {
 
     private RData parseIPv4(int start) {
         if (start >= tokenBuffer.size()) {
-            error("Missing IPv4 address in A record",tokenBuffer.getLast().lineNumber());
+            error("Missing IPv4 address in A record", tokenBuffer.getLast().lineNumber());
             return null;
         }
 
@@ -527,7 +522,9 @@ public class ZoneParser {
             return null;
         }
         for (int i = start + 1; i < tokenBuffer.size(); i++) {
-            warning("trailing garbage in IPv4 record: " + tokenBuffer.get(i).literal(), tokenBuffer.get(i).lineNumber());
+            warning(
+                    "trailing garbage in IPv4 record: " + tokenBuffer.get(i).literal(),
+                    tokenBuffer.get(i).lineNumber());
         }
 
         RDataA rdata;
@@ -557,7 +554,9 @@ public class ZoneParser {
             return null;
         }
         for (int i = start + 1; i < tokenBuffer.size(); i++) {
-            warning("trailing garbage in IPv6 record: " + tokenBuffer.get(i).literal(), tokenBuffer.get(i).lineNumber());
+            warning(
+                    "trailing garbage in IPv6 record: " + tokenBuffer.get(i).literal(),
+                    tokenBuffer.get(i).lineNumber());
         }
 
         RDataAAAA rdata;
@@ -575,28 +574,32 @@ public class ZoneParser {
         return rdata;
     }
 
-    /**
-     * Normalizes a domain name using the current origin.
-     */
-    private RData parseDomainName (RRType type, int start) {
-        if (start >= tokenBuffer.size()){
-            error("Missing domain name in " + type + " record", tokenBuffer.getLast().lineNumber());
+    /** Normalizes a domain name using the current origin. */
+    private RData parseDomainName(int type, int start) {
+        String typeName = RRType.mapToString(type);
+        if (start >= tokenBuffer.size()) {
+            error(
+                    "Missing domain name in " + typeName + " record",
+                    tokenBuffer.getLast().lineNumber());
             return null;
         }
         ZoneToken nameToken = tokenBuffer.get(start);
         String rawDomainName = normalizeDomainName(nameToken.literal());
-        for (int i = start + 1; i < tokenBuffer.size(); i++){
-            warning("trailing garbage in " + type + " record: " + tokenBuffer.get(i).literal(), tokenBuffer.get(i).lineNumber());
+        for (int i = start + 1; i < tokenBuffer.size(); i++) {
+            warning(
+                    "trailing garbage in " + typeName + " record: "
+                            + tokenBuffer.get(i).literal(),
+                    tokenBuffer.get(i).lineNumber());
         }
-        String[] domainName = parseDomainLabels(rawDomainName, type + " domain name", nameToken.lineNumber());
+        String[] domainName = parseDomainLabels(rawDomainName, typeName + " domain name", nameToken.lineNumber());
         if (parserError) return null;
 
         RData rdata;
         switch (type) {
-            case CNAME -> rdata = new RDataCNAME(domainName);
-            case NS -> rdata = new RDataNS(domainName);
-            case PTR -> rdata = new RDataPTR(domainName);
-            default -> throw new IllegalArgumentException("ILLEGAL: " + type);
+            case RRType.CNAME -> rdata = new RDataCNAME(domainName);
+            case RRType.NS -> rdata = new RDataNS(domainName);
+            case RRType.PTR -> rdata = new RDataPTR(domainName);
+            default -> throw new IllegalArgumentException("ILLEGAL: " + typeName);
         }
         return rdata;
     }
@@ -608,7 +611,7 @@ public class ZoneParser {
         }
         ZoneToken prefToken = tokenBuffer.get(start);
 
-        if (prefToken.type() != ZoneTokenType.NUMBER){
+        if (prefToken.type() != ZoneTokenType.NUMBER) {
             error("MX preference must be an integer", prefToken.lineNumber());
             return null;
         }
@@ -624,8 +627,10 @@ public class ZoneParser {
         ZoneToken exchangeToken = tokenBuffer.get(exchangeIndex);
         String rawDomainName = normalizeDomainName(exchangeToken.literal());
 
-        for (int i = exchangeIndex + 1; i < tokenBuffer.size(); i++){
-            warning("trailing garbage in MX record: " + tokenBuffer.get(i).literal(), tokenBuffer.get(i).lineNumber());
+        for (int i = exchangeIndex + 1; i < tokenBuffer.size(); i++) {
+            warning(
+                    "trailing garbage in MX record: " + tokenBuffer.get(i).literal(),
+                    tokenBuffer.get(i).lineNumber());
         }
         String[] exchange = parseDomainLabels(rawDomainName, "MX exchange", exchangeToken.lineNumber());
         if (parserError) return null;
@@ -636,8 +641,10 @@ public class ZoneParser {
     private RData parseSOA(int start) {
         int requiredFields = 7;
 
-        if (tokenBuffer.size() - start < requiredFields){
-            error("SOA record requires mname, rname, serial, refresh, retry, expire, and minimum", tokenBuffer.getLast().lineNumber());
+        if (tokenBuffer.size() - start < requiredFields) {
+            error(
+                    "SOA record requires mname, rname, serial, refresh, retry, expire, and minimum",
+                    tokenBuffer.getLast().lineNumber());
             return null;
         }
         ZoneToken mnameToken = tokenBuffer.get(start);
@@ -646,17 +653,19 @@ public class ZoneParser {
         String rawMName = normalizeDomainName(mnameToken.literal());
         String rawRName = normalizeDomainName(rnameToken.literal());
 
-        long serial  = parseUInt32(tokenBuffer.get(start + 2), "SOA serial");
+        long serial = parseUInt32(tokenBuffer.get(start + 2), "SOA serial");
 
         long refresh = parseTTL(tokenBuffer.get(start + 3), "SOA refresh");
-        long retry   = parseTTL(tokenBuffer.get(start + 4), "SOA retry");
-        long expire  = parseTTL(tokenBuffer.get(start + 5), "SOA expire");
+        long retry = parseTTL(tokenBuffer.get(start + 4), "SOA retry");
+        long expire = parseTTL(tokenBuffer.get(start + 5), "SOA expire");
         long minimum = parseTTL(tokenBuffer.get(start + 6), "SOA minimum");
         if (parserError) {
             return null;
         }
         for (int i = start + requiredFields; i < tokenBuffer.size(); i++) {
-            warning("trailing garbage in SOA record: " + tokenBuffer.get(i).literal(), tokenBuffer.get(i).lineNumber());
+            warning(
+                    "trailing garbage in SOA record: " + tokenBuffer.get(i).literal(),
+                    tokenBuffer.get(i).lineNumber());
         }
 
         String[] mmName = parseDomainLabels(rawMName, "SOA mname", mnameToken.lineNumber());
@@ -665,7 +674,7 @@ public class ZoneParser {
         if (parserError) return null;
 
         // Historic fallback used if no defaulttl is provided. Idk dnssec used it in my test so why not include it
-        if(this.defaultTtl.isEmpty()){
+        if (this.defaultTtl.isEmpty()) {
             this.defaultTtl = String.valueOf(minimum);
         }
 
@@ -681,7 +690,7 @@ public class ZoneParser {
 
         for (int i = 0; i < txt.length; i++) {
             ZoneToken t = tokenBuffer.get(start + i);
-            if (t.type() != ZoneTokenType.TXT){
+            if (t.type() != ZoneTokenType.TXT) {
                 error("TXT record contains invalid text", t.lineNumber());
             }
             String value = unescapeText(t.literal(), t.lineNumber());
@@ -707,7 +716,10 @@ public class ZoneParser {
             char c = raw.charAt(i);
 
             if (escaped) {
-                if (Character.isDigit(c) && i + 2 < raw.length() && Character.isDigit(raw.charAt(i + 1)) && Character.isDigit(raw.charAt(i + 2))) {
+                if (Character.isDigit(c)
+                        && i + 2 < raw.length()
+                        && Character.isDigit(raw.charAt(i + 1))
+                        && Character.isDigit(raw.charAt(i + 2))) {
                     int value = Integer.parseInt(raw.substring(i, i + 3));
                     if (value > 255) {
                         error("Invalid TXT escape value: \\" + raw.substring(i, i + 3), lineNumber);
@@ -729,14 +741,16 @@ public class ZoneParser {
             error("TXT string ends with unfinished escape", lineNumber);
             return null;
         }
-        //IO.println(raw + ":"  + out);
+        // IO.println(raw + ":"  + out);
         return out.toString();
     }
-    /*
+
     private RData parseDNSKEY(int start) {
         int requiredFields = 4;
         if (tokenBuffer.size() - start < requiredFields) {
-            error("DNSKEY record requires flags, protocol, algorithm, and public key", tokenBuffer.getLast().lineNumber());
+            error(
+                    "DNSKEY record requires flags, protocol, algorithm, and public key",
+                    tokenBuffer.getLast().lineNumber());
             return null;
         }
         ZoneToken flagsToken = tokenBuffer.get(start);
@@ -748,7 +762,9 @@ public class ZoneParser {
         int protocol = parseUInt8(protocolToken, "DNSKEY protocol");
         int algorithm = parseUInt8(algorithmToken, "DNSKEY algorithm");
 
-        if (parserError) { return null; }
+        if (parserError) {
+            return null;
+        }
 
         if (protocol != 3) {
             error("DNSKEY protocol must be 3", protocolToken.lineNumber());
@@ -770,14 +786,13 @@ public class ZoneParser {
 
         return new RDataDNSKEY(flags, protocol, algorithm, publicKey);
     }
-    */
 
-    /*
     private RData parseDS(int start) {
         int requiredFields = 4;
 
         if (tokenBuffer.size() - start < requiredFields) {
-            error("DS record requires key tag, algorithm, digest type, and digest",
+            error(
+                    "DS record requires key tag, algorithm, digest type, and digest",
                     tokenBuffer.getLast().lineNumber());
             return null;
         }
@@ -805,15 +820,14 @@ public class ZoneParser {
         byte[] digest = hexToBytes(rawDigest);
 
         for (int i = start + requiredFields; i < tokenBuffer.size(); i++) {
-            warning("trailing garbage in DS record: " + tokenBuffer.get(i).literal(),
+            warning(
+                    "trailing garbage in DS record: " + tokenBuffer.get(i).literal(),
                     tokenBuffer.get(i).lineNumber());
         }
 
         return new RDataDS(keyTag, algorithm, digestType, digest);
     }
-     */
 
-    /*
     private byte[] hexToBytes(String hex) {
         byte[] bytes = new byte[hex.length() / 2];
 
@@ -824,13 +838,12 @@ public class ZoneParser {
 
         return bytes;
     }
-     */
 
-    /*
     private RData parseRRSIG(int start) {
         int requiredFields = 9;
         if (tokenBuffer.size() - start < requiredFields) {
-            error("RRSIG record requires type covered, algorithm, labels, original TTL, "
+            error(
+                    "RRSIG record requires type covered, algorithm, labels, original TTL, "
                             + "expiration, inception, key tag, signer name, and signature",
                     tokenBuffer.getLast().lineNumber());
             return null;
@@ -850,7 +863,7 @@ public class ZoneParser {
             return null;
         }
 
-        RRType typeCovered = RRType.valueOf(typeCoveredToken.literal());
+        int typeCovered = RRType.valueOf(typeCoveredToken.literal());
 
         int algorithm = parseUInt8(algorithmToken, "RRSIG algorithm");
         int labels = parseUInt8(labelsToken, "RRSIG labels");
@@ -862,8 +875,7 @@ public class ZoneParser {
         if (parserError) return null;
 
         String rawSignerName = normalizeDomainName(signerNameToken.literal());
-        String[] signerName = parseDomainLabels(rawSignerName, "RRSIG signer name",
-                signerNameToken.lineNumber());
+        String[] signerName = parseDomainLabels(rawSignerName, "RRSIG signer name", signerNameToken.lineNumber());
 
         if (parserError) return null;
 
@@ -881,11 +893,10 @@ public class ZoneParser {
             return null;
         }
 
-        return new RDataRRSIG(typeCovered, algorithm, labels, originalTtl, expiration, inception, keyTag, signerName, signature);
+        return new RDataRRSIG(
+                typeCovered, algorithm, labels, originalTtl, expiration, inception, keyTag, signerName, signature);
     }
-     */
 
-    /*
     private long parseRRSIGTime(ZoneToken t, String fieldName) {
         String literal = t.literal();
 
@@ -893,10 +904,7 @@ public class ZoneParser {
             long value;
 
             if (literal.length() == 14) {
-                LocalDateTime dateTime = LocalDateTime.parse(
-                        literal,
-                        DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-                );
+                LocalDateTime dateTime = LocalDateTime.parse(literal, DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
 
                 value = dateTime.toEpochSecond(ZoneOffset.UTC);
             } else {
@@ -914,32 +922,26 @@ public class ZoneParser {
             return 0;
         }
     }
-     */
 
-    /*
     private RData parseNSEC(int start) {
         int requiredFields = 2;
         if (tokenBuffer.size() - start < requiredFields) {
-            error("NSEC record requires next domain name and at least one RR type",
+            error(
+                    "NSEC record requires next domain name and at least one RR type",
                     tokenBuffer.getLast().lineNumber());
             return null;
         }
         ZoneToken nextDomainToken = tokenBuffer.get(start);
         String rawNextDomain = normalizeDomainName(nextDomainToken.literal());
-        String[] nextDomain = parseDomainLabels(
-                rawNextDomain,
-                "NSEC next domain name",
-                nextDomainToken.lineNumber()
-        );
+        String[] nextDomain = parseDomainLabels(rawNextDomain, "NSEC next domain name", nextDomainToken.lineNumber());
         if (parserError) return null;
 
-        List<RRType> types = new ArrayList<>();
+        List<Integer> types = new ArrayList<>();
         for (int i = start + 1; i < tokenBuffer.size(); i++) {
             ZoneToken typeToken = tokenBuffer.get(i);
 
             if (!isRRType(typeToken)) {
-                error("Invalid NSEC RR type: " + typeToken.literal(),
-                        typeToken.lineNumber());
+                error("Invalid NSEC RR type: " + typeToken.literal(), typeToken.lineNumber());
                 return null;
             }
             types.add(RRType.valueOf(typeToken.literal()));
@@ -948,34 +950,28 @@ public class ZoneParser {
 
         return new RDataNSEC(nextDomain, typeBitMaps);
     }
-     */
 
-    /*
-    private byte[] buildTypeBitMaps(List<RRType> types) {
+    private byte[] buildTypeBitMaps(List<Integer> types) {
         int maxType = 0;
-        for (RRType type : types) {
-            maxType = Math.max(maxType, type.getValue());
+        for (int type : types) {
+            maxType = Math.max(maxType, type);
         }
         int bitmapLength = (maxType / 8) + 1;
         byte[] bitmap = new byte[bitmapLength];
 
-        for (RRType type : types) {
-            int value = type.getValue();
-            int byteIndex = value / 8;
-            int bitIndex = value % 8;
+        for (int type : types) {
+            int byteIndex = type / 8;
+            int bitIndex = type % 8;
             bitmap[byteIndex] |= (byte) (1 << (7 - bitIndex));
         }
         return bitmap;
     }
-     */
 
-
-
-    /*
     private RData parseNSEC3(int start) {
         int requiredFields = 5;
         if (tokenBuffer.size() - start < requiredFields) {
-            error("NSEC3 record requires hash algorithm, flags, iterations, salt, next hashed owner name, and type bitmaps",
+            error(
+                    "NSEC3 record requires hash algorithm, flags, iterations, salt, next hashed owner name, and type bitmaps",
                     tokenBuffer.getLast().lineNumber());
             return null;
         }
@@ -996,12 +992,13 @@ public class ZoneParser {
         byte[] nextHashedOwnerName;
 
         try {
-            nextHashedOwnerName = nextHashedOwnerNameToken.literal().getBytes(StandardCharsets.US_ASCII);        } catch (IllegalArgumentException e) {
+            nextHashedOwnerName = nextHashedOwnerNameToken.literal().getBytes(StandardCharsets.US_ASCII);
+        } catch (IllegalArgumentException e) {
             error("Invalid NSEC3 next hashed owner name", nextHashedOwnerNameToken.lineNumber());
             return null;
         }
 
-        List<RRType> types = new ArrayList<>();
+        List<Integer> types = new ArrayList<>();
         for (int i = start + requiredFields; i < tokenBuffer.size(); i++) {
             ZoneToken typeToken = tokenBuffer.get(i);
             if (!isRRType(typeToken)) {
@@ -1014,13 +1011,12 @@ public class ZoneParser {
         byte[] typeBitMaps = buildTypeBitMaps(types);
         return new RDataNSEC3(hashAlgorithm, flags, iterations, salt, nextHashedOwnerName, typeBitMaps);
     }
-     */
 
-    /*
     private RData parseNSEC3PARAM(int start) {
         int requiredFields = 4;
         if (tokenBuffer.size() - start < requiredFields) {
-            error("NSEC3PARAM record requires hash algorithm, flags, iterations, and salt",
+            error(
+                    "NSEC3PARAM record requires hash algorithm, flags, iterations, and salt",
                     tokenBuffer.getLast().lineNumber());
             return null;
         }
@@ -1038,15 +1034,15 @@ public class ZoneParser {
 
         if (parserError) return null;
         for (int i = start + requiredFields; i < tokenBuffer.size(); i++) {
-            warning("trailing garbage in NSEC3PARAM record: " + tokenBuffer.get(i).literal(),
+            warning(
+                    "trailing garbage in NSEC3PARAM record: "
+                            + tokenBuffer.get(i).literal(),
                     tokenBuffer.get(i).lineNumber());
         }
 
         return new RDataNSEC3PARAM(hashAlgorithm, flags, iterations, salt);
     }
-     */
 
-    /*
     private byte[] parseHexOrDash(ZoneToken token, String fieldName) {
         String literal = token.literal();
         if (literal.equals("-")) {
@@ -1059,19 +1055,20 @@ public class ZoneParser {
         }
         return hexToBytes(literal);
     }
-     */
 
     private String normalizeDomainName(String name) {
-        if (name.equals("@")){ return origin; }
-        if (name.endsWith(".")){ return name; }
+        if (name.equals("@")) {
+            return origin;
+        }
+        if (name.endsWith(".")) {
+            return name;
+        }
         return name + "." + origin;
     }
 
-    /*
     private int parseUInt8(ZoneToken token, String fieldName) {
         return parseUnsignedInt(token, fieldName, 0, 255);
     }
-     */
 
     private int parseUInt16(ZoneToken token, String fieldName) {
         return parseUnsignedInt(token, fieldName, 0, 65535);
@@ -1097,8 +1094,9 @@ public class ZoneParser {
             return 0;
         }
     }
-    private long parseUInt32(ZoneToken t, String fieldName){
-        if (t.type() != ZoneTokenType.NUMBER){
+
+    private long parseUInt32(ZoneToken t, String fieldName) {
+        if (t.type() != ZoneTokenType.NUMBER) {
             error(fieldName + " must be an integer", t.lineNumber());
             return 0;
         }
@@ -1108,19 +1106,17 @@ public class ZoneParser {
                 error(fieldName + " out of range: " + value, t.lineNumber());
                 return 0;
             }
-            return  value;
+            return value;
         } catch (NumberFormatException e) {
             error("Invalid " + fieldName + ": " + t.literal(), t.lineNumber());
             return 0;
         }
     }
 
-    /**
-     * Validates and splits a domain name into DNS labels.
-     */
-    private String[] parseDomainLabels(String rawName, String context, int lineNumber){
-        if( rawName.isEmpty()) {
-            error(context + " is empty",lineNumber);
+    /** Validates and splits a domain name into DNS labels. */
+    private String[] parseDomainLabels(String rawName, String context, int lineNumber) {
+        if (rawName.isEmpty()) {
+            error(context + " is empty", lineNumber);
             return new String[0];
         }
         String name = rawName.endsWith(".") ? rawName.substring(0, rawName.length() - 1) : rawName;
@@ -1166,13 +1162,13 @@ public class ZoneParser {
         int wireLength = 1;
         for (String label : labels) {
             if (label.isEmpty()) {
-                error(context + " contains empty label",lineNumber);
+                error(context + " contains empty label", lineNumber);
                 return new String[0];
             }
 
             int len = label.getBytes(StandardCharsets.UTF_8).length;
 
-            if (len >63) {
+            if (len > 63) {
                 error(context + " label too long: " + label, lineNumber);
                 return new String[0];
             }
@@ -1180,17 +1176,14 @@ public class ZoneParser {
             wireLength += 1 + len;
         }
         if (wireLength > 255) {
-            error(context + " is too long",lineNumber);
+            error(context + " is too long", lineNumber);
             return new String[0];
         }
         return labels.toArray(new String[0]);
     }
 
-    /**
-     * Parses a TTL value with optional unit suffix.
-     * Supported suffixes are s, m, h, d, and w.
-     */
-    private long parseTTL(ZoneToken t, String fieldName){
+    /** Parses a TTL value with optional unit suffix. Supported suffixes are s, m, h, d, and w. */
+    private long parseTTL(ZoneToken t, String fieldName) {
         if (!isTTLToken(t)) {
             error(fieldName + " must be a TTL value", t.lineNumber());
             return 0;
@@ -1199,7 +1192,7 @@ public class ZoneParser {
 
         long multiplier = 1;
 
-        if (literal.endsWith("s")){
+        if (literal.endsWith("s")) {
             multiplier = 1;
             literal = literal.substring(0, literal.length() - 1);
         } else if (literal.endsWith("m")) {
@@ -1233,42 +1226,32 @@ public class ZoneParser {
         }
     }
 
-    private static final String RESET  = "\u001B[0m";
-    private static final String RED    = "\u001B[31m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String CYAN   = "\u001B[36m";
-    private static final String BOLD   = "\u001B[1m";
-
-    /**
-     * Reports a fatal zone parsing error and marks the parser as failed.
-     */
+    /** Reports a fatal zone parsing error and marks the parser as failed. */
     private void error(String message, int lineNumber) {
         ConfigManager.logger.log(
-                (RED + BOLD + "[ZONE-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": " + message + RESET),
+                (RED + BOLD + "[ZONE-ERROR]" + RESET + RED + " line " + RESET + YELLOW + lineNumber + RESET + RED + ": "
+                        + message + RESET),
                 LoggingCategoryType.CONFIG,
                 LoggingSeverity.ERROR,
-                true
-        );
+                true);
         parserError = true;
     }
 
-    /**
-     * Reports a non-fatal zone parsing warning.
-     */
+    /** Reports a non-fatal zone parsing warning. */
     private void warning(String message, int lineNumber) {
         ConfigManager.logger.log(
-                (YELLOW + BOLD + "[ZONE-WARNING]" + RESET + YELLOW + " line "  + RESET + CYAN + lineNumber + RESET + YELLOW + ": " + message + RESET),
+                (YELLOW + BOLD + "[ZONE-WARNING]" + RESET + YELLOW + " line " + RESET + CYAN + lineNumber + RESET
+                        + YELLOW + ": " + message + RESET),
                 LoggingCategoryType.CONFIG,
                 LoggingSeverity.WARNING,
-                true
-        );
+                true);
     }
     /**
      * Indicates whether a fatal parsing error occurred.
      *
      * @return {@code true} if the zone could not be parsed successfully
      */
-    public boolean hasParserError(){
+    public boolean hasParserError() {
         return parserError;
     }
 }

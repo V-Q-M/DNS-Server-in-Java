@@ -1,17 +1,65 @@
 package io.gitlab.teamproject2026.model;
 
-public enum RRType {
-    A(1), NS(2), CNAME(5), SOA(6), MX(15), TXT(16), AAAA(28), PTR(12);
+public final class RRType {
+    public static final int UNASSIGNED = -1;
+    public static final int A = 1;
+    public static final int NS = 2;
+    public static final int CNAME = 5;
+    public static final int SOA = 6;
+    public static final int PTR = 12;
+    public static final int MX = 15;
+    public static final int TXT = 16;
+    public static final int AAAA = 28;
+    public static final int OPT = 41;
+    public static final int DS = 43;
+    public static final int RRSIG = 46;
+    public static final int NSEC = 47;
+    public static final int DNSKEY = 48;
+    public static final int NSEC3 = 50;
+    public static final int NSEC3PARAM = 51;
 
-    private final int value;
-    RRType(int value) { this.value = value; }
-    public int getValue() { return value; }
-    public static RRType fromValue(int value) {
-        for (RRType rrType : RRType.values()) {
-            if (rrType.value == value) {
-                return rrType;
-            }
+    public static String mapToString(int type) {
+        return switch (type) {
+            case A -> "A";
+            case NS -> "NS";
+            case CNAME -> "CNAME";
+            case SOA -> "SOA";
+            case PTR -> "PTR";
+            case MX -> "MX";
+            case TXT -> "TXT";
+            case AAAA -> "AAAA";
+            case OPT -> "OPT";
+            case DS -> "DS";
+            case RRSIG -> "RRSIG";
+            case NSEC -> "NSEC";
+            case DNSKEY -> "DNSKEY";
+            case NSEC3 -> "NSEC3";
+            case NSEC3PARAM -> "NSEC3PARAM";
+            default -> null;
+        };
+    }
+
+    public static int valueOf(String type) {
+        if (type == null) {
+            throw new IllegalArgumentException("type cannot be null");
         }
-        throw new IllegalArgumentException("Invalid RRType: " + value);
+        return switch (type.toUpperCase()) {
+            case "A" -> A;
+            case "NS" -> NS;
+            case "CNAME" -> CNAME;
+            case "SOA" -> SOA;
+            case "PTR" -> PTR;
+            case "MX" -> MX;
+            case "TXT" -> TXT;
+            case "AAAA" -> AAAA;
+            case "OPT" -> OPT;
+            case "DS" -> DS;
+            case "RRSIG" -> RRSIG;
+            case "NSEC" -> NSEC;
+            case "DNSKEY" -> DNSKEY;
+            case "NSEC3" -> NSEC3;
+            case "NSEC3PARAM" -> NSEC3PARAM;
+            default -> throw new IllegalStateException("Unexpected value: " + type);
+        };
     }
 }

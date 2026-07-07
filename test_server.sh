@@ -7,8 +7,96 @@ doLookup() {
     local TYPE=${2}
     local EXPECT=${3}
     local TIME=${4}
-    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec +noedns ${QUESTION} ${TYPE})
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec ${QUESTION} ${TYPE})
     verifyResult "${RESULT}" "${EXPECT}" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupDnssec() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local EXPECT=${3}
+    local TIME=${4}
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+    verifyResult "${RESULT}" "${EXPECT}" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+doLookupNxDomain() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NXDOMAIN" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+doLookupDnssecNxDomainAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NXDOMAIN" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr aa rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupDnssecNoDataAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NOERROR" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr aa rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*SOA" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupDnssecNoDataNonAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +dnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NOERROR" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "RRSIG[[:space:]]*NSEC" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupNxDomainNonAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NXDOMAIN" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
+}
+
+doLookupNxDomainAuthoritative() {
+    local QUESTION=${1}
+    local TYPE=${2}
+    local TIME=${3}
+
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec ${QUESTION} ${TYPE})
+
+    verifyResult "${RESULT}" "status: NXDOMAIN" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "ANSWER: 0" "${TIME}" "${QUESTION}" "${TYPE}"
+    verifyResult "${RESULT}" "flags: qr aa rd ra;" "${TIME}" "${QUESTION}" "${TYPE}"
 }
 
 doLookupNoError() {
@@ -16,7 +104,7 @@ doLookupNoError() {
     local TYPE=${2}
     local TIME=${3}
 
-    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec +noedns ${QUESTION} ${TYPE})
+    local RESULT=$(dig @127.0.0.1 -p ${PORT} +nodnssec ${QUESTION} ${TYPE})
 
     verifyResult "${RESULT}" "status: NOERROR" "${TIME}" "${QUESTION}" "${TYPE}"
     verifyResult "${RESULT}" "ANSWER:" "${TIME}" "${QUESTION}" "${TYPE}"
@@ -62,7 +150,7 @@ startDatabase() {
 
 startServer() {
     mvn compile
-    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --less-log --minimal-responses" > server.log 2>&1 &
+    mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="-p ${1} --log-level notice --minimal-responses" > server.log 2>&1 &
     echo "Attempt to start server on port ${1}..."
 }
 
@@ -162,32 +250,70 @@ testZone(){
     doLookup "example.com" "AAAA" "2001:db8::1" ${CACHETIME}
     doLookup "example.com" "TXT" "Hello, world!" ${CACHETIME}
     doLookup "1.0.0.129.in-addr.arpa." "PTR" "example.com." ${CACHETIME}
-
     doLookup "example.com" "SOA" "ns0.example.com. admin.example.com." ${CACHETIME}
+    
+    doLookup "example.com" "A" "status: NOERROR" "${CACHETIME}"
+    doLookup "example.com" "A" "flags: qr aa" "${CACHETIME}"
+
+     # Authoritative NXDOMAIN from local zone
+    doLookupNxDomainAuthoritative "does-not-exist.example.com" "A" "${CACHETIME}"
+    doLookupNxDomainAuthoritative "missing-subdomain.example.com" "AAAA" "${CACHETIME}"
+    doLookupNxDomainAuthoritative "no-such-mailhost.example.com" "MX" "${CACHETIME}"
+}
+testNxDomain(){
+    echo "Testing NXDOMAIN responses..."
+
+    # Upstream NXDOMAIN: must not be authoritative
+    doLookupNxDomainNonAuthoritative "nope.cloudflare.com" "A" "${HARDLOOKUP}"
+    doLookupNxDomainNonAuthoritative "definitely-not-real-12345.uni-tuebingen.de" "A" "${HARDLOOKUP}"
+    doLookupNxDomainNonAuthoritative "does-not-exist-openai-987654321.com" "A" "${HARDLOOKUP}"
+
+    # Repeat one to exercise cache/final response path
+    doLookupNxDomainNonAuthoritative "does-not-exist-987654321.cloudflare.com" "A" "${HARDLOOKUP}"
 }
 
 testHardLookups(){
     echo "Testing hard recursive lookups..."
     # Basic github lookup
-    doLookupNoError "github.com" "A" ${NOCACHE}
+    doLookupNoError "github.com" "A" ${HARDLOOKUP}
 
     # Cloudflare-owned domain / Cloudflare nameserver path
-    doLookupNoError "cloudflare.com" "A" ${NOCACHE}
+    doLookupNoError "cloudflare.com" "A" ${HARDLOOKUP}
 
     # Glue-less and more complex delegation path
-    doLookupNoError "mastodon.social" "A" ${NOCACHE}
+    doLookupNoError "mastodon.social" "A" ${HARDLOOKUP}
 
     # Ipv6 should work aswell
-    doLookupNoError "mastodon.social" "AAAA" ${NOCACHE}
+    doLookupNoError "mastodon.social" "AAAA" ${HARDLOOKUP}
 
     # Ebay used a different delegation strategy
-    doLookupNoError "ebay.com" "A" ${NOCACHE}
+    doLookupNoError "ebay.com" "A" ${HARDLOOKUP}
 
     # Run one repeated query to make sure cache path also works
     doLookupNoError "github.com" "A" ${CACHETIME}
-
 }
 
+testDnssecLookups() {
+    echo "Testing DNSSEC lookups..."
+
+    # Local positive DNSSEC
+    doLookupDnssec "example.com" "A" "status: NOERROR" "${CACHETIME}"
+    doLookupDnssec "example.com" "A" "RRSIG[[:space:]]*A" "${CACHETIME}"
+    doLookupDnssec "example.com" "DNSKEY" "DNSKEY[[:space:]]*256" "${CACHETIME}"
+    doLookupDnssec "example.com" "DNSKEY" "DNSKEY[[:space:]]*257" "${CACHETIME}"
+    doLookupDnssec "example.com" "DNSKEY" "RRSIG[[:space:]]*DNSKEY" "${CACHETIME}"
+
+    # Local negative DNSSEC: NXDOMAIN with NSEC proof
+    doLookupDnssecNxDomainAuthoritative "nope.example.com" "A" "${CACHETIME}"
+    doLookupDnssecNxDomainAuthoritative "missing-subdomain.example.com" "AAAA" "${CACHETIME}"
+
+    # External positive DNSSEC
+    doLookupDnssec "cloudflare.com" "A" "status: NOERROR" "${HARDLOOKUP}"
+    doLookupDnssec "cloudflare.com" "A" "RRSIG[[:space:]]*A" "${HARDLOOKUP}"
+
+    # External negative DNSSEC: NODATA, not NXDOMAIN
+    doLookupDnssecNoDataNonAuthoritative "nope.cloudflare.com" "A" "${HARDLOOKUP}"
+}
 
 trap cleanUpAndResult SIGINT
 trap cleanUpAndResult EXIT
@@ -214,6 +340,8 @@ verifyServerRunning
 # First query, as first quries always take much longer than later queries
 dig @127.0.0.1 -p ${PORT} +nodnssec +noedns uni-tuebingen.de A > /dev/null
 testResolver
+testNxDomain
 testHardLookups
 testCache
 testZone
+testDnssecLookups
