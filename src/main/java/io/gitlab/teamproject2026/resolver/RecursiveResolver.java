@@ -48,11 +48,42 @@ public class RecursiveResolver extends AbstractResolver {
         // clear RA, RD bit
         queryPacket.setRa(false);
         queryPacket.setRd(false);
+        DNSPacket finalResponse = new DNSPacket();
+        finalResponse.setId(queryPacket.getId());
+        finalResponse.setQr(true);
+        finalResponse.setOpcode(OpCode.QUERY);
+        finalResponse.setRd(false);
+        finalResponse.setRa(false);
+        finalResponse.setQdcount(queryPacket.getQdcount());
+        finalResponse.setAnswerSections(new ResourceRecord[0]);
+        finalResponse.setAuthoritySections(new ResourceRecord[0]);
+        finalResponse.setAdditionalSections(new ResourceRecord[0]);
+        QuestionSection[] questions = queryPacket.getQuestionSections();
+        finalResponse.setQuestionSections(queryPacket.getQuestionSections());
+        List<ResourceRecord> finalAnswers = new ArrayList<>();
+        List<ResourceRecord> finalAuthorities = new ArrayList<>();
+        List<ResourceRecord> finalAdditionals = new ArrayList<>();
+        if (questions == null) {
+            return finalResponse.toBytes();
+        }
+        for (QuestionSection question : questions) {
+            // QuestionSection question = queryPacket.getQuestionSections()[0];
+            // resolve one question.
+            DNSPacket singleResponse =
+                    resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start());
+            System.out.println(singleResponse.toString());
+            Collections.addAll(finalAnswers, singleResponse.getAnswerSections());
+            Collections.addAll(finalAuthorities, singleResponse.getAuthoritySections());
+            Collections.addAll(finalAdditionals, singleResponse.getAdditionalSections());
+            // finalResponse.setAnswerSections(singleResponse.getAnswerSections());
 
-        QuestionSection question = queryPacket.getQuestionSections()[0];
-        // resolve one question.
-        return resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start())
-                .toBytes();
+        }
+        finalResponse.setAnswerSections(finalAnswers.toArray(new ResourceRecord[0]));
+        finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));
+        finalResponse.setAuthoritySections(finalAuthorities.toArray(new ResourceRecord[0]));
+
+        System.out.println(finalResponse.toString());
+        return finalResponse.toBytes();
     }
 
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
@@ -191,13 +222,13 @@ public class RecursiveResolver extends AbstractResolver {
 
                     // PASS 2: only if no glueful referral was usable, resolve glue-less NS names.
                     if (!addedAny) {
-                        logger.logTrace("No glueful referrals recieved, try glueless referalls: ", queryPacket);
+                        logger.logTrace("No glueful referrals received, try glueless referalls: ", queryPacket);
                         for (Delegation d : delegations) {
                             if (d.hasGlue()) {
                                 continue;
                             }
                             logger.logTrace(
-                                    "Recieved glueless referral from: " + currentServer.name() + " to: "
+                                    "Received glueless referral from: " + currentServer.name() + " to: "
                                             + String.join(".", ((RDataNS) d.ns.getRdata()).getNsdname())
                                             + ". resolving:",
                                     queryPacket);
@@ -211,7 +242,7 @@ public class RecursiveResolver extends AbstractResolver {
                                 continue;
                             }
 
-                            logger.logTrace("Recieved gluerecord for: " + resolved.toString(), queryPacket);
+                            logger.logTrace("Received gluerecord for: " + resolved.toString(), queryPacket);
                             slistWrap.addSListEntry(resolved.ns(), resolved.ipv4(), resolved.ipv6());
                             addedAny = true;
 
