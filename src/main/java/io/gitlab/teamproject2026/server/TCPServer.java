@@ -3,6 +3,7 @@ package io.gitlab.teamproject2026.server;
 import static io.gitlab.teamproject2026.AnsiColors.*;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import java.io.*;
@@ -11,6 +12,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class TCPServer extends AbstractServer {
+    private ServerSocket serverSocket;
+    private Socket socket;
+    private volatile boolean running = true;
 
     public TCPServer(ServerContext context, InetAddress bindAddress, int portNumber) {
         super(context, bindAddress, portNumber);
@@ -23,7 +27,8 @@ public class TCPServer extends AbstractServer {
 
     private void handleTCP() {
         // Open TCP socket
-        try (ServerSocket serverSocket = new ServerSocket(portNumber, 50, bindAddress)) {
+        try {
+            serverSocket = new ServerSocket(portNumber, 50, bindAddress);
             logger.log(
                     (GREEN + "[SERVER] TCP server listening on " + bindAddress.toString() + ":" + portNumber + RESET),
                     LoggingCategoryType.DEFAULT,
@@ -31,8 +36,9 @@ public class TCPServer extends AbstractServer {
                     true);
 
             // Server loop
-            while (true) {
-                try (Socket socket = serverSocket.accept()) {
+            while (running && !Thread.currentThread().isInterrupted()) {
+                try {
+                    socket = serverSocket.accept();
                     DataInputStream input = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
                     DataOutputStream output = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
@@ -91,15 +97,55 @@ public class TCPServer extends AbstractServer {
                             true);
 
                 } catch (IOException e) {
+                    if (!running || serverSocket.isClosed()) {
+                        logger.log(
+                                (YELLOW + "[SERVER] TCP server stopped on " + bindAddress + ":" + portNumber + RESET),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.NOTICE,
+                                true);
+                        break;
+                    }
+
                     logger.log(
-                            (RED + "[SERVER-ERROR] Failed to handle TCP client" + RESET),
+                            (RED + "[SERVER-ERROR] Failed to handle TCP client: " + e.getMessage() + RESET),
                             LoggingCategoryType.DEFAULT,
                             LoggingSeverity.ERROR,
                             true);
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.log(
+                    RED + "[SERVER-ERROR] No permission to use port " + portNumber + RESET,
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.CRITICAL,
+                    true);
+            DNS_SERVER.shutdown();
+        }
+    }
+
+    public void shutdown() {
+        running = false;
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException e) {
+            logger.log(
+                    (YELLOW + "[SERVER] Failed to close TCP client socket: " + e.getMessage() + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.WARNING,
+                    true);
+        }
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException e) {
+            logger.log(
+                    (YELLOW + "[SERVER] Failed to close TCP server socket: " + e.getMessage() + RESET),
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.WARNING,
+                    true);
         }
     }
 }

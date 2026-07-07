@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * Routes log messages to the configured logging channels based on their category and severity. Log output is formatted
  * according to the channel configuration and written to the associated log files.
  */
-public class Logger {
+public class Logger implements AutoCloseable {
 
     private final LoggingSection logging;
     private final Map<String, BufferedWriter> writers = new HashMap<>();
@@ -101,7 +101,7 @@ public class Logger {
      * Logs a message to every channel associated with the given category whose configured severity allows it.
      * Optionally echoes the original message to the console.
      */
-    public void log(
+    public synchronized void log(
             String message, LoggingCategoryType categoryType, LoggingSeverity severity, boolean alsoPrintToConsole) {
         LoggingCategory category = logging.categories().get(categoryType);
         if (category == null) {
@@ -130,7 +130,7 @@ public class Logger {
      * Formats and writes a single log entry to the specified logging channel. ANSI escape sequences are removed before
      * writing to the log file, while console output retains the original formatting.
      */
-    private void write(
+    private synchronized void write(
             LoggingChannel channel,
             String message,
             LoggingCategoryType categoryType,
@@ -337,5 +337,22 @@ public class Logger {
         if (Files.exists(currentLog)) {
             Files.move(currentLog, Path.of(currentLog + "." + i));
         }
+    }
+
+    @Override
+    public synchronized void close() {
+        if (writers.isEmpty()) {
+            return;
+        }
+
+        for (BufferedWriter writer : writers.values()) {
+            try {
+                writer.flush();
+                writer.close();
+            } catch (IOException e) {
+                System.err.println("Failed to close log writer: " + e.getMessage());
+            }
+        }
+        writers.clear();
     }
 }

@@ -3,6 +3,7 @@ package io.gitlab.teamproject2026.server;
 import static io.gitlab.teamproject2026.AnsiColors.*;
 
 import io.gitlab.teamproject2026.DNSParser;
+import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.model.DNSPacket;
@@ -15,6 +16,9 @@ import java.util.Arrays;
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
 
+    private DatagramSocket socket;
+    private volatile boolean running = true;
+
     public UDPServer(ServerContext context, InetAddress bindAddress, int portNumber) {
         super(context, bindAddress, portNumber);
     }
@@ -26,7 +30,8 @@ public class UDPServer extends AbstractServer {
 
     private void handleUDP() {
         // Open UDP socket
-        try (DatagramSocket socket = new DatagramSocket(portNumber, bindAddress)) {
+        try {
+            socket = new DatagramSocket(portNumber, bindAddress);
             logger.log(
                     (GREEN + "[SERVER] UDP server listening on " + bindAddress.toString() + ":" + portNumber + RESET),
                     LoggingCategoryType.DEFAULT,
@@ -37,10 +42,21 @@ public class UDPServer extends AbstractServer {
             byte[] buffer = new byte[UDP_MAX_PAYLOAD_SIZE];
 
             // Server loop
-            while (true) {
+            while (running && !Thread.currentThread().isInterrupted()) {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                socket.receive(packet);
-
+                try {
+                    socket.receive(packet);
+                } catch (IOException e) {
+                    if (!running || socket.isClosed()) {
+                        logger.log(
+                                (YELLOW + "[SERVER] UDP server stopped on " + bindAddress + ":" + portNumber + RESET),
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.NOTICE,
+                                true);
+                        break;
+                    }
+                    throw e;
+                }
                 // Received DNS packet is stored here
                 byte[] data = Arrays.copyOf(packet.getData(), packet.getLength());
 
@@ -82,7 +98,14 @@ public class UDPServer extends AbstractServer {
                         true);
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            if (running) {
+                logger.log(
+                        RED + "[SERVER-ERROR] No permission to use port " + portNumber + RESET,
+                        LoggingCategoryType.DEFAULT,
+                        LoggingSeverity.CRITICAL,
+                        true);
+                DNS_SERVER.shutdown();
+            }
         }
     }
 
@@ -102,7 +125,7 @@ public class UDPServer extends AbstractServer {
                     Math.max(512, Math.min(query.getEdnsRecord().getRequestedPayloadSize(), this.ednsUdpSizeLimit));
         }
 
-        System.out.println(effectiveLimit);
+        logger.log("[SERVER] UDP-SIZE: " + effectiveLimit, LoggingCategoryType.GENERAL, LoggingSeverity.DEBUG, true);
 
         byte[] result = handleQuery(data);
         if (result.length <= effectiveLimit) {
@@ -112,5 +135,12 @@ public class UDPServer extends AbstractServer {
         DNSPacket response = DNSPacket.fromBytes(result);
 
         return responseBuilder.truncatedUDPResponse(query, response.isAa()).toBytes();
+    }
+
+    public void shutdown() {
+        running = false;
+        if (socket != null && !socket.isClosed()) {
+            socket.close();
+        }
     }
 }

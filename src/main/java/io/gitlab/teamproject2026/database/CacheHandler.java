@@ -7,7 +7,7 @@ import io.gitlab.teamproject2026.model.rdata.*;
 import java.sql.*;
 import java.util.*;
 
-public class CacheHandler {
+public class CacheHandler implements AutoCloseable {
     private final Connection conn;
 
     private static final String SQL_A =
@@ -706,6 +706,17 @@ public class CacheHandler {
             throw e;
         } finally {
             conn.setAutoCommit(true);
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            if (conn != null && !conn.isClosed()) {
+                conn.close();
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to close cache database connection: " + e.getMessage());
         }
     }
 }
