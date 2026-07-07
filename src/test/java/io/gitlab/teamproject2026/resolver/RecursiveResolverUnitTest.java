@@ -186,7 +186,7 @@ public class RecursiveResolverUnitTest {
 
     @Test
     public void testRecursiveResolutionMultipleQuestionSections() {
-
+        // test that 2 question sections get resolved correctly by recursive resolver
         DNSPacket queryPacketSOA = new DNSPacket();
         queryPacketSOA.setId(new byte[] {0x12, 0x33});
         queryPacketSOA.setQr(false);

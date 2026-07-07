@@ -48,6 +48,8 @@ public class RecursiveResolver extends AbstractResolver {
         // clear RA, RD bit
         queryPacket.setRa(false);
         queryPacket.setRd(false);
+
+        // final response: build response from scratch
         DNSPacket finalResponse = new DNSPacket();
         finalResponse.setId(queryPacket.getId());
         finalResponse.setQr(true);
@@ -58,21 +60,17 @@ public class RecursiveResolver extends AbstractResolver {
         finalResponse.setAnswerSections(new ResourceRecord[0]);
         finalResponse.setAuthoritySections(new ResourceRecord[0]);
         finalResponse.setAdditionalSections(new ResourceRecord[0]);
-        QuestionSection[] questions = queryPacket.getQuestionSections();
         finalResponse.setQuestionSections(queryPacket.getQuestionSections());
         List<ResourceRecord> finalAnswers = new ArrayList<>();
         List<ResourceRecord> finalAuthorities = new ArrayList<>();
         List<ResourceRecord> finalAdditionals = new ArrayList<>();
-        if (questions == null) {
-            return finalResponse.toBytes();
-        }
-        // if multiple question sections: one query per question section ->set qdcount to 1
+
+        // if possibly multiple question sections: one query per question section ->set qdcount to 1
         queryPacket.setQdcount(1);
-        for (QuestionSection question : questions) {
+        for (QuestionSection question : queryPacket.getQuestionSections()) {
             // resolve one question.
             DNSPacket singleResponse =
                     resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start());
-            // System.out.println(singleResponse.toString());
             if (singleResponse.getRcode() != 0) {
                 finalResponse.setRcode(singleResponse.getRcode());
             }
@@ -85,7 +83,6 @@ public class RecursiveResolver extends AbstractResolver {
         finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));
         finalResponse.setAuthoritySections(finalAuthorities.toArray(new ResourceRecord[0]));
 
-        // System.out.println(finalResponse.toString());
         return finalResponse.toBytes();
     }
 
@@ -96,8 +93,6 @@ public class RecursiveResolver extends AbstractResolver {
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
     private DNSPacket resolve(String[] sname, int qtype, DNSPacket queryPacket, ResolveContext ctx) {
-        // OOP QueryPacket for logging
-        byte[] query = queryPacket.toBytes();
 
         // Cap glue/CNAME resolution to avoid infinite recursion.
         if (ctx.depth() > MAX_DEPTH) {
@@ -141,6 +136,7 @@ public class RecursiveResolver extends AbstractResolver {
             // send iterative query
             QueryResult result = null;
             NameServer currentServer = null;
+            byte[] query = queryPacket.toBytes(); // queryUDP/TCP needs byte array
             // query UDP: try ipv4, if not available use ipv6
             if (!queriedServerIpv4.host().equals("0.0.0.0")) {
                 currentServer = queriedServerIpv4;
@@ -310,24 +306,6 @@ public class RecursiveResolver extends AbstractResolver {
         }
         return d;
     }
-
-    /*
-    Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
-        String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
-
-        // prefer IPv4, fall back to IPv6 if the name server is v6-only
-        RData a = resolveAddress(nsName, RRType.A, ctx);
-        if (a != null) {
-            return new Delegation(d.ns(), (RDataA) a, d.ipv6());
-        }
-        RData aaaa = resolveAddress(nsName, RRType.AAAA, ctx);
-        if (aaaa != null) {
-            return new Delegation(d.ns(), d.ipv4(), (RDataAAAA) aaaa);
-        }
-        return d;
-    }
-
-     */
 
     /**
      * Looks up an address record for a name, cache first then iterative.
@@ -633,6 +611,12 @@ public class RecursiveResolver extends AbstractResolver {
         return true;
     }
 
+    /**
+     * builds SERVFAIL DNSPacket
+     *
+     * @param queryPacket query
+     * @return DNSPacket signaling a SERVFAIL: rcode=2, an,ar,ad :empty
+     */
     private DNSPacket buildServFailPacket(DNSPacket queryPacket) {
         DNSPacket servFailPacket = new DNSPacket();
         servFailPacket.setId(queryPacket.getId());
