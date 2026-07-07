@@ -66,17 +66,17 @@ public class RecursiveResolver extends AbstractResolver {
         if (questions == null) {
             return finalResponse.toBytes();
         }
+        // if multiple question sections: one query per question section ->set qdcount to 1
+        queryPacket.setQdcount(1);
         for (QuestionSection question : questions) {
-            // QuestionSection question = queryPacket.getQuestionSections()[0];
             // resolve one question.
             DNSPacket singleResponse =
                     resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start());
             System.out.println(singleResponse.toString());
+            // add all RRs received as an/ar/ad to final answer
             Collections.addAll(finalAnswers, singleResponse.getAnswerSections());
             Collections.addAll(finalAuthorities, singleResponse.getAuthoritySections());
             Collections.addAll(finalAdditionals, singleResponse.getAdditionalSections());
-            // finalResponse.setAnswerSections(singleResponse.getAnswerSections());
-
         }
         finalResponse.setAnswerSections(finalAnswers.toArray(new ResourceRecord[0]));
         finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));

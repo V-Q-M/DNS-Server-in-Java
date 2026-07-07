@@ -184,6 +184,59 @@ public class RecursiveResolverUnitTest {
                 "stub and recursive should both return same response (SOA)");
     }
 
+    @Test
+    public void testRecursiveResolutionMultipleQuestionSections() {
+
+        DNSPacket queryPacketSOA = new DNSPacket();
+        queryPacketSOA.setId(new byte[] {0x12, 0x33});
+        queryPacketSOA.setQr(false);
+        queryPacketSOA.setOpcode(OpCode.QUERY);
+        queryPacketSOA.setRd(true);
+
+        QuestionSection questionSOA = new QuestionSection();
+        questionSOA.setName(new String[] {"example", "com"});
+        questionSOA.setQtype(RRType.SOA);
+        questionSOA.setQclass(RRClass.IN);
+
+        queryPacketSOA.setAnswerSections(new ResourceRecord[0]);
+        queryPacketSOA.setAuthoritySections(new ResourceRecord[0]);
+        queryPacketSOA.setAdditionalSections(new ResourceRecord[0]);
+
+        // raw bytes for recursive resolver: rd=false
+        // two question sections for SOA for same domain
+        queryPacketSOA.setQuestionSections(new QuestionSection[] {questionSOA, questionSOA});
+        queryPacketSOA.setQdcount(2);
+        queryPacketSOA.setRd(false);
+        byte[] rawQueryBytesRecursiveSOA = queryPacketSOA.toBytes();
+
+        // recursive resolve
+        byte[] recursiveRawResponseSOA = null;
+        try {
+            recursiveRawResponseSOA = recursiveResolver.resolve(rawQueryBytesRecursiveSOA);
+        } catch (Exception e) {
+            fail("RecursiveResolver crashed or timed out: " + e.getMessage());
+        }
+
+        DNSPacket recursiveResponseSOA = DNSPacket.fromBytes(recursiveRawResponseSOA);
+        ResourceRecord[] recursiveAnswerSOA = recursiveResponseSOA.getAnswerSections();
+
+        // ttl may differ, so set both to 0
+
+        recursiveAnswerSOA[0].setTtl(0L);
+        recursiveAnswerSOA[1].setTtl(0L);
+
+        // assert answer sections are the same (byte version and parsed version)
+        // since SOA is unique, it is possible to test same contents of SOA
+        assertArrayEquals(
+                recursiveAnswerSOA[0].toBytes(),
+                recursiveAnswerSOA[1].toBytes(),
+                "2 same questions queries: recursive should return two times same SOA-RR");
+        assertEquals(
+                recursiveAnswerSOA[0].toString(),
+                recursiveAnswerSOA[1].toString(),
+                "2 same questions queries: recursive should return two times same SOA-RR");
+    }
+
     // ---- cnameTarget ----
 
     @Test
