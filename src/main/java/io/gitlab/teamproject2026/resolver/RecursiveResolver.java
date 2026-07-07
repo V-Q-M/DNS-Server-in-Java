@@ -43,6 +43,13 @@ public class RecursiveResolver extends AbstractResolver {
 
     @Override
     public byte[] resolve(byte[] query) {
+        /**
+         * DNSPacket queryPacket; queryPacket = DNSPacket.fromBytes(query); // clear RA, RD bit
+         * queryPacket.setRa(false); queryPacket.setRd(false);
+         *
+         * <p>QuestionSection question = queryPacket.getQuestionSections()[0]; // resolve one question. return
+         * resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
+         */
         DNSPacket queryPacket;
         queryPacket = DNSPacket.fromBytes(query);
         // clear RA, RD bit
@@ -67,32 +74,6 @@ public class RecursiveResolver extends AbstractResolver {
         singleQueryPacket.setRd(false);
         singleQueryPacket.setRa(false);
 
-        // recursive resolve per question section
-        for (QuestionSection question : questions) {
-
-            singleQueryPacket.setQuestionSections(new QuestionSection[] {question});
-            // resolve 1 question
-            DNSPacket singleResponse = resolve(
-                    question.getName(),
-                    question.getQtype(),
-                    buildQuery(question.getName(), question.getQtype()),
-                    ResolveContext.start());
-
-            // if one question returns rcode other than noerror: whole response gets that rcode
-
-            // add an,ar,ad sections for one question
-            if (singleResponse.getAnswerSections() != null) {
-                allAnswers.addAll(Arrays.asList(singleResponse.getAnswerSections()));
-            }
-            if (singleResponse.getAuthoritySections() != null) {
-                Collections.addAll(allAuthorities, singleResponse.getAuthoritySections());
-            }
-            if (singleResponse.getAdditionalSections() != null) {
-                allAdditionals.addAll(Arrays.asList(singleResponse.getAdditionalSections()));
-            }
-        }
-
-        //build response for all questions
         DNSPacket finalResponse = new DNSPacket();
         finalResponse.setId(queryPacket.getId());
         finalResponse.setQr(true);
@@ -101,9 +82,30 @@ public class RecursiveResolver extends AbstractResolver {
         finalResponse.setRd(false);
         finalResponse.setRcode(finalRCode);
         finalResponse.setQuestionSections(questions);
-        finalResponse.setAnswerSections(allAnswers.toArray(new ResourceRecord[0]));
-        finalResponse.setAuthoritySections(allAuthorities.toArray(new ResourceRecord[0]));
-        finalResponse.setAdditionalSections(allAdditionals.toArray(new ResourceRecord[0]));
+
+        // recursive resolve per question section
+        for (QuestionSection question : questions) {
+
+            singleQueryPacket.setQuestionSections(new QuestionSection[] {question});
+            // resolve 1 question
+            DNSPacket singleResponse =
+                    resolve(question.getName(), question.getQtype(), singleQueryPacket, ResolveContext.start());
+
+            // if one question returns rcode other than noerror: whole response gets that rcode
+
+            // add an,ar,ad sections for one question
+            if (singleResponse.getAnswerSections() != null) {
+                finalResponse.setAnswerSections(singleResponse.getAnswerSections());
+            }
+            if (singleResponse.getAuthoritySections() != null) {
+                finalResponse.setAuthoritySections(singleResponse.getAuthoritySections());
+            }
+            if (singleResponse.getAdditionalSections() != null) {
+                finalResponse.setAdditionalSections(singleResponse.getAdditionalSections());
+            }
+        }
+
+        // build response for all questions
 
         return finalResponse.toBytes();
     }
