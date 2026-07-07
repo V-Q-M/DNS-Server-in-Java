@@ -33,6 +33,12 @@ import java.util.List;
  */
 public class DNS_SERVER {
     private static ServerContext context;
+    private static final List<Thread> serverThreads = new ArrayList<>();
+    private static volatile boolean shuttingDown = false;
+    private static UDPServer udpIPv4Server;
+    private static UDPServer udpIPv6Server;
+    private static TCPServer tcpIPv4Server;
+    private static TCPServer tcpIPv6Server;
 
     /** Initializes the server and starts the UDP, TCP, and zone refresh workers. */
     static void main(String[] args) {
@@ -218,16 +224,27 @@ public class DNS_SERVER {
                 dnssecValidate,
                 startTime);
 
-        new Thread(DNS_SERVER::handleCacheCleanUp).start();
+        Runtime.getRuntime().addShutdownHook(new Thread(DNS_SERVER::shutdown, "shutdown-hook"));
+
+        startServerThread(new Thread(DNS_SERVER::handleCacheCleanUp, "cache-cleanup"));
         if (bindIPv4Address != null) {
-            new Thread(new UDPServer(context, bindIPv4Address, portNumber), "udp-ipv4-server").start();
-            new Thread(new TCPServer(context, bindIPv4Address, portNumber), "tcp-ipv4-server").start();
+            udpIPv4Server = new UDPServer(context, bindIPv4Address, portNumber);
+            tcpIPv4Server = new TCPServer(context, bindIPv4Address, portNumber);
+            startServerThread(new Thread(udpIPv4Server, "udp-ipv4-server"));
+            startServerThread(new Thread(tcpIPv4Server, "tcp-ipv4-server"));
         }
         if (bindIPv6Address != null) {
-            new Thread(new UDPServer(context, bindIPv6Address, portNumber), "udp-ipv6-server").start();
-            new Thread(new TCPServer(context, bindIPv6Address, portNumber), "tcp-ipv6-server").start();
+            udpIPv6Server = new UDPServer(context, bindIPv6Address, portNumber);
+            tcpIPv6Server = new TCPServer(context, bindIPv6Address, portNumber);
+            startServerThread(new Thread(udpIPv6Server, "udp-ipv6-server"));
+            startServerThread(new Thread(tcpIPv6Server, "tcp-ipv6-server"));
         }
-        new Thread(new ZoneManager(context)).start();
+        startServerThread(new Thread(new ZoneManager(context), "zone-manager"));
+    }
+    // Stores the threads in a list directly
+    private static void startServerThread(Thread thread) {
+        serverThreads.add(thread);
+        thread.start();
     }
 
     private record ServerCliOptions(int portNumber, String bindIPv4, String bindIPv6, boolean minimalResponses) {}
@@ -374,6 +391,69 @@ public class DNS_SERVER {
                 Thread.currentThread().interrupt();
                 return;
             }
+        }
+    }
+
+    public static void shutdown() {
+        if (shuttingDown) {
+            return;
+        }
+
+        shuttingDown = true;
+
+        if (context != null && context.logger() != null) {
+            context.logger()
+                    .log(
+                            (YELLOW + "[SERVER] Shutdown requested. Stopping DNS server..." + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true);
+        } else {
+            IO.println(YELLOW + "[SERVER] Shutdown requested. Stopping DNS server..." + RESET);
+        }
+        if (udpIPv4Server != null) {
+            udpIPv4Server.shutdown();
+        }
+        if (udpIPv6Server != null) {
+            udpIPv6Server.shutdown();
+        }
+        if (tcpIPv4Server != null) {
+            tcpIPv4Server.shutdown();
+        }
+        if (tcpIPv6Server != null) {
+            tcpIPv6Server.shutdown();
+        }
+
+        Thread currentThread = Thread.currentThread();
+        for (Thread thread : serverThreads) {
+            if (thread != currentThread) {
+                thread.interrupt();
+            }
+        }
+        for (Thread thread : serverThreads) {
+            if (thread != currentThread) {
+                try {
+                    thread.join(2_000);
+                } catch (InterruptedException e) {
+                    currentThread.interrupt();
+                    break;
+                }
+            }
+        }
+        if (context != null && context.cacheHandler() != null) {
+            context.cacheHandler().close();
+        }
+
+        if (context != null && context.logger() != null) {
+            context.logger()
+                    .log(
+                            (GREEN + "[SERVER] DNS server stopped." + RESET),
+                            LoggingCategoryType.GENERAL,
+                            LoggingSeverity.NOTICE,
+                            true);
+            context.logger().close();
+        } else {
+            IO.println(GREEN + "[SERVER] DNS server stopped." + RESET);
         }
     }
 }
