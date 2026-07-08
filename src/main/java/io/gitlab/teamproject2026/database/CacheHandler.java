@@ -129,7 +129,7 @@ public class CacheHandler implements AutoCloseable {
      * @return
      * @throws SQLException
      */
-    public ResourceRecord[] lookup(String name, int type) throws SQLException {
+    public synchronized ResourceRecord[] lookup(String name, int type) throws SQLException {
         name = name.toLowerCase();
         switch (type) {
             case RRType.A:
@@ -442,7 +442,7 @@ public class CacheHandler implements AutoCloseable {
      * @param record
      * @throws SQLException
      */
-    void insert(ResourceRecord record) throws SQLException {
+    synchronized void insert(ResourceRecord record) throws SQLException {
         delete(String.join(".", record.getName()).toLowerCase(), record.getType());
         switch (record.getType()) {
             case RRType.A:
@@ -502,7 +502,7 @@ public class CacheHandler implements AutoCloseable {
      * @param type
      * @throws SQLException
      */
-    public void delete(String name, int type) throws SQLException {
+    public synchronized void delete(String name, int type) throws SQLException {
         name = name.toLowerCase();
         String sql;
         switch (type) {
@@ -585,7 +585,7 @@ public class CacheHandler implements AutoCloseable {
      *
      * @throws SQLException
      */
-    public void clearAll() throws SQLException {
+    public synchronized void clearAll() throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             for (String table : ALL_RDATA_TABLES) {
                 stmt.addBatch("TRUNCATE TABLE " + table);
@@ -599,7 +599,7 @@ public class CacheHandler implements AutoCloseable {
      *
      * @throws SQLException
      */
-    public void deleteExpired() throws SQLException {
+    public synchronized void deleteExpired() throws SQLException {
         for (String table : ALL_RDATA_TABLES) {
             try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + table + " WHERE now() >= expires_at")) {
@@ -665,7 +665,7 @@ public class CacheHandler implements AutoCloseable {
      * @param records
      * @throws SQLException
      */
-    public void insertAll(ResourceRecord[] records) throws SQLException {
+    public synchronized void insertAll(ResourceRecord[] records) throws SQLException {
         Map<Integer, List<ResourceRecord>> byType = new HashMap<>();
         for (ResourceRecord record : records) {
             byType.computeIfAbsent(record.getType(), k -> new ArrayList<>()).add(record);

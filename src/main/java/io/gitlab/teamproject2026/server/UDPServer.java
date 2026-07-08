@@ -2,7 +2,6 @@ package io.gitlab.teamproject2026.server;
 
 import static io.gitlab.teamproject2026.AnsiColors.*;
 
-import io.gitlab.teamproject2026.DNSParser;
 import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
@@ -12,9 +11,12 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
+import java.util.concurrent.*;
 
 public class UDPServer extends AbstractServer {
     private static final int UDP_MAX_PAYLOAD_SIZE = 65507; // see https://en.wikipedia.org/wiki/User_Datagram_Protocol
+    private final ThreadPoolExecutor workerPool = new ThreadPoolExecutor(
+            8, 8, 0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(1000), new ThreadPoolExecutor.AbortPolicy());
 
     private DatagramSocket socket;
     private volatile boolean running = true;
@@ -64,37 +66,26 @@ public class UDPServer extends AbstractServer {
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
 
-                logger.log(
-                        (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.NOTICE,
-                        true);
-                // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
-                logger.log(
-                        ("[SERVER] IN: " + DNSParser.toHex(data)),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.INFO,
-                        true);
-
                 // Handle the query and receive a byte array as response
-                byte[] byteResponse = handleUDPQuery(data);
-
-                // Build UDP packet
-                DatagramPacket responsePacket =
-                        new DatagramPacket(byteResponse, byteResponse.length, clientAddress, clientPort);
-
-                // Actually send the packet over our socket
-                socket.send(responsePacket);
-
+                try {
+                    workerPool.submit(() -> handleUDPQueryPacket(data, clientAddress, clientPort));
+                } catch (RejectedExecutionException e) {
+                    if (running) {
+                        logger.log(
+                                RED + "[SERVER-ERROR] UDP worker pool rejected query from " + clientAddress + ":"
+                                        + clientPort + RESET,
+                                LoggingCategoryType.DEFAULT,
+                                LoggingSeverity.ERROR,
+                                true);
+                    }
+                }
                 logger.log(
-                        (BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET),
+                        "[SERVER] UDP pool active=" + workerPool.getActiveCount()
+                                + ", poolSize=" + workerPool.getPoolSize()
+                                + ", queued=" + workerPool.getQueue().size()
+                                + ", completed=" + workerPool.getCompletedTaskCount(),
                         LoggingCategoryType.GENERAL,
                         LoggingSeverity.NOTICE,
-                        true);
-                logger.log(
-                        ("[SERVER] OUT: " + DNSParser.toHex(byteResponse)),
-                        LoggingCategoryType.GENERAL,
-                        LoggingSeverity.INFO,
                         true);
             }
         } catch (IOException e) {
@@ -106,6 +97,55 @@ public class UDPServer extends AbstractServer {
                         true);
                 DNS_SERVER.shutdown();
             }
+        }
+    }
+
+    private void handleUDPQueryPacket(byte[] data, InetAddress clientAddress, int clientPort) {
+        try {
+            logger.log(
+                    (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.NOTICE,
+                    true);
+
+            // Uncomment this when debugging
+            // Print the hex dump. The Bytes are separated by space e.g. "F3 25 01..."
+            // logger.log( ("[SERVER] IN: " + DNSParser.toHex(data)), LoggingCategoryType.GENERAL, LoggingSeverity.INFO,
+            // true);
+            byte[] byteResponse = handleUDPQuery(data);
+
+            // Build UDP packet
+            DatagramPacket responsePacket =
+                    new DatagramPacket(byteResponse, byteResponse.length, clientAddress, clientPort);
+
+            // Actually send the packet over our socket
+            socket.send(responsePacket);
+
+            logger.log(
+                    (BLUE + "[SERVER] Send UDP response to: " + clientAddress + ":" + clientPort + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.NOTICE,
+                    true);
+
+            // Uncomment this for debugging
+            // logger.log( ("[SERVER] OUT: " + DNSParser.toHex(byteResponse)), LoggingCategoryType.GENERAL,
+            // LoggingSeverity.INFO, true);
+        } catch (IOException e) {
+            if (running) {
+                logger.log(
+                        RED + "[SERVER-ERROR] Failed to send UDP response to " + clientAddress + ":" + clientPort
+                                + " - " + e.getMessage() + RESET,
+                        LoggingCategoryType.DEFAULT,
+                        LoggingSeverity.CRITICAL,
+                        true);
+            }
+        } catch (Exception e) {
+            logger.log(
+                    RED + "[SERVER-ERROR] Failed to handle UDP query from " + clientAddress + ":" + clientPort + " - "
+                            + e.getMessage() + RESET,
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.CRITICAL,
+                    true);
         }
     }
 
@@ -141,6 +181,19 @@ public class UDPServer extends AbstractServer {
         running = false;
         if (socket != null && !socket.isClosed()) {
             socket.close();
+        }
+
+        workerPool.shutdownNow();
+        try {
+            if (!workerPool.awaitTermination(2, TimeUnit.SECONDS)) {
+                logger.log(
+                        YELLOW + "[SERVER] UDP worker pool did not terminate cleanly" + RESET,
+                        LoggingCategoryType.DEFAULT,
+                        LoggingSeverity.WARNING,
+                        true);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
