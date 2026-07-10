@@ -198,14 +198,19 @@ public class RecursiveResolverUnitTest {
         questionSOA.setQtype(RRType.SOA);
         questionSOA.setQclass(RRClass.IN);
 
+        QuestionSection questionUniTue = new QuestionSection();
+        questionUniTue.setName(new String[] {"uni-tuebingen", "de"});
+        questionUniTue.setQtype(RRType.SOA);
+        questionUniTue.setQclass(RRClass.IN);
+
         queryPacketSOA.setAnswerSections(new ResourceRecord[0]);
         queryPacketSOA.setAuthoritySections(new ResourceRecord[0]);
         queryPacketSOA.setAdditionalSections(new ResourceRecord[0]);
 
         // raw bytes for recursive resolver: rd=false
-        // two question sections for SOA for same domain
-        queryPacketSOA.setQuestionSections(new QuestionSection[] {questionSOA, questionSOA});
-        queryPacketSOA.setQdcount(2);
+        // two question sections for SOA for same domain example.com., one for uni-tuebingen.de.
+        queryPacketSOA.setQuestionSections(new QuestionSection[] {questionSOA, questionSOA, questionUniTue});
+        queryPacketSOA.setQdcount(3);
         queryPacketSOA.setRd(false);
         byte[] rawQueryBytesRecursiveSOA = queryPacketSOA.toBytes();
 
@@ -221,7 +226,6 @@ public class RecursiveResolverUnitTest {
         ResourceRecord[] recursiveAnswerSOA = recursiveResponseSOA.getAnswerSections();
 
         // ttl may differ, so set both to 0
-
         recursiveAnswerSOA[0].setTtl(0L);
         recursiveAnswerSOA[1].setTtl(0L);
 
@@ -235,6 +239,15 @@ public class RecursiveResolverUnitTest {
                 recursiveAnswerSOA[0].toString(),
                 recursiveAnswerSOA[1].toString(),
                 "2 same questions queries: recursive should return two times same SOA-RR");
+
+        String thirdAnswer = recursiveAnswerSOA[2].toString();
+        // test mname and rname since they probably won't change
+        assertTrue(
+                thirdAnswer.contains("dns6.uni-tuebingen.de"),
+                "third answer should contain primary NS (mname) 'dns6.uni-tuebingen.de'. In case of failure: check (e.g. via dig) if mname changed");
+        assertTrue(
+                thirdAnswer.contains("hostmaster.uni-tuebingen.de"),
+                "third answer should contain rname 'hostmaster.uni-tuebingen.de'In case of failure: check (e.g. via dig) if rname changed");
     }
 
     // ---- cnameTarget ----

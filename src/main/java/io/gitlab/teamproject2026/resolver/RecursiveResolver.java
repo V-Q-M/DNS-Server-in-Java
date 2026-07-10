@@ -64,8 +64,8 @@ public class RecursiveResolver extends AbstractResolver {
                     new ArrayList<>(Arrays.asList(finalResponse.getAuthoritySections()));
             List<ResourceRecord> finalAdditionals =
                     new ArrayList<>(Arrays.asList(finalResponse.getAdditionalSections()));
-            // start resolving 2nd question section
 
+            // start resolving 2nd question section
             for (int i = 1; i < allQuestions.length; i++) {
                 QuestionSection multQuestion = allQuestions[i];
                 queryPacket.setQuestionSections(new QuestionSection[] {multQuestion});
