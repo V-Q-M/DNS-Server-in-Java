@@ -43,49 +43,54 @@ public class RecursiveResolver extends AbstractResolver {
 
     @Override
     public byte[] resolve(byte[] query) {
-        DNSPacket queryPacket;
-        queryPacket = DNSPacket.fromBytes(query);
+        DNSPacket queryPacket = DNSPacket.fromBytes(query);
         // clear RA, RD bit
         queryPacket.setRa(false);
         queryPacket.setRd(false);
+        QuestionSection[] allQuestions = queryPacket.getQuestionSections();
 
-        // final response: build response from scratch
-        DNSPacket finalResponse = new DNSPacket();
-        finalResponse.setId(queryPacket.getId());
-        finalResponse.setQr(true);
-        finalResponse.setOpcode(OpCode.QUERY);
-        finalResponse.setRd(false);
-        finalResponse.setRa(false);
-        finalResponse.setQdcount(queryPacket.getQdcount());
-        finalResponse.setAnswerSections(new ResourceRecord[0]);
-        finalResponse.setAuthoritySections(new ResourceRecord[0]);
-        finalResponse.setAdditionalSections(new ResourceRecord[0]);
-        finalResponse.setQuestionSections(queryPacket.getQuestionSections());
-        List<ResourceRecord> finalAnswers = new ArrayList<>();
-        List<ResourceRecord> finalAuthorities = new ArrayList<>();
-        List<ResourceRecord> finalAdditionals = new ArrayList<>();
+        // usual case: resolve only 1 question section
+        QuestionSection firstQuestion = allQuestions[0];
+        queryPacket.setQuestionSections(new QuestionSection[] {firstQuestion});
+        DNSPacket finalResponse =
+                resolve(firstQuestion.getName(), firstQuestion.getQtype(), queryPacket, ResolveContext.start());
 
-        // if possibly multiple question sections: one query per question section ->set qdcount to 1
-        queryPacket.setQdcount(1);
-        for (QuestionSection question : queryPacket.getQuestionSections()) {
-            // resolve one question.
-            DNSPacket singleResponse =
-                    resolve(question.getName(), question.getQtype(), queryPacket, ResolveContext.start());
-            if (singleResponse.getRcode() != 0) {
-                finalResponse.setRcode(singleResponse.getRcode());
+        // multiple question sections case: one query per question section ->set qdcount to 1
+        if (allQuestions.length > 1) {
+            queryPacket.setQdcount(1);
+            // add all RRs received as an/ar/ad to final answer for already resolved first question section
+            List<ResourceRecord> finalAnswers = new ArrayList<>(Arrays.asList(finalResponse.getAnswerSections()));
+            List<ResourceRecord> finalAuthorities =
+                    new ArrayList<>(Arrays.asList(finalResponse.getAuthoritySections()));
+            List<ResourceRecord> finalAdditionals =
+                    new ArrayList<>(Arrays.asList(finalResponse.getAdditionalSections()));
+            // start resolving 2nd question section
+
+            for (int i = 1; i < allQuestions.length; i++) {
+                QuestionSection multQuestion = allQuestions[i];
+                queryPacket.setQuestionSections(new QuestionSection[] {multQuestion});
+
+                // resolve one question.
+                DNSPacket singleResponse =
+                        resolve(multQuestion.getName(), multQuestion.getQtype(), queryPacket, ResolveContext.start());
+                // if one question returns RCode different from NOERROR: set RCode for whole packet
+                if (singleResponse.getRcode() != 0) {
+                    finalResponse.setRcode(singleResponse.getRcode());
+                }
+                // add all RRs received as an/ar/ad to final response
+                Collections.addAll(finalAnswers, singleResponse.getAnswerSections());
+                Collections.addAll(finalAuthorities, singleResponse.getAuthoritySections());
+                Collections.addAll(finalAdditionals, singleResponse.getAdditionalSections());
             }
-            // add all RRs received as an/ar/ad to final answer
-            Collections.addAll(finalAnswers, singleResponse.getAnswerSections());
-            Collections.addAll(finalAuthorities, singleResponse.getAuthoritySections());
-            Collections.addAll(finalAdditionals, singleResponse.getAdditionalSections());
+            // combine all question, an, ar, ad sections for final response
+            finalResponse.setQdcount(allQuestions.length);
+            finalResponse.setQuestionSections(allQuestions);
+            finalResponse.setAnswerSections(finalAnswers.toArray(new ResourceRecord[0]));
+            finalResponse.setAuthoritySections(finalAuthorities.toArray(new ResourceRecord[0]));
+            finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));
         }
-        finalResponse.setAnswerSections(finalAnswers.toArray(new ResourceRecord[0]));
-        finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));
-        finalResponse.setAuthoritySections(finalAuthorities.toArray(new ResourceRecord[0]));
-
         return finalResponse.toBytes();
     }
-
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
     // Terminates because the SLIST strictly shrinks:
     // - each pass either returns or removes a server.
