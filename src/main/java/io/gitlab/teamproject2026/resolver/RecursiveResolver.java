@@ -98,10 +98,10 @@ public class RecursiveResolver extends AbstractResolver {
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
     private DNSPacket resolve(String[] sname, int qtype, DNSPacket queryPacket, ResolveContext ctx) {
-
+        byte[] query = queryPacket.toBytes(); // queryUDP/TCP and buildservfail need byte array
         // Cap glue/CNAME resolution to avoid infinite recursion.
         if (ctx.depth() > MAX_DEPTH) {
-            return buildServFailPacket(queryPacket);
+            return DNSPacket.fromBytes(buildServFail(query));
         }
 
         // fill slist
@@ -127,7 +127,7 @@ public class RecursiveResolver extends AbstractResolver {
                     || (bestNsserver.ipv4().toString().equals("0.0.0.0")
                             && bestNsserver.ipv6().toString().equals("0000:0000:0000:0000:0000:0000:0000:0000"))
                     || bestNsserver.nsName().getNsdname().length == 0) {
-                return buildServFailPacket(queryPacket);
+                return DNSPacket.fromBytes(buildServFail(query));
             }
 
             // build NameServer for queryUDP/queryTCP
@@ -141,7 +141,6 @@ public class RecursiveResolver extends AbstractResolver {
             // send iterative query
             QueryResult result = null;
             NameServer currentServer = null;
-            byte[] query = queryPacket.toBytes(); // queryUDP/TCP needs byte array
             // query UDP: try ipv4, if not available use ipv6
             if (!queriedServerIpv4.host().equals("0.0.0.0")) {
                 currentServer = queriedServerIpv4;
@@ -255,7 +254,7 @@ public class RecursiveResolver extends AbstractResolver {
                         }
                     }
                     if (!addedAny) {
-                        return buildServFailPacket(queryPacket);
+                        return DNSPacket.fromBytes(buildServFail(query));
                     }
                     continue;
                 }
@@ -263,7 +262,7 @@ public class RecursiveResolver extends AbstractResolver {
                 case CNAME_CHAIN -> {
                     String[] target = cnameTarget(response);
                     if (target == null) {
-                        return buildServFailPacket(queryPacket);
+                        return DNSPacket.fromBytes(buildServFail(query));
                     }
                     // loop guard: a target we have already followed means a CNAME loop
                     logger.logTrace(
@@ -271,7 +270,7 @@ public class RecursiveResolver extends AbstractResolver {
                                     + ".",
                             queryPacket);
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
-                        return buildServFailPacket(queryPacket);
+                        return DNSPacket.fromBytes(buildServFail(query));
                     }
                     // resolve the target via cache (following cached CNAMEs) then iterate the tail
                     return prependCnames(response, resolveCnameTarget(target, qtype, ctx));
@@ -614,24 +613,5 @@ public class RecursiveResolver extends AbstractResolver {
             }
         }
         return true;
-    }
-
-    /**
-     * builds SERVFAIL DNSPacket
-     *
-     * @param queryPacket query
-     * @return DNSPacket signaling a SERVFAIL: rcode=2, an,ar,ad :empty
-     */
-    private DNSPacket buildServFailPacket(DNSPacket queryPacket) {
-        DNSPacket servFailPacket = new DNSPacket();
-        servFailPacket.setId(queryPacket.getId());
-        servFailPacket.setQr(true);
-        servFailPacket.setOpcode(queryPacket.getOpcode());
-        servFailPacket.setRcode(2);
-        servFailPacket.setQuestionSections(queryPacket.getQuestionSections());
-        servFailPacket.setAnswerSections(new ResourceRecord[0]);
-        servFailPacket.setAuthoritySections(new ResourceRecord[0]);
-        servFailPacket.setAdditionalSections(new ResourceRecord[0]);
-        return servFailPacket;
     }
 }
