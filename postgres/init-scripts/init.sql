@@ -226,3 +226,46 @@ CREATE TABLE zone_unknown_rdata (
                                     type int CHECK(type >= 0 AND type < 65536),
                                     data bytea
 ) INHERITS (ZoneResourceRecord);
+
+-- DashboardTables
+CREATE TYPE DNSEventTypeEnum AS ENUM (
+    'QUERY_SENT',
+    'SUCCESS',
+    'TIMEOUT',
+    'IO_ERROR',
+    'ATTEMPTS_EXHAUSTED',
+    'CACHE_ERROR',
+    'CACHE_HIT',
+    'CACHE_MISS',
+    'QUERY_RECEIVED',
+    'ZONE_HIT',
+    'ZONE_MISS',
+    'NXDOMAIN',
+    'REFUSED',
+    'RESPONSE_SENT',
+);
+CREATE TYPE ResponseSourceEnum AS ENUM (
+    'ZONE',
+    'CACHE',
+    'FORWARDER',
+    'RECURSIVE_RESOLVER',
+    'STUB'
+);
+
+CREATE TYPE RCodeEnum AS ENUM (
+    'UNASSIGNED',
+    'NOERROR',
+    'FORMERR',
+    'SERVFAIL',
+    'NXDOMAIN',
+    'NOTIMP',
+    'REFUSED'
+);
+
+CREATE TABLE Dashboard (
+    eventType DNSEventTypeEnum,
+    id text,
+    domain text,
+    qType RRTypeEnum,
+
+)
