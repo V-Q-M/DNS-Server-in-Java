@@ -101,7 +101,7 @@ public class RecursiveResolver extends AbstractResolver {
         byte[] query = queryPacket.toBytes(); // queryUDP/TCP and buildservfail need byte array
         // Cap glue/CNAME resolution to avoid infinite recursion.
         if (ctx.depth() > MAX_DEPTH) {
-            return DNSPacket.fromBytes(buildServFail(query));
+            return buildServFail(queryPacket);
         }
 
         // fill slist
@@ -127,7 +127,7 @@ public class RecursiveResolver extends AbstractResolver {
                     || (bestNsserver.ipv4().toString().equals("0.0.0.0")
                             && bestNsserver.ipv6().toString().equals("0000:0000:0000:0000:0000:0000:0000:0000"))
                     || bestNsserver.nsName().getNsdname().length == 0) {
-                return DNSPacket.fromBytes(buildServFail(query));
+                return buildServFail(queryPacket);
             }
 
             // build NameServer for queryUDP/queryTCP
@@ -254,7 +254,7 @@ public class RecursiveResolver extends AbstractResolver {
                         }
                     }
                     if (!addedAny) {
-                        return DNSPacket.fromBytes(buildServFail(query));
+                        return buildServFail(queryPacket);
                     }
                     continue;
                 }
@@ -262,7 +262,7 @@ public class RecursiveResolver extends AbstractResolver {
                 case CNAME_CHAIN -> {
                     String[] target = cnameTarget(response);
                     if (target == null) {
-                        return DNSPacket.fromBytes(buildServFail(query));
+                        return buildServFail(queryPacket);
                     }
                     // loop guard: a target we have already followed means a CNAME loop
                     logger.logTrace(
@@ -270,7 +270,7 @@ public class RecursiveResolver extends AbstractResolver {
                                     + ".",
                             queryPacket);
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
-                        return DNSPacket.fromBytes(buildServFail(query));
+                        return buildServFail(queryPacket);
                     }
                     // resolve the target via cache (following cached CNAMEs) then iterate the tail
                     return prependCnames(response, resolveCnameTarget(target, qtype, ctx));
@@ -613,5 +613,15 @@ public class RecursiveResolver extends AbstractResolver {
             }
         }
         return true;
+    }
+
+    /**
+     * overloads buildServFail from AbstractResolver in order to return type DNSPacket instead of type byte[]
+     *
+     * @param queryPacket query leading to servfail
+     * @return DNSPacket with RCode SERVFAIL, for details check buildServFail in AbstractResolver.java
+     */
+    private DNSPacket buildServFail(DNSPacket queryPacket) {
+        return DNSPacket.fromBytes(AbstractResolver.buildServFail(queryPacket.toBytes()));
     }
 }
