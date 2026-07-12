@@ -10,10 +10,7 @@ import io.gitlab.teamproject2026.model.*;
 import io.gitlab.teamproject2026.model.rdata.*;
 import io.gitlab.teamproject2026.resolver.SListWrapper.SListEntry;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 /*
@@ -46,30 +43,65 @@ public class RecursiveResolver extends AbstractResolver {
 
     @Override
     public byte[] resolve(byte[] query) {
-        DNSPacket queryPacket;
-        queryPacket = DNSPacket.fromBytes(query);
+        DNSPacket queryPacket = DNSPacket.fromBytes(query);
         // clear RA, RD bit
         queryPacket.setRa(false);
         queryPacket.setRd(false);
+        QuestionSection[] allQuestions = queryPacket.getQuestionSections();
 
-        QuestionSection question = queryPacket.getQuestionSections()[0];
-        // resolve one question.
-        return resolve(question.getName(), question.getQtype(), queryPacket.toBytes(), ResolveContext.start());
+        // usual case: resolve only 1 question section
+        QuestionSection firstQuestion = allQuestions[0];
+        queryPacket.setQuestionSections(new QuestionSection[] {firstQuestion});
+        DNSPacket finalResponse =
+                resolve(firstQuestion.getName(), firstQuestion.getQtype(), queryPacket, ResolveContext.start());
+
+        // multiple question sections case: one query per question section ->set qdcount to 1
+        if (allQuestions.length > 1) {
+            queryPacket.setQdcount(1);
+            // add all RRs received as an/ar/ad to final answer for already resolved first question section
+            List<ResourceRecord> finalAnswers = new ArrayList<>(Arrays.asList(finalResponse.getAnswerSections()));
+            List<ResourceRecord> finalAuthorities =
+                    new ArrayList<>(Arrays.asList(finalResponse.getAuthoritySections()));
+            List<ResourceRecord> finalAdditionals =
+                    new ArrayList<>(Arrays.asList(finalResponse.getAdditionalSections()));
+
+            // start resolving 2nd question section
+            for (int i = 1; i < allQuestions.length; i++) {
+                QuestionSection multQuestion = allQuestions[i];
+                queryPacket.setQuestionSections(new QuestionSection[] {multQuestion});
+
+                // resolve one question.
+                DNSPacket singleResponse =
+                        resolve(multQuestion.getName(), multQuestion.getQtype(), queryPacket, ResolveContext.start());
+                // if one question returns RCode different from NOERROR: set RCode for whole packet
+                if (singleResponse.getRcode() != 0) {
+                    finalResponse.setRcode(singleResponse.getRcode());
+                }
+                // add all RRs received as an/ar/ad to final response
+                Collections.addAll(finalAnswers, singleResponse.getAnswerSections());
+                Collections.addAll(finalAuthorities, singleResponse.getAuthoritySections());
+                Collections.addAll(finalAdditionals, singleResponse.getAdditionalSections());
+            }
+            // combine all question, an, ar, ad sections for final response
+            finalResponse.setQdcount(allQuestions.length);
+            finalResponse.setQuestionSections(allQuestions);
+            finalResponse.setAnswerSections(finalAnswers.toArray(new ResourceRecord[0]));
+            finalResponse.setAuthoritySections(finalAuthorities.toArray(new ResourceRecord[0]));
+            finalResponse.setAdditionalSections(finalAdditionals.toArray(new ResourceRecord[0]));
+        }
+        return finalResponse.toBytes();
     }
-
     // Re-entrant core. Resolves sname/qtype from a fresh SLIST.
     // Terminates because the SLIST strictly shrinks:
     // - each pass either returns or removes a server.
     // Step 2 keeps this property:
     // - referrals prune higher-level
     // servers (so delegations only descend), and CNAME loops get a visited-set.
-    private byte[] resolve(String[] sname, int qtype, byte[] query, ResolveContext ctx) {
-        // OOP QueryPacket for logging
-        DNSPacket queryPacket = DNSPacket.fromBytes(query);
-
+    private DNSPacket resolve(String[] sname, int qtype, DNSPacket queryPacket, ResolveContext ctx) {
+        byte[] query = queryPacket.toBytes(); // queryUDP/TCP and buildservfail need byte array
         // Cap glue/CNAME resolution to avoid infinite recursion.
         if (ctx.depth() > MAX_DEPTH) {
-            return buildServFail(query);
+            return buildServFail(queryPacket);
         }
 
         // fill slist
@@ -95,7 +127,7 @@ public class RecursiveResolver extends AbstractResolver {
                     || (bestNsserver.ipv4().toString().equals("0.0.0.0")
                             && bestNsserver.ipv6().toString().equals("0000:0000:0000:0000:0000:0000:0000:0000"))
                     || bestNsserver.nsName().getNsdname().length == 0) {
-                return buildServFail(query);
+                return buildServFail(queryPacket);
             }
 
             // build NameServer for queryUDP/queryTCP
@@ -152,7 +184,6 @@ public class RecursiveResolver extends AbstractResolver {
                         (RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET),
                         LoggingCategoryType.DEFAULT,
                         LoggingSeverity.ERROR);
-                // IO.println(RED + "[RECURSIVE] cache insert failed: " + e.getMessage() + RESET);
             }
 
             // which branch of the RCODE decision tree is this?
@@ -168,7 +199,7 @@ public class RecursiveResolver extends AbstractResolver {
                 // The response is the answer, a final SOA, or a DNS error: return it.
                 case ANSWER, NODATA, NXDOMAIN -> {
                     logger.logTrace("Recursive resolver has finished successfully", queryPacket);
-                    return response.toBytes();
+                    return response;
                 }
                 // This server could not answer: try the next one.
                 case SERVFAIL, FORMERR, REFUSED -> {
@@ -194,13 +225,13 @@ public class RecursiveResolver extends AbstractResolver {
 
                     // PASS 2: only if no glueful referral was usable, resolve glue-less NS names.
                     if (!addedAny) {
-                        logger.logTrace("No glueful referrals recieved, try glueless referalls: ", queryPacket);
+                        logger.logTrace("No glueful referrals received, try glueless referalls: ", queryPacket);
                         for (Delegation d : delegations) {
                             if (d.hasGlue()) {
                                 continue;
                             }
                             logger.logTrace(
-                                    "Recieved glueless referral from: " + currentServer.name() + " to: "
+                                    "Received glueless referral from: " + currentServer.name() + " to: "
                                             + String.join(".", ((RDataNS) d.ns.getRdata()).getNsdname())
                                             + ". resolving:",
                                     queryPacket);
@@ -214,7 +245,7 @@ public class RecursiveResolver extends AbstractResolver {
                                 continue;
                             }
 
-                            logger.logTrace("Recieved gluerecord for: " + resolved.toString(), queryPacket);
+                            logger.logTrace("Received gluerecord for: " + resolved.toString(), queryPacket);
                             slistWrap.addSListEntry(resolved.ns(), resolved.ipv4(), resolved.ipv6());
                             addedAny = true;
 
@@ -223,7 +254,7 @@ public class RecursiveResolver extends AbstractResolver {
                         }
                     }
                     if (!addedAny) {
-                        return buildServFail(query);
+                        return buildServFail(queryPacket);
                     }
                     continue;
                 }
@@ -231,7 +262,7 @@ public class RecursiveResolver extends AbstractResolver {
                 case CNAME_CHAIN -> {
                     String[] target = cnameTarget(response);
                     if (target == null) {
-                        return buildServFail(query);
+                        return buildServFail(queryPacket);
                     }
                     // loop guard: a target we have already followed means a CNAME loop
                     logger.logTrace(
@@ -239,11 +270,10 @@ public class RecursiveResolver extends AbstractResolver {
                                     + ".",
                             queryPacket);
                     if (!ctx.cnamesSeen().add(String.join(".", target))) {
-                        return buildServFail(query);
+                        return buildServFail(queryPacket);
                     }
                     // resolve the target via cache (following cached CNAMEs) then iterate the tail
-                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx))
-                            .toBytes();
+                    return prependCnames(response, resolveCnameTarget(target, qtype, ctx));
                 }
             }
         }
@@ -281,24 +311,6 @@ public class RecursiveResolver extends AbstractResolver {
         return d;
     }
 
-    /*
-    Delegation resolveNsAddress(Delegation d, ResolveContext ctx) {
-        String[] nsName = ((RDataNS) d.ns().getRdata()).getNsdname();
-
-        // prefer IPv4, fall back to IPv6 if the name server is v6-only
-        RData a = resolveAddress(nsName, RRType.A, ctx);
-        if (a != null) {
-            return new Delegation(d.ns(), (RDataA) a, d.ipv6());
-        }
-        RData aaaa = resolveAddress(nsName, RRType.AAAA, ctx);
-        if (aaaa != null) {
-            return new Delegation(d.ns(), d.ipv4(), (RDataAAAA) aaaa);
-        }
-        return d;
-    }
-
-     */
-
     /**
      * Looks up an address record for a name, cache first then iterative.
      *
@@ -320,11 +332,8 @@ public class RecursiveResolver extends AbstractResolver {
                             + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.INFO);
-            // IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage()
-            // + RESET);
         }
-        byte[] response = resolve(name, type, buildQuery(name, type), ctx.deeper());
-        DNSPacket parsed = DNSPacket.fromBytes(response);
+        DNSPacket parsed = resolve(name, type, buildQuery(name, type), ctx.deeper());
         if (parsed.getAnswerSections() != null) {
             for (ResourceRecord rr : parsed.getAnswerSections()) {
                 if (rr.getType() == type) {
@@ -404,7 +413,7 @@ public class RecursiveResolver extends AbstractResolver {
             }
         }
         // end of the cached chain: resolve the tail over the network
-        return DNSPacket.fromBytes(resolve(name, qtype, buildQuery(name, qtype), ctx.deeper()));
+        return resolve(name, qtype, buildQuery(name, qtype), ctx.deeper());
     }
 
     /**
@@ -425,8 +434,6 @@ public class RecursiveResolver extends AbstractResolver {
                             + RESET),
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.INFO);
-            // IO.println(RED + "[RECURSIVE] cache lookup failed for " + String.join(".", name) + ": " + e.getMessage()
-            // + RESET);
             return null;
         }
         if (cached.length == 0) {
@@ -455,7 +462,7 @@ public class RecursiveResolver extends AbstractResolver {
      * @param qtype the query type
      * @return the query bytes
      */
-    private byte[] buildQuery(String[] name, int qtype) {
+    private DNSPacket buildQuery(String[] name, int qtype) {
         QuestionSection question = new QuestionSection();
         question.setName(name);
         question.setQtype(qtype);
@@ -472,7 +479,7 @@ public class RecursiveResolver extends AbstractResolver {
         packet.setAuthoritySections(new ResourceRecord[0]);
         packet.setAdditionalSections(new ResourceRecord[0]);
         packet.setEdnsRecord(new OPTPseudoResourceRecord(ednsUdpSizeLimit, 0, 0, false, new RDataOPTOption()));
-        return packet.toBytes();
+        return packet;
     }
 
     /** @return a random 16-bit DNS transaction id */
@@ -606,5 +613,15 @@ public class RecursiveResolver extends AbstractResolver {
             }
         }
         return true;
+    }
+
+    /**
+     * overloads buildServFail from AbstractResolver in order to return type DNSPacket instead of type byte[]
+     *
+     * @param queryPacket query leading to servfail
+     * @return DNSPacket with RCode SERVFAIL, for details check buildServFail in AbstractResolver.java
+     */
+    private DNSPacket buildServFail(DNSPacket queryPacket) {
+        return DNSPacket.fromBytes(AbstractResolver.buildServFail(queryPacket.toBytes()));
     }
 }
