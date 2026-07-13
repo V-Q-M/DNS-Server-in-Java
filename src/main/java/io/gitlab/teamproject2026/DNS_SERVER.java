@@ -9,6 +9,7 @@ import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
 import io.gitlab.teamproject2026.database.CacheHandler;
+import io.gitlab.teamproject2026.database.DashboardHandler;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
 import io.gitlab.teamproject2026.database.ZoneHandler;
 import io.gitlab.teamproject2026.logging.DNSEvent;
@@ -69,6 +70,7 @@ public class DNS_SERVER {
         DatabaseHandlers dbHandlers = initializeDatabase(logger, startTime);
         ZoneHandler zoneHandler = dbHandlers.zoneHandler();
         CacheHandler cacheHandler = dbHandlers.cacheHandler();
+        DashboardHandler dashboardHandler = dbHandlers.dashboardHandler();
 
         // load zones into the database and store the zone names for easy lookup
         List<String> zoneCatalog;
@@ -214,6 +216,7 @@ public class DNS_SERVER {
         context = new ServerContext(
                 cacheHandler,
                 zoneHandler,
+                dashboardHandler,
                 logger,
                 resolutionPipeline,
                 responseBuilder,
@@ -304,7 +307,7 @@ public class DNS_SERVER {
         return new ServerCliOptions(portNumber, bindIPv4, bindIPv6, minimalResponses);
     }
 
-    private record DatabaseHandlers(CacheHandler cacheHandler, ZoneHandler zoneHandler) {}
+    private record DatabaseHandlers(CacheHandler cacheHandler, ZoneHandler zoneHandler, DashboardHandler dashboardHandler) {}
 
     private static DatabaseHandlers initializeDatabase(Logger logger, long startTime) {
         try {
@@ -314,7 +317,7 @@ public class DNS_SERVER {
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.INFO,
                     true);
-            return new DatabaseHandlers(new CacheHandler(provider), new ZoneHandler(provider));
+            return new DatabaseHandlers(new CacheHandler(provider), new ZoneHandler(provider), new DashboardHandler(provider));
         } catch (ClassNotFoundException e) {
             logger.log(
                     (RED
@@ -347,7 +350,7 @@ public class DNS_SERVER {
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR);
         }
-        return new DatabaseHandlers(null, null);
+        return new DatabaseHandlers(null, null, null);
     }
 
     // cache helper

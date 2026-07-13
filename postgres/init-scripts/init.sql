@@ -228,22 +228,6 @@ CREATE TABLE zone_unknown_rdata (
 ) INHERITS (ZoneResourceRecord);
 
 -- DashboardTables
-CREATE TYPE DNSEventTypeEnum AS ENUM (
-    'QUERY_SENT',
-    'SUCCESS',
-    'TIMEOUT',
-    'IO_ERROR',
-    'ATTEMPTS_EXHAUSTED',
-    'CACHE_ERROR',
-    'CACHE_HIT',
-    'CACHE_MISS',
-    'QUERY_RECEIVED',
-    'ZONE_HIT',
-    'ZONE_MISS',
-    'NXDOMAIN',
-    'REFUSED',
-    'RESPONSE_SENT',
-);
 CREATE TYPE ResponseSourceEnum AS ENUM (
     'ZONE',
     'CACHE',
@@ -261,11 +245,22 @@ CREATE TYPE RCodeEnum AS ENUM (
     'NOTIMP',
     'REFUSED'
 );
-
-CREATE TABLE Dashboard (
-    eventType DNSEventTypeEnum,
+CREATE TYPE ResponseLocationEnum AS ENUM (
+    'ANSWER_SECTION',
+    'AUTHORITY_SECTION',
+    'ADDITIONAL_SECTION'
+);
+CREATE TABLE dashboard_queries (
     id text,
-    domain text,
     qType RRTypeEnum,
+    domain text,
+    rCode RRTypeEnum
+);
 
-)
+CREATE TABLE dashboard_responses (
+    id text,
+    result text,
+    rType RRTypeEnum,
+    servedBy ResponseSourceEnum,
+    locatedIn ResponseLocationEnum
+);
