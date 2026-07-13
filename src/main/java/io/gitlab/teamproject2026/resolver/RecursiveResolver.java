@@ -37,7 +37,7 @@ public class RecursiveResolver extends AbstractResolver {
         this.cache = cache;
         this.ednsUdpSizeLimit = ednsUdpSizeLimit;
 
-        super(timeoutMs,retryDelay,logger);
+        super(timeoutMs, retryDelay, logger);
     }
 
     @Override
@@ -187,12 +187,6 @@ public class RecursiveResolver extends AbstractResolver {
 
             // which branch of the RCODE decision tree is this?
             ReferralAnalyzer.Classification verdict = ReferralAnalyzer.classify(response, qtype);
-            if (verdict == ReferralAnalyzer.Classification.NODATA
-                    && !response.isAa()
-                    && response.getAnswerSections().length == 0
-                    && response.getAuthoritySections().length > 0) {
-                verdict = ReferralAnalyzer.Classification.REFERRAL;
-            }
 
             switch (verdict) {
                 // The response is the answer, a final SOA, or a DNS error: return it.

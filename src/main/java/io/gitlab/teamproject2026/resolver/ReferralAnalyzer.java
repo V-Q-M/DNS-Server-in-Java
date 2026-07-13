@@ -47,7 +47,12 @@ public class ReferralAnalyzer {
                 if (rr.getType() == RRType.NS) return Classification.REFERRAL;
             }
         }
-        if (rcode == RCode.NOERROR) return Classification.NODATA;
+        if (rcode == RCode.NOERROR) {
+            if (!packet.isAa() && packet.getAnswerSections().length == 0 && packet.getAuthoritySections().length > 0) {
+                return Classification.REFERRAL;
+            }
+            return Classification.NODATA;
+        }
         return Classification.FORMERR;
     }
 }
