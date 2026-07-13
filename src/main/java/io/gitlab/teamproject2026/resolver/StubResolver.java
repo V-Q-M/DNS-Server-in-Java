@@ -34,7 +34,7 @@ public class StubResolver extends AbstractResolver {
         this.maxRetries = maxRetries;
         this.strategy = strategy;
 
-        super(timeoutMs,retryDelay,logger);
+        super(timeoutMs, retryDelay, logger);
     }
 
     /**

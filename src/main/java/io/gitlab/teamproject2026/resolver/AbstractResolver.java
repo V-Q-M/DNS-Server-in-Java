@@ -22,10 +22,10 @@ public abstract class AbstractResolver {
 
     private static final int MAX_UDP_SIZE = 4096;
 
-    protected AbstractResolver(int timeoutMs, long retryDelay, Logger logger){
-        this.logger=logger;
-        this.timeoutMs=timeoutMs;
-        this.retryDelay=retryDelay;
+    protected AbstractResolver(int timeoutMs, long retryDelay, Logger logger) {
+        this.logger = logger;
+        this.timeoutMs = timeoutMs;
+        this.retryDelay = retryDelay;
     }
 
     public abstract byte[] resolve(byte[] query);
