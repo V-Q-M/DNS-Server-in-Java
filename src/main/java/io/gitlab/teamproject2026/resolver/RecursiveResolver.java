@@ -571,26 +571,6 @@ public class RecursiveResolver extends AbstractResolver {
     }
 
     /**
-     * probably obsolete? Finds the glue rdata of a given type for a name server in the additional section.
-     *
-     * @param additional the additional section of a response (may be null)
-     * @param nsHost the name server's host name
-     * @param type the record type to look for (A or AAAA)
-     * @return the matching rdata, or null if none is present
-     */
-    private static RData findGlue(ResourceRecord[] additional, String nsHost, int type) {
-        if (additional == null) {
-            return null;
-        }
-        for (ResourceRecord rr : additional) {
-            if (rr.getType() == type && String.join(".", rr.getName()).equalsIgnoreCase(nsHost)) {
-                return rr.getRdata();
-            }
-        }
-        return null;
-    }
-
-    /**
      * Whether an address is all zeroes, the placeholder for missing glue.
      *
      * @param address the address bytes (may be null)
