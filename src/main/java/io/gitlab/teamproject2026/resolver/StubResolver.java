@@ -55,7 +55,7 @@ public class StubResolver extends AbstractResolver {
         DNSPacket queryPacket;
         try {
             queryPacket = DNSPacket.fromBytes(query);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             return buildServFail(query);
         }
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
@@ -131,7 +131,7 @@ public class StubResolver extends AbstractResolver {
                     DNSPacket responsePacket;
                     try {
                         responsePacket = DNSPacket.fromBytes(result.response());
-                    } catch (Exception e) {
+                    } catch (IllegalArgumentException e) {
                         logger.log(
                                 (RED + "[STUB-ERROR] Invalid DNS response: " + e.getMessage() + RESET),
                                 LoggingCategoryType.GENERAL,
