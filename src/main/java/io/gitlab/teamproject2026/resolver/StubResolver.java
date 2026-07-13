@@ -27,14 +27,14 @@ public class StubResolver extends AbstractResolver {
             int maxRetries,
             long retryDelay,
             StubResolverStrategy strategy) {
-        this.logger = logger;
+
         if (forwarders == null || forwarders.isEmpty())
             throw new IllegalArgumentException("at least one name server is required");
         this.forwarders = List.copyOf(forwarders);
-        this.timeoutMs = timeoutMs;
         this.maxRetries = maxRetries;
-        this.retryDelay = retryDelay;
         this.strategy = strategy;
+
+        super(timeoutMs,retryDelay,logger);
     }
 
     /**

@@ -35,10 +35,9 @@ public class RecursiveResolver extends AbstractResolver {
 
     public RecursiveResolver(CacheHandler cache, Logger logger, int timeoutMs, long retryDelay, int ednsUdpSizeLimit) {
         this.cache = cache;
-        this.logger = logger;
-        this.timeoutMs = timeoutMs;
-        this.retryDelay = retryDelay;
         this.ednsUdpSizeLimit = ednsUdpSizeLimit;
+
+        super(timeoutMs,retryDelay,logger);
     }
 
     @Override

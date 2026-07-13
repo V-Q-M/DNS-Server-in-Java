@@ -8,19 +8,25 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class AbstractResolver {
 
-    public enum Status {
+    protected enum Status {
         SUCCESS,
         TIMEOUT,
         IO_ERROR
     }
 
-    public record QueryResult(Status status, byte[] response, String errorMessage, long latencyMs) {}
+    protected record QueryResult(Status status, byte[] response, String errorMessage, long latencyMs) {}
 
-    public int timeoutMs;
-    public long retryDelay;
-    public static final int MAX_UDP_SIZE = 4096;
+    protected final int timeoutMs;
+    protected final long retryDelay;
+    protected final Logger logger;
 
-    public Logger logger;
+    private static final int MAX_UDP_SIZE = 4096;
+
+    protected AbstractResolver(int timeoutMs, long retryDelay, Logger logger){
+        this.logger=logger;
+        this.timeoutMs=timeoutMs;
+        this.retryDelay=retryDelay;
+    }
 
     public abstract byte[] resolve(byte[] query);
 
@@ -33,7 +39,7 @@ public abstract class AbstractResolver {
      * @param timeoutMs socket timeout in milliseconds
      * @return QueryResult including status, response bytes, and latency
      */
-    public QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) {
+    protected QueryResult queryUDP(byte[] query, NameServer server, int timeoutMs) {
         long start = System.currentTimeMillis();
 
         try (DatagramSocket socket = new DatagramSocket()) {
@@ -85,7 +91,7 @@ public abstract class AbstractResolver {
      * @param timeoutMs socket timeout in milliseconds
      * @return QueryResult including status, response bytes, and latency
      */
-    public QueryResult queryTCP(byte[] query, NameServer server, int timeoutMs) {
+    protected QueryResult queryTCP(byte[] query, NameServer server, int timeoutMs) {
         long start = System.currentTimeMillis();
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(server.host(), server.port()), timeoutMs);
@@ -134,7 +140,7 @@ public abstract class AbstractResolver {
      * @param response raw DNS response bytes
      * @return true if the TC flag is set
      */
-    public boolean isTruncated(byte[] response) {
+    protected boolean isTruncated(byte[] response) {
         return response.length >= 4 && (response[2] & 0x02) != 0;
     }
 
@@ -145,7 +151,7 @@ public abstract class AbstractResolver {
      * @param query DNS query bytes
      * @return SERVFAIL response bytes
      */
-    public static byte[] buildServFail(byte[] query) {
+    protected static byte[] buildServFail(byte[] query) {
         if (query.length < 12) throw new IllegalArgumentException("query too short to build a valid DNS response");
         byte[] r = Arrays.copyOf(query, query.length);
         r[2] = (byte) ((r[2] & 0x01) | 0x80);
@@ -170,7 +176,7 @@ public abstract class AbstractResolver {
      *
      * @param ms base delay in milliseconds
      */
-    public static void sleep(long ms) {
+    protected static void sleep(long ms) {
         if (ms <= 0) return;
         try {
             long jitter = ThreadLocalRandom.current().nextInt(30);
