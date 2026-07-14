@@ -157,7 +157,7 @@ public class UDPServer extends AbstractServer {
         try {
             query = DNSPacket.fromBytes(data);
         } catch (IllegalArgumentException e) {
-            byte[] formErr = buildFormError(data);
+            byte[] formErr = responseBuilder.formError(data);
             logger.log(
                     RED + "[SERVER-ERROR] Failed to handle UDP query, returning Form Error" + e.getMessage() + RESET,
                     LoggingCategoryType.DEFAULT,
