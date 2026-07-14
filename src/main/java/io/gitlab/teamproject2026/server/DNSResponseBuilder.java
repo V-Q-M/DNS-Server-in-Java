@@ -1,12 +1,11 @@
 package io.gitlab.teamproject2026.server;
 
-import java.util.Arrays;
-
 import io.gitlab.teamproject2026.model.DNSPacket;
 import io.gitlab.teamproject2026.model.OPTPseudoResourceRecord;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import io.gitlab.teamproject2026.model.rdata.RDataOPTOption;
+import java.util.Arrays;
 
 public class DNSResponseBuilder {
     private final int ednsUdpSizeLimit;
