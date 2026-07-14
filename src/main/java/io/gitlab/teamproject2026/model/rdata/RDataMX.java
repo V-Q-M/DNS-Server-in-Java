@@ -53,7 +53,8 @@ public final class RDataMX implements RData {
         return result;
     }
 
-    public static RDataMX fromBytes(byte[] bytes, int byteIndex) {
+    public static RDataMX fromBytes(byte[] bytes, int byteIndex)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         int preference = DNSParser.as16BitInt(bytes[byteIndex], bytes[1 + byteIndex]);
         String[] exchange = DNSParser.parseName(bytes, 2 + byteIndex);
         return new RDataMX(preference, exchange);

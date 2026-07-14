@@ -40,7 +40,8 @@ public final class RDataPTR implements RData {
         // Appeared redundant, removed
     }
 
-    public static RDataPTR fromBytes(byte[] bytes, int byteIndex) {
+    public static RDataPTR fromBytes(byte[] bytes, int byteIndex)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         return new RDataPTR(DNSParser.parseName(bytes, byteIndex));
     }
 }

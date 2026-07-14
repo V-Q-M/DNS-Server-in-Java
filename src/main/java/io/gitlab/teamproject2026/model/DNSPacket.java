@@ -422,9 +422,11 @@ public class DNSPacket {
      * sections and parses them individually
      *
      * @param bytes raw bytes from an incoming DNS packet
+     * @throws IllegalArgumentException when DNS Packet is too short, contains two OPT-Records or any of its Records are
+     *     malformed
      * @return a new DnsPacket populated with all parsed fields
      */
-    public static DNSPacket fromBytes(byte[] bytes) {
+    public static DNSPacket fromBytes(byte[] bytes) throws IllegalArgumentException {
         if (bytes.length <= 12) {
             throw new IllegalArgumentException(
                     "Invalid form body. DNS Packets require at least 12 bytes for the Header");

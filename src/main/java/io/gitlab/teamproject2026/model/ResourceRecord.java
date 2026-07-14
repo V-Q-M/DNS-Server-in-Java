@@ -152,11 +152,19 @@ public class ResourceRecord {
      *
      * @param bytes COMPLETE incoming DNS packet
      * @param byteIndex starting index of answer section
+     * @throws IllegalArgumentException if the Name in the Resource Record or its RData is malformed
      * @return a new AnswerSection populated with the parsed data
      */
-    public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) {
-        String[] labels = DNSParser.parseName(bytes, byteIndex);
-        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+    public static ResourceRecord fromBytes(byte[] bytes, int byteIndex) throws IllegalArgumentException {
+        String[] labels;
+        try {
+            labels = DNSParser.parseName(bytes, byteIndex);
+            byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("Malformed ResourceRecord Name");
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Malformed ResourceRecord Name");
+        }
         // resourceRecord.setName(labels);
         int type = DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]);
         if (type == RRType.OPT) {

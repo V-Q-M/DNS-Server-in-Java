@@ -59,9 +59,12 @@ public class DNSParser {
      *
      * @param bytes the full array of bytes
      * @param byteIndex the index, where the domain name is supposed to start
+     * @throws IndexOutOfBoundsException when a pointer or a label length is falsely defined
+     * @throws IllegalArgumentException when a Compression loop is detected
      * @return an array of labels, sourced from the bytes
      */
-    public static String[] parseName(byte[] bytes, int byteIndex) throws IndexOutOfBoundsException {
+    public static String[] parseName(byte[] bytes, int byteIndex)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         int countPointers = 0;
         LinkedList<String> labels = new LinkedList<>();
         int currentIndex = byteIndex;
@@ -95,9 +98,10 @@ public class DNSParser {
      *
      * @param bytes the full array of bytes
      * @param startIndex the index, where the domain name is supposed to start
+     * @throws IndexOutOfBoundsException if a false label length or false pointer is given
      * @return the amount of bytes until a length 0 byte or pointer is found.
      */
-    public static int countNameLength(byte[] bytes, int startIndex) {
+    public static int countNameLength(byte[] bytes, int startIndex) throws IndexOutOfBoundsException {
         int byteIndex = startIndex;
 
         while (true) {
@@ -121,6 +125,7 @@ public class DNSParser {
      *
      * @param bytes the full array of bytes
      * @param startIndex the index, where the domain name is supposed to start
+     * @throws IndexOutOfBoundsException if a false label length or false pointer is given
      * @return the total amount of bytes of a domain name in its decompressed version.
      */
     public static int countNameLengthDecomp(byte[] bytes, int startIndex) throws IndexOutOfBoundsException {
@@ -151,6 +156,7 @@ public class DNSParser {
      *
      * @param bytes the full array of bytes
      * @param pointerIndex the index, where the pointer starts
+     * @throws IndexOutOfBoundsException if startIndex or pointer points out of bounds
      * @return target of the pointer where referred labels can be found
      */
     public static int getPointerTarget(byte[] bytes, int pointerIndex) throws IndexOutOfBoundsException {

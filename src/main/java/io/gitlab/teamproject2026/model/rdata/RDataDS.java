@@ -9,7 +9,7 @@ import java.util.HexFormat;
  * chain of trust in DNSSEC.
  */
 public record RDataDS(int keyTag, int algorithm, int digestType, byte[] digest) implements RData {
-    public RDataDS(byte[] bytes) {
+    public RDataDS(byte[] bytes) throws IllegalArgumentException {
         int byteIndex = 0;
         if (bytes.length < 4) {
             throw new IllegalArgumentException("DS RDATA must be at least 4 bytes");

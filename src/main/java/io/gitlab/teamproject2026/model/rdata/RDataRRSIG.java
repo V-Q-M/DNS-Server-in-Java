@@ -21,7 +21,8 @@ public record RDataRRSIG(
         String[] signerName,
         byte[] signature)
         implements RData {
-    public RDataRRSIG(byte[] bytes, int byteIndex, int rdlength) {
+    public RDataRRSIG(byte[] bytes, int byteIndex, int rdlength)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         if (byteIndex < 0 || rdlength < 0 || byteIndex + rdlength > bytes.length) {
             throw new IllegalArgumentException("RRSIG RDATA exceeds packet bounds");
         }

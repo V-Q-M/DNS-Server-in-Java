@@ -11,7 +11,7 @@ import java.util.HexFormat;
 public record RDataNSEC3(
         int hashAlgorithm, int flags, int iterations, byte[] salt, byte[] nextHashedOwnerName, byte[] typeBitMaps)
         implements RData {
-    public RDataNSEC3(byte[] bytes) {
+    public RDataNSEC3(byte[] bytes) throws IllegalArgumentException {
         int byteIndex = 0;
         if (bytes.length < 5) {
             throw new IllegalArgumentException("NSEC3 RDATA too short");

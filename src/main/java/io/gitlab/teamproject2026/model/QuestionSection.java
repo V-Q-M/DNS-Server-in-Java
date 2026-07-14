@@ -83,12 +83,20 @@ public class QuestionSection {
      *
      * @param bytes the full byte array of the packet
      * @param byteIndex the index of the byte at which this question section starts
+     * @throws IllegalArgumentException if the QName is malformed
      * @return the parsed question section
      */
-    public static QuestionSection fromBytes(byte[] bytes, int byteIndex) {
+    public static QuestionSection fromBytes(byte[] bytes, int byteIndex) throws IllegalArgumentException {
         QuestionSection questionSection = new QuestionSection();
-        String[] labels = DNSParser.parseName(bytes, byteIndex);
-        byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+        String[] labels;
+        try {
+            labels = DNSParser.parseName(bytes, byteIndex);
+            byteIndex += DNSParser.countNameLength(bytes, byteIndex);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("Malformed QName");
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Malformed QName");
+        }
         questionSection.setName(labels);
         questionSection.setQtype(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));
         questionSection.setQclass(DNSParser.as16BitInt(bytes[byteIndex++], bytes[byteIndex++]));

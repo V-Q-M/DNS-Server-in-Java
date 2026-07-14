@@ -58,7 +58,7 @@ public final class RDataTXT implements RData {
         return result;
     }
 
-    public static RDataTXT fromBytes(byte[] bytes, int byteIndex, int rdlength) {
+    public static RDataTXT fromBytes(byte[] bytes, int byteIndex, int rdlength) throws IllegalArgumentException {
         int end = byteIndex + rdlength;
         List<String> chunks = new ArrayList<>();
 

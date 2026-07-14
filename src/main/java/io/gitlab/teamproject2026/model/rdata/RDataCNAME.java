@@ -38,7 +38,8 @@ public final class RDataCNAME implements RData {
         return encodeName(cname);
     }
 
-    public static RDataCNAME fromBytes(byte[] bytes, int byteIndex) {
+    public static RDataCNAME fromBytes(byte[] bytes, int byteIndex)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         return new RDataCNAME(DNSParser.parseName(bytes, byteIndex));
     }
 }

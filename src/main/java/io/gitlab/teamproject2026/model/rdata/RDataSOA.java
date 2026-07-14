@@ -139,7 +139,8 @@ public final class RDataSOA implements RData {
         return result;
     }
 
-    public static RDataSOA fromBytes(byte[] bytes, int byteIndex) {
+    public static RDataSOA fromBytes(byte[] bytes, int byteIndex)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         String[] mname = DNSParser.parseName(bytes, byteIndex);
         byteIndex += DNSParser.countNameLength(bytes, byteIndex);
 

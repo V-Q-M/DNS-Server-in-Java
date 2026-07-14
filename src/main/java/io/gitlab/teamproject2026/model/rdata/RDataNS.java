@@ -38,7 +38,8 @@ public final class RDataNS implements RData {
         return encodeName(nsdname);
     }
 
-    public static RDataNS fromBytes(byte[] bytes, int byteIndex) {
+    public static RDataNS fromBytes(byte[] bytes, int byteIndex)
+            throws IndexOutOfBoundsException, IllegalArgumentException {
         return new RDataNS(DNSParser.parseName(bytes, byteIndex));
     }
 }

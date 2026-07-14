@@ -9,7 +9,7 @@ import java.util.Base64;
  * algorithm, and public key material.
  */
 public record RDataDNSKEY(int flags, int protocol, int algorithm, byte[] publickey) implements RData {
-    public RDataDNSKEY(byte[] bytes) {
+    public RDataDNSKEY(byte[] bytes) throws IllegalArgumentException {
         if (bytes.length < 4) {
             throw new IllegalArgumentException("DNSKEY RDATA must be at least 4 bytes");
         }
