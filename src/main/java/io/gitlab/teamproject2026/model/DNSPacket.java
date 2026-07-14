@@ -423,7 +423,8 @@ public class DNSPacket {
      *
      * @param bytes raw bytes from an incoming DNS packet
      * @throws IllegalArgumentException when DNS Packet is too short, contains two OPT-Records or any of its Records are
-     *     malformed
+     *     malformed, should only occur when a packet is parsed for the first time, e.g. recieving a packet from a lower
+     *     layer
      * @return a new DnsPacket populated with all parsed fields
      */
     public static DNSPacket fromBytes(byte[] bytes) throws IllegalArgumentException {

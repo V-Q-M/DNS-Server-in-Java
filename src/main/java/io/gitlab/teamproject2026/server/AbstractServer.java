@@ -15,6 +15,7 @@ import io.gitlab.teamproject2026.model.QuestionSection;
 import io.gitlab.teamproject2026.model.RCode;
 import io.gitlab.teamproject2026.model.ResourceRecord;
 import java.net.InetAddress;
+import java.util.Arrays;
 import java.util.LinkedList;
 
 public abstract class AbstractServer implements Runnable {
@@ -43,10 +44,26 @@ public abstract class AbstractServer implements Runnable {
         this.recursionAllowed = context.serverConfig().options().recursionAllowed();
     }
 
-    /** Handles an incoming DNS query and produces the corresponding response. */
-    protected byte[] handleQuery(byte[] data) {
+    /**
+     * Handles an incoming DNS query and produces the corresponding response.
+     *
+     * @throws IllegalArgumentException when query is malformed and too short to send a meaningful DNS-Reply with a Form
+     *     Error
+     */
+    protected byte[] handleQuery(byte[] data) throws IllegalArgumentException {
         // Map byteData to oop classes
-        DNSPacket oopPacket = DNSPacket.fromBytes(data);
+        DNSPacket oopPacket;
+        try {
+            oopPacket = DNSPacket.fromBytes(data);
+        } catch (IllegalArgumentException e) {
+            byte[] formErr = buildFormError(data);
+            logger.log(
+                    RED + "[SERVER-ERROR] Failed to process TCP query: " + e.getMessage() + RESET,
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.CRITICAL,
+                    true);
+            return formErr;
+        }
 
         // Uncomment this if you need to debug incoming packets
         // IO.println("[SERVER] Assembled Packet:\n" + oopPacket);
@@ -177,5 +194,24 @@ public abstract class AbstractServer implements Runnable {
         }
 
         return responseBuilder.noError(payload, oopPacket, authoritative).toBytes();
+    }
+
+    protected byte[] buildFormError(byte[] query) throws IllegalArgumentException {
+        if (query.length < 12) throw new IllegalArgumentException("query too short to build a valid DNS response");
+        byte[] r = Arrays.copyOf(query, query.length);
+        r[2] = (byte) ((r[2] & 0x01) | 0x80);
+        // r[2]: QR=1 (response), Opcode=0, AA=0 (not authoritative), TC=0 (no upstream response to copy from),
+        // RD=preserved from query
+        r[3] = (byte)
+                0x81; // RA preserved from query, Z=0 (reserved 0), AD=0 (no DNSSEC validation), CD=0 (DNSSEC client
+        // flag so irrelevant for response), RCODE=1 (FORM ERROR)
+        // since this is a failure response there are no records to return, so the rest is 0
+        r[6] = 0;
+        r[7] = 0;
+        r[8] = 0;
+        r[9] = 0;
+        r[10] = 0;
+        r[11] = 0;
+        return r;
     }
 }

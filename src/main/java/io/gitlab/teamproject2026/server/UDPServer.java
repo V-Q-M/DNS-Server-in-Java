@@ -152,8 +152,19 @@ public class UDPServer extends AbstractServer {
     /*
     Specialized version of handleQuery which also checks for truncated response
      */
-    public byte[] handleUDPQuery(byte[] data) {
-        DNSPacket query = DNSPacket.fromBytes(data);
+    public byte[] handleUDPQuery(byte[] data) throws IllegalArgumentException {
+        DNSPacket query;
+        try {
+            query = DNSPacket.fromBytes(data);
+        } catch (IllegalArgumentException e) {
+            byte[] formErr = buildFormError(data);
+            logger.log(
+                    RED + "[SERVER-ERROR] Failed to handle UDP query, returning Form Error" + e.getMessage() + RESET,
+                    LoggingCategoryType.DEFAULT,
+                    LoggingSeverity.CRITICAL,
+                    true);
+            return formErr;
+        }
 
         // Set 512 Bytes as the default limit for UDP responses
         int effectiveLimit = 512;
