@@ -42,7 +42,13 @@ public class RecursiveResolver extends AbstractResolver {
 
     @Override
     public byte[] resolve(byte[] query) {
-        DNSPacket queryPacket = DNSPacket.fromBytes(query);
+        DNSPacket queryPacket;
+        try {
+            queryPacket = DNSPacket.fromBytes(query);
+        } catch (IllegalArgumentException e) {
+            return buildServFail(query);
+        }
+
         // clear RA, RD bit
         queryPacket.setRa(false);
         queryPacket.setRd(false);
@@ -170,7 +176,18 @@ public class RecursiveResolver extends AbstractResolver {
                 result = tcpResult;
             }
 
-            DNSPacket response = DNSPacket.fromBytes(result.response());
+            DNSPacket response;
+            try {
+                response = DNSPacket.fromBytes(result.response());
+            } catch (IllegalArgumentException e) {
+                logger.log(
+                        (RED + "[RESOLVER-ERROR] Invalid DNS response: " + e.getMessage() + RESET),
+                        LoggingCategoryType.GENERAL,
+                        LoggingSeverity.ERROR,
+                        true);
+                // recieved malformed Packet from Server, continue to next Server
+                continue;
+            }
 
             // Insert everything this hop returned
             try {

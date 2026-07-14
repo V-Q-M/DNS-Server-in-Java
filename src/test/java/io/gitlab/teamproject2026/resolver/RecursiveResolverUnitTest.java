@@ -433,6 +433,17 @@ public class RecursiveResolverUnitTest {
         assertEquals("1.1.1.1", a.toString());
     }
 
+    @Test
+    void resolverReturnsServFailOnMalformedPacket() {
+        RecursiveResolver resolver = new RecursiveResolver(cache, logger, 2000, 500, 1232);
+
+        byte[] malformedPacket = new byte[12];
+
+        byte[] result = resolver.resolve(malformedPacket);
+
+        assertArrayEquals(result, RecursiveResolver.buildServFail(new byte[12]));
+    }
+
     // ---- helpers ----
 
     private static ResourceRecord record(String[] name, io.gitlab.teamproject2026.model.rdata.RData rdata) {
