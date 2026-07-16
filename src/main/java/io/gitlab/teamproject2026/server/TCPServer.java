@@ -5,10 +5,13 @@ import static io.gitlab.teamproject2026.AnsiColors.*;
 import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
+import io.gitlab.teamproject2026.database.DashboardHandler;
+
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -119,6 +122,8 @@ public class TCPServer extends AbstractServer {
                         true);
                 return;
             }
+
+            dashboardHandler.storeIncomingQuery(data, clientAddress, clientPort, DashboardHandler.Protocol.TCP);
 
             logger.log(
                     (BLUE + "[SERVER] Received TCP packet from " + clientAddress + ":" + clientPort + RESET),

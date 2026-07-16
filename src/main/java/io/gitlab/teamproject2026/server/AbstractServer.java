@@ -78,8 +78,8 @@ public abstract class AbstractServer implements Runnable {
         // needed for cache logging:
         String id = oopPacket.getIdString();
 
+        dashboardHandler.storeQueryData(data, id, oopPacket.getQuestionSection(0).nameToString(), oopPacket.getQuestionSection(0).getQtype());
         // first question for Trace-logs
-
         logger.logTrace(
                 "Received query for RR Type: " + oopPacket.getQuestionSection(0).getQtype(), oopPacket);
 
@@ -89,7 +89,6 @@ public abstract class AbstractServer implements Runnable {
             logger.logTrace("Try resolving from Zones.", oopPacket);
             payload = resolutionPipeline.zoneLookUp(oopPacket, id);
 
-            dashboardHandler.storeDNSResult(id, payload, DashboardHandler.ResponseOrigin.ZONE);
             // If recursion is disabled and something is outside our zones, REFUSE
             if (!recursionAllowed && !payload.notResolved().isEmpty()) {
                 logger.log(
@@ -102,9 +101,7 @@ public abstract class AbstractServer implements Runnable {
                         "Query not contained in Zones but no recursion allowed. Return " + RCode.REFUSED, oopPacket);
 
                 // return response.toBytes();
-                DNSPacket responsePacket = responseBuilder.refused(payload, oopPacket);
-                dashboardHandler.storeDNSMetadata(id, responsePacket);
-                return responsePacket.toBytes();
+                return responseBuilder.refused(payload, oopPacket).toBytes();
             }
 
             // If all questions matched an authoritative zone but no records exist -> NXDOMAIN
@@ -116,9 +113,7 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace(
                         "Query contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN,
                         oopPacket);
-                DNSPacket responsePacket =  responseBuilder.nxDomain(payload, oopPacket, true);
-                dashboardHandler.storeDNSMetadata(id, responsePacket);
-                return responsePacket.toBytes();
+                return responseBuilder.nxDomain(payload, oopPacket, true).toBytes();
             }
 
             if (payload.notResolved().isEmpty() && !payload.answer().isEmpty()) {
@@ -128,9 +123,7 @@ public abstract class AbstractServer implements Runnable {
                     answerString += "\n\t\t" + answer.getRdata().toString();
                 }
                 logger.logTrace("Answered: " + answerString, oopPacket);
-                DNSPacket responsePacket = responseBuilder.noError(payload, oopPacket, true);
-                dashboardHandler.storeDNSMetadata(id, responsePacket);
-                return responsePacket.toBytes();
+                return responseBuilder.noError(payload, oopPacket, true).toBytes();
             }
 
             // Step 2: Cache lookup only for questions not resolved by zone

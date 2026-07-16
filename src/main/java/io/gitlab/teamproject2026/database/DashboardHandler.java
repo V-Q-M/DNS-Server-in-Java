@@ -6,26 +6,45 @@ import io.gitlab.teamproject2026.model.rdata.RData;
 import io.gitlab.teamproject2026.model.rdata.*;
 import io.gitlab.teamproject2026.server.DNSPayload;
 
-import java.sql.Array;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.net.InetAddress;
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.util.*;
 
 public class DashboardHandler {
     private final Connection conn;
-    private static final String SQL_QUESTION_INSERT =
-            "INSERT INTO dashboard_queries (id, qType, domain, rCode) VALUES (?, ?, ?, ?)";
-    private static final String SQL_RESULT_INSERT =
-            "INSERT INTO dashboard_responses (id, result, rType, servedBy, locatedIn) VALUES (?, ?, ?, ?, ?)";
+
+    private final HashMap<String, DashboardEntry> queries = new HashMap<>();
+    public DashboardHandler(Connection conn) {
+        this.conn = conn;
+    }
+    private static final String SQL_ENTRY_INSERT =
+            "INSERT INTO dashboard (transaction_id, received_at, client_ip, client_port, protocol, qname, qtype, rcode, response_source, responded_at, resolution_trace) VALUES (?, ?, ?::INET, ?, ?, ?, ?, ?, ?, ?::INET, ?)";
 
     public DashboardHandler(DatabaseConnectionProvider provider) {
         this.conn = provider.getConnection();
     }
 
+    public class DashboardEntry {
+            String transactionID;
+            LocalDateTime receivedAt;
+            InetAddress clientIP;
+            int clientPort;
+            Protocol protocol;
+            String qName;
+            int qType;
+            int rCode;
+            ResponseOrigin responseSource;
+            LocalDateTime respondedAt;
+            String resolutionTrace;
+        public DashboardEntry(String transactionID, LocalDateTime receivedAt, InetAddress clientIP, int clientPort, Protocol protocol) {
+            this.transactionID = transactionID;
+            this.receivedAt = receivedAt;
+            this.clientIP = clientIP;
+            this.clientPort = clientPort;
+            this.protocol = protocol;
+        }
+    }
     public enum ResponseOrigin {
         ZONE,
         CACHE,
@@ -33,71 +52,64 @@ public class DashboardHandler {
         RECURSIVE_RESOLVER,
         STUB;
     }
-    public void storeDNSResult(String id, DNSPayload resolvedRecords, ResponseOrigin responseOrigin){
-        storeDNSRecords(id, resolvedRecords.answer(), responseOrigin, "ANSWER_SECTION");
-        storeDNSRecords(id, resolvedRecords.authority(), responseOrigin, "AUTHORITY_SECTION");
-        storeDNSRecords(id, resolvedRecords.additional(), responseOrigin, "ADDITIONAL_SECTION");
+    public enum Protocol {
+        TCP,
+        UDP
     }
-    private void storeDNSRecords(String id, List<ResourceRecord> resolvedRecords, ResponseOrigin responseOrigin, String locatedIn){
-        try{
-            PreparedStatement stmt = conn.prepareStatement(SQL_RESULT_INSERT);
-            for(ResourceRecord record : resolvedRecords){
-                switch (record.getRdata()) {
-                    case RDataA data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getAddress()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    case RDataAAAA data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getAddress()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    case RDataCNAME data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getCname()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    case RDataMX data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getExchange()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    case RDataNS data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getNsdname()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    case RDataPTR data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getPtrdname()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    case RDataTXT data:
-                        fillResultStatement(stmt, id, Arrays.toString(data.getTxtdata()), record.getType(), responseOrigin, locatedIn);
-                        break;
-                    default:
-                        fillResultStatement(stmt, id, "", record.getType(), responseOrigin, locatedIn);
-                }
 
-            }
-            stmt.executeBatch();
-        } catch (SQLException _){
+    /**
+     * Stores partial information of an incoming query to be later written to the database once completed.
+     * @param data the received databytes used for temporary identification until the real id has been established
+     * @param clientIP ip of the querying client
+     * @param clientPort port of the querying client
+     * @param protocol the protocol used to interact wit the client, depends on the server receiving the query (TCP, UDP)
+     */
+    public void storeIncomingQuery(byte[] data, InetAddress clientIP, int clientPort, Protocol protocol){
+        String transactionID = "" + Arrays.hashCode(data);
+        queries.put(transactionID, new DashboardEntry(transactionID, LocalDateTime.now(), clientIP, clientPort, protocol));
+    }
+
+    public void storeQueryData(byte[] data, String transactionID, String qname, int qType){
+        // query was previously stored under its hash, as the PacketId was not parsed
+        String temporaryID = "" + Arrays.hashCode(data);
+        DashboardEntry entry = queries.get(temporaryID);
+        queries.put(transactionID, entry);
+        queries.remove(temporaryID);
+        entry.qName = qname;
+        entry.rCode = qType;
+    }
+
+    public void storeResponseData(String transactionID, int rCode, ResponseOrigin responseSource, String resolutionTrace ){
+        DashboardEntry entry = queries.get(transactionID);
+        entry.rCode = rCode;
+        entry.responseSource = responseSource;
+        entry.resolutionTrace = resolutionTrace;
+    }
+
+    public void responseSent(String transactionID){
+        try {
+            DashboardEntry entry = queries.get(transactionID);
+            entry.respondedAt = LocalDateTime.now();
+            storeToDatabase(entry);
+        } catch (SQLException _) {
 
         }
-
+        queries.remove(transactionID);
     }
 
-    public void storeDNSMetadata(String id, DNSPacket packet){
-        try{
-            storeQuestionSection(packet.getQuestionSection(0), id, packet.getRcode());
-        } catch (SQLException _){
-
-        }
-    }
-
-    private void storeQuestionSection(QuestionSection section, String id, int rCode) throws SQLException{
-        PreparedStatement stmt = conn.prepareStatement(SQL_QUESTION_INSERT);
-        stmt.setString(1, id);
-        stmt.setString(2, RRType.mapToString(section.getQtype()));
-        stmt.setString(3, section.getNameString());
-        stmt.setString(4, RCode.mapToString(rCode));
-    }
-
-    private void fillResultStatement (PreparedStatement stmt, String id, String result, int rType, ResponseOrigin servedBy, String locatedIn) throws SQLException{
-        stmt.setString(1, id);
-        stmt.setString(2, result);
-        stmt.setString(3, RRType.mapToString(rType));
-        stmt.setString(4, servedBy.toString());
-        stmt.setString(5, locatedIn);
-        stmt.addBatch();
+    private void storeToDatabase(DashboardEntry entry) throws SQLException {
+        PreparedStatement stmt = conn.prepareStatement(SQL_ENTRY_INSERT);
+        stmt.setString(1, entry.transactionID);
+        stmt.setTimestamp(2, Timestamp.valueOf(entry.receivedAt));
+        stmt.setString(3, entry.clientIP.toString());
+        stmt.setInt(4, entry.clientPort);
+        stmt.setString(5, entry.protocol.toString());
+        stmt.setString(6, entry.qName);
+        stmt.setInt(7, entry.qType);
+        stmt.setInt(8, entry.rCode);
+        stmt.setString(9, entry.responseSource.toString());
+        stmt.setString(10, entry.respondedAt.toString());
+        stmt.setString(11, "");
+        stmt.execute();
     }
 }

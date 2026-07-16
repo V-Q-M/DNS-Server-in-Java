@@ -235,32 +235,21 @@ CREATE TYPE ResponseSourceEnum AS ENUM (
     'RECURSIVE_RESOLVER',
     'STUB'
 );
-
-CREATE TYPE RCodeEnum AS ENUM (
-    'UNASSIGNED',
-    'NOERROR',
-    'FORMERR',
-    'SERVFAIL',
-    'NXDOMAIN',
-    'NOTIMP',
-    'REFUSED'
-);
-CREATE TYPE ResponseLocationEnum AS ENUM (
-    'ANSWER_SECTION',
-    'AUTHORITY_SECTION',
-    'ADDITIONAL_SECTION'
-);
-CREATE TABLE dashboard_queries (
-    id text,
-    qType RRTypeEnum,
-    domain text,
-    rCode RRTypeEnum
+CREATE TYPE Protocol AS ENUM (
+    'TCP',
+    'UDP'
 );
 
-CREATE TABLE dashboard_responses (
-    id text,
-    result text,
-    rType RRTypeEnum,
-    servedBy ResponseSourceEnum,
-    locatedIn ResponseLocationEnum
+CREATE TABLE dashboard (
+    transaction_id TEXT,
+    received_at TIMESTAMP,
+    client_ip inet,
+    client_port INTEGER,
+    protocol Protocol,
+    qname TEXT,
+    qtype INT,
+    rcode INT,
+    response_source ResponseSourceEnum,
+    responded_at TIMESTAMP,
+    resolution_trace JSON
 );
