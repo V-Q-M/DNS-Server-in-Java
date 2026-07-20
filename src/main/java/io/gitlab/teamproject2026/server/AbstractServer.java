@@ -78,12 +78,17 @@ public abstract class AbstractServer implements Runnable {
         // needed for cache logging:
         String id = oopPacket.getIdString();
 
-        dashboardHandler.storeQueryData(data, id, oopPacket.getQuestionSection(0).nameToString(), oopPacket.getQuestionSection(0).getQtype());
+        dashboardHandler.storeQueryData(
+                data,
+                id,
+                oopPacket.getQuestionSection(0).nameToString(),
+                oopPacket.getQuestionSection(0).getQtype());
         // first question for Trace-logs
         logger.logTrace(
                 "Received query for RR Type: " + oopPacket.getQuestionSection(0).getQtype(), oopPacket);
 
         boolean authoritative = false;
+        DashboardHandler.ResponseOrigin responseOrigin = null;
         if (cacheHandler != null && zoneHandler != null) {
             // Step 1: Check authoritative zones first (Zone -> Cache -> Forward)
             logger.logTrace("Try resolving from Zones.", oopPacket);
@@ -101,6 +106,8 @@ public abstract class AbstractServer implements Runnable {
                         "Query not contained in Zones but no recursion allowed. Return " + RCode.REFUSED, oopPacket);
 
                 // return response.toBytes();
+                dashboardHandler.storeResponseData(id, RCode.REFUSED, responseOrigin, null);
+                dashboardHandler.responseSent(id);
                 return responseBuilder.refused(payload, oopPacket).toBytes();
             }
 
@@ -113,6 +120,9 @@ public abstract class AbstractServer implements Runnable {
                 logger.logTrace(
                         "Query contained in Zones but no matching entries were found. Return " + RCode.NXDOMAIN,
                         oopPacket);
+                responseOrigin = DashboardHandler.ResponseOrigin.ZONE;
+                dashboardHandler.storeResponseData(id, RCode.NXDOMAIN, responseOrigin, null);
+                dashboardHandler.responseSent(id);
                 return responseBuilder.nxDomain(payload, oopPacket, true).toBytes();
             }
 
@@ -123,6 +133,9 @@ public abstract class AbstractServer implements Runnable {
                     answerString += "\n\t\t" + answer.getRdata().toString();
                 }
                 logger.logTrace("Answered: " + answerString, oopPacket);
+                responseOrigin = DashboardHandler.ResponseOrigin.ZONE;
+                dashboardHandler.storeResponseData(id, RCode.NOERROR, responseOrigin, null);
+                dashboardHandler.responseSent(id);
                 return responseBuilder.noError(payload, oopPacket, true).toBytes();
             }
 
@@ -139,6 +152,7 @@ public abstract class AbstractServer implements Runnable {
 
             if (payload.notResolved().isEmpty()) {
                 logger.logTrace("Query resolved from Cache", oopPacket);
+                responseOrigin = DashboardHandler.ResponseOrigin.CACHE;
             } else {
                 logger.logTrace("Query could not be resolved from Cache, try Resolver instead.", oopPacket);
             }
@@ -178,6 +192,9 @@ public abstract class AbstractServer implements Runnable {
         // cache and recursion is allowed
         if (recursionAllowed && !payload.notResolved().isEmpty()) {
             payload = resolutionPipeline.resolveUpstream(payload, oopPacket.getEdnsRecord(), data);
+            responseOrigin = resolutionPipeline.forwardMode == null
+                    ? DashboardHandler.ResponseOrigin.RECURSIVE_RESOLVER
+                    : DashboardHandler.ResponseOrigin.FORWARDER;
         }
 
         logger.logTrace("Query was successfully resolved", oopPacket);
@@ -188,13 +205,19 @@ public abstract class AbstractServer implements Runnable {
         logger.logTrace("Answered: " + answerString, oopPacket);
 
         if (payload.rcode() == RCode.NXDOMAIN) {
+            dashboardHandler.storeResponseData(id, RCode.NXDOMAIN, responseOrigin, null);
+            dashboardHandler.responseSent(id);
             return responseBuilder.nxDomain(payload, oopPacket, authoritative).toBytes();
         }
 
         if (!payload.notResolved().isEmpty()) {
+            dashboardHandler.storeResponseData(id, RCode.SERVFAIL, responseOrigin, null);
+            dashboardHandler.responseSent(id);
             return responseBuilder.servFail(payload, oopPacket).toBytes();
         }
 
+        dashboardHandler.storeResponseData(id, RCode.NOERROR, responseOrigin, null);
+        dashboardHandler.responseSent(id);
         return responseBuilder.noError(payload, oopPacket, authoritative).toBytes();
     }
 }

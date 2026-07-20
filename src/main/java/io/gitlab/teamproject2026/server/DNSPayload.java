@@ -22,6 +22,7 @@ public record DNSPayload(
             LinkedList<QuestionSection> notResolved) {
         this(answer, authority, additional, notResolved, RCode.NOERROR);
     }
+
     public DNSPayload(int rcode) {
         this(new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), new LinkedList<>(), RCode.NOERROR);
     }

@@ -307,7 +307,8 @@ public class DNS_SERVER {
         return new ServerCliOptions(portNumber, bindIPv4, bindIPv6, minimalResponses);
     }
 
-    private record DatabaseHandlers(CacheHandler cacheHandler, ZoneHandler zoneHandler, DashboardHandler dashboardHandler) {}
+    private record DatabaseHandlers(
+            CacheHandler cacheHandler, ZoneHandler zoneHandler, DashboardHandler dashboardHandler) {}
 
     private static DatabaseHandlers initializeDatabase(Logger logger, long startTime) {
         try {
@@ -317,7 +318,8 @@ public class DNS_SERVER {
                     LoggingCategoryType.GENERAL,
                     LoggingSeverity.INFO,
                     true);
-            return new DatabaseHandlers(new CacheHandler(provider), new ZoneHandler(provider), new DashboardHandler(provider));
+            return new DatabaseHandlers(
+                    new CacheHandler(provider), new ZoneHandler(provider), new DashboardHandler(provider));
         } catch (ClassNotFoundException e) {
             logger.log(
                     (RED
