@@ -141,7 +141,6 @@ public class DashboardHandler {
         stmt.setTimestamp(10, Timestamp.valueOf(entry.respondedAt));
         stmt.setNull(11, Types.OTHER);
         stmt.execute();
-        System.out.println("[DASHBOARD] Stored entry " + entry.transactionID + " (" + entry.qName
-                + ") to database");
+        System.out.println("[DASHBOARD] Stored entry " + entry.transactionID + " (" + entry.qName + ") to database");
     }
 }

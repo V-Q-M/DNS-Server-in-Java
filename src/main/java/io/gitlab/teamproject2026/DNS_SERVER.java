@@ -8,6 +8,8 @@ import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
 import io.gitlab.teamproject2026.config.options.OptionSection;
 import io.gitlab.teamproject2026.config.options.ResolverSection;
+import io.gitlab.teamproject2026.dashboard_server.DashboardHttpServer;
+import io.gitlab.teamproject2026.dashboard_server.DashboardQueriesHandler;
 import io.gitlab.teamproject2026.database.CacheHandler;
 import io.gitlab.teamproject2026.database.DashboardHandler;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
@@ -22,6 +24,7 @@ import io.gitlab.teamproject2026.resolver.RecursiveResolver;
 import io.gitlab.teamproject2026.resolver.StubResolver;
 import io.gitlab.teamproject2026.server.*;
 import io.gitlab.teamproject2026.zones.ZoneManager;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
@@ -40,6 +43,7 @@ public class DNS_SERVER {
     private static UDPServer udpIPv6Server;
     private static TCPServer tcpIPv4Server;
     private static TCPServer tcpIPv6Server;
+    private static DashboardHttpServer dashboardHttpServer;
 
     /** Initializes the server and starts the UDP, TCP, and zone refresh workers. */
     static void main(String[] args) {
@@ -243,6 +247,39 @@ public class DNS_SERVER {
             startServerThread(new Thread(tcpIPv6Server, "tcp-ipv6-server"));
         }
         startServerThread(new Thread(new ZoneManager(context), "zone-manager"));
+
+        startDashboardHttpServer(dbHandlers.dashboardQueriesHandler, logger);
+    }
+
+    private static void startDashboardHttpServer(DashboardQueriesHandler dashboardQueriesHandler, Logger logger) {
+        if (dashboardQueriesHandler == null) {
+            logger.log(
+                    (YELLOW + "[DASHBOARD-HTTP] No dashboard queries handler available, skipping dashboard HTTP server"
+                            + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.WARNING,
+                    true);
+            return;
+        }
+
+        // Read from config later, for now use default port for the dashboard server
+        int port = 8000;
+
+        try {
+            dashboardHttpServer = new DashboardHttpServer(port, dashboardQueriesHandler);
+            dashboardHttpServer.start();
+            logger.log(
+                    (GREEN + "[DASHBOARD-HTTP] Dashboard API running on port " + port + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.INFO,
+                    true);
+        } catch (IOException e) {
+            logger.log(
+                    (RED + "[DASHBOARD-HTTP] Failed to start dashboard HTTP server " + RESET),
+                    LoggingCategoryType.GENERAL,
+                    LoggingSeverity.ERROR,
+                    true);
+        }
     }
     // Stores the threads in a list directly
     private static void startServerThread(Thread thread) {
@@ -308,7 +345,10 @@ public class DNS_SERVER {
     }
 
     private record DatabaseHandlers(
-            CacheHandler cacheHandler, ZoneHandler zoneHandler, DashboardHandler dashboardHandler) {}
+            CacheHandler cacheHandler,
+            ZoneHandler zoneHandler,
+            DashboardHandler dashboardHandler,
+            DashboardQueriesHandler dashboardQueriesHandler) {}
 
     private static DatabaseHandlers initializeDatabase(Logger logger, long startTime) {
         try {
@@ -319,7 +359,10 @@ public class DNS_SERVER {
                     LoggingSeverity.INFO,
                     true);
             return new DatabaseHandlers(
-                    new CacheHandler(provider), new ZoneHandler(provider), new DashboardHandler(provider));
+                    new CacheHandler(provider),
+                    new ZoneHandler(provider),
+                    new DashboardHandler(provider),
+                    new DashboardQueriesHandler(provider));
         } catch (ClassNotFoundException e) {
             logger.log(
                     (RED
@@ -352,7 +395,7 @@ public class DNS_SERVER {
                     LoggingCategoryType.DEFAULT,
                     LoggingSeverity.ERROR);
         }
-        return new DatabaseHandlers(null, null, null);
+        return new DatabaseHandlers(null, null, null, null);
     }
 
     // cache helper
@@ -427,6 +470,9 @@ public class DNS_SERVER {
         }
         if (tcpIPv6Server != null) {
             tcpIPv6Server.shutdown();
+        }
+        if (dashboardHttpServer != null) {
+            dashboardHttpServer.stop();
         }
 
         Thread currentThread = Thread.currentThread();

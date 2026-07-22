@@ -50,9 +50,9 @@ public class DatabaseConnectionProvider {
     }
 
     /**
-     * Opens a new connection using the same url/user/password. Used by handlers that must not share a connection
-     * with other handlers on other threads. Currently used by DashboardHandler, because using the same connection
-     * as CacheHandler caused problems
+     * Opens a new connection using the same url/user/password. Used by handlers that must not share a connection with
+     * other handlers on other threads. Currently used by DashboardHandler, because using the same connection as
+     * CacheHandler caused problems
      */
     public Connection newConnection() throws SQLException, ClassNotFoundException {
         return createConnection();
