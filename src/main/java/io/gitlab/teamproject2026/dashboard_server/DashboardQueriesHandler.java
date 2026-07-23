@@ -15,17 +15,27 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Serves statistics for the dashboard frontend using multiple endpoints.
- * Each endpoint runs a different SQL query and returns the results as JSON
+ * Serves statistics for the dashboard frontend using multiple endpoints. Each endpoint runs a different SQL query and
+ * returns the results as JSON
  */
 public class DashboardQueriesHandler implements HttpHandler {
 
-    private static final List<String> columnNames= List.of("transaction_id", "received_at", "client_ip", "client_port", "protocol", "qname", "qtype", "rcode", "response_source", "responded_at", "resolution_trace");
+    private static final List<String> columnNames = List.of(
+            "transaction_id",
+            "received_at",
+            "client_ip",
+            "client_port",
+            "protocol",
+            "qname",
+            "qtype",
+            "rcode",
+            "response_source",
+            "responded_at",
+            "resolution_trace");
     private final DatabaseConnectionProvider provider;
 
     public DashboardQueriesHandler(DatabaseConnectionProvider provider) {
@@ -43,7 +53,8 @@ public class DashboardQueriesHandler implements HttpHandler {
         Timestamp startTime = Timestamp.from(Instant.EPOCH);
         try {
             startTime = Timestamp.from(Instant.ofEpochSecond(Long.parseLong(arguments.get("start_time"))));
-        } catch (Exception _){}
+        } catch (Exception _) {
+        }
         // get the path from the request to call the correct query method
         String path = exchange.getRequestURI().getPath();
         try {
@@ -55,8 +66,14 @@ public class DashboardQueriesHandler implements HttpHandler {
                         case "/api/stats/rr-types" -> fetchRrTypes(startTime);
                         case "/api/stats/sources" -> fetchSources(startTime);
                         case "/api/stats/timeline" -> fetchTimeline(startTime, arguments.get("granularity"));
-                        case "/api/stats/requests" -> fetchRequests(startTime, arguments.get("page"), arguments.get("sortingColumn"), arguments.get("filter"));
-                        case String s when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
+                        case "/api/stats/requests" ->
+                            fetchRequests(
+                                    startTime,
+                                    arguments.get("page"),
+                                    arguments.get("sortingColumn"),
+                                    arguments.get("filter"));
+                        case String s
+                        when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
                         default -> null;
                     };
             if (body == null) {
@@ -67,7 +84,7 @@ public class DashboardQueriesHandler implements HttpHandler {
         } catch (SQLException | ClassNotFoundException e) {
             System.err.println("Dashboard stats query failed for " + path + ": " + e.getMessage());
             sendJson(exchange, 500, new JSONObject().put("error", "Database error"));
-        } catch (IllegalArgumentException e){
+        } catch (IllegalArgumentException e) {
             sendJson(exchange, 500, new JSONObject().put("error", e.getMessage()));
         }
     }
@@ -135,7 +152,7 @@ public class DashboardQueriesHandler implements HttpHandler {
         return fetchCounts(sql, startTime, "rr_type");
     }
 
-    private JSONObject fetchSources(Timestamp startTime) throws SQLException, ClassNotFoundException{
+    private JSONObject fetchSources(Timestamp startTime) throws SQLException, ClassNotFoundException {
         String sql = "SELECT "
                 + "response_source,"
                 + "COUNT(*) AS count "
@@ -143,35 +160,39 @@ public class DashboardQueriesHandler implements HttpHandler {
         return fetchCounts(sql, startTime, "response_source");
     }
 
-    private JSONObject fetchTimeline(Timestamp startTime, String granularityArgument) throws SQLException, ClassNotFoundException, IllegalArgumentException{
-        if(granularityArgument == null){
+    private JSONObject fetchTimeline(Timestamp startTime, String granularityArgument)
+            throws SQLException, ClassNotFoundException, IllegalArgumentException {
+        if (granularityArgument == null) {
             granularityArgument = "5 minutes";
-        } else if (!granularityArgument.matches("\\d+ (microseconds|milliseconds|seconds|minutes|hours|days|weeks)")){
-            throw new IllegalArgumentException(granularityArgument + " Is not in the correct format use: '5 minutes' for example");
+        } else if (!granularityArgument.matches("\\d+ (microseconds|milliseconds|seconds|minutes|hours|days|weeks)")) {
+            throw new IllegalArgumentException(
+                    granularityArgument + " Is not in the correct format use: '5 minutes' for example");
         }
         String sql = """
                 SELECT COUNT(*) AS count,
                        date_bin(?::interval, responded_at, TIMESTAMP '2001-01-01') AS intervals
                 FROM dashboard WHERE received_at >= ? GROUP BY intervals;
                 """;
-        try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
+        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
             stmt.setString(1, granularityArgument);
             stmt.setTimestamp(2, startTime);
             return fetchCounts(stmt, "intervals");
         }
     }
-    private JSONArray fetchRequests(Timestamp startTime, String page, String sortingColumn, String filter) throws SQLException, ClassNotFoundException, IllegalArgumentException {
+
+    private JSONArray fetchRequests(Timestamp startTime, String page, String sortingColumn, String filter)
+            throws SQLException, ClassNotFoundException, IllegalArgumentException {
         int pageIndex = 0;
-        if(page != null){
-           try{
-               pageIndex = Integer.parseInt(page);
-           } catch (NumberFormatException _){
-               throw new IllegalArgumentException(page + " is not a valid page number");
-           }
+        if (page != null) {
+            try {
+                pageIndex = Integer.parseInt(page);
+            } catch (NumberFormatException _) {
+                throw new IllegalArgumentException(page + " is not a valid page number");
+            }
         }
-        if(sortingColumn == null){
+        if (sortingColumn == null) {
             sortingColumn = "responded_at";
-        } else if (!columnNames.contains(sortingColumn)){
+        } else if (!columnNames.contains(sortingColumn)) {
             throw new IllegalArgumentException(sortingColumn + " is not one of " + String.join(", ", columnNames));
         }
         String sql = """
@@ -182,28 +203,30 @@ public class DashboardQueriesHandler implements HttpHandler {
                 LIMIT 50
                 OFFSET ?
                 """;
-        try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)){
+        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
             stmt.setTimestamp(1, startTime);
             stmt.setString(2, sortingColumn);
-            stmt.setInt(3, pageIndex*50);
+            stmt.setInt(3, pageIndex * 50);
             ResultSet rs = stmt.executeQuery();
             JSONArray result = new JSONArray();
-            while (rs.next()){
+            while (rs.next()) {
                 result.put(buildRequest(rs));
             }
             return result;
         }
     }
-    private JSONObject fetchRequest(String transaction_id) throws SQLException, ClassNotFoundException, IllegalArgumentException {
+
+    private JSONObject fetchRequest(String transaction_id)
+            throws SQLException, ClassNotFoundException, IllegalArgumentException {
         String sql = """
                 SELECT *
                 FROM dashboard
                 WHERE transaction_id = ?
                 """;
-        try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
+        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
             stmt.setString(1, transaction_id);
             ResultSet rs = stmt.executeQuery();
-            if(rs.next()){
+            if (rs.next()) {
                 return buildRequest(rs);
             } else {
                 throw new IllegalArgumentException(transaction_id + " does not exist");
@@ -211,7 +234,7 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
     }
 
-    private static JSONObject buildRequest(ResultSet rs) throws SQLException{
+    private static JSONObject buildRequest(ResultSet rs) throws SQLException {
         return new JSONObject()
                 .put("transaction_id", rs.getString("transaction_id"))
                 .put("received_at", rs.getTimestamp("received_at"))
@@ -224,11 +247,8 @@ public class DashboardQueriesHandler implements HttpHandler {
                 .put("response_source", rs.getString("response_source"))
                 .put("responded_at", rs.getTimestamp("responded_at"))
                 .put("resolution_trace", rs.getString("resolution_trace"));
-
     }
-        /**
-         * Helper method to execute a SQL query that returns counts by label and return the results as JSON
-         */
+    /** Helper method to execute a SQL query that returns counts by label and return the results as JSON */
     private JSONObject fetchCounts(String sql, Timestamp startTime, String labelColumn)
             throws SQLException, ClassNotFoundException {
         try (Connection conn = provider.newConnection();
@@ -237,6 +257,7 @@ public class DashboardQueriesHandler implements HttpHandler {
             return fetchCounts(stmt, labelColumn);
         }
     }
+
     private JSONObject fetchCounts(PreparedStatement stmt, String labelColumn)
             throws SQLException, ClassNotFoundException {
         try (ResultSet rs = stmt.executeQuery()) {
@@ -257,15 +278,14 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
     }
 
-
-    private static Map<String, String> parseArguments(String args){
+    private static Map<String, String> parseArguments(String args) {
         HashMap<String, String> result = new HashMap<>();
         try {
-            for(String argument: args.split("&")){
+            for (String argument : args.split("&")) {
                 String[] mapping = argument.split("=");
                 result.put(mapping[0], mapping[1]);
             }
-        } catch (IndexOutOfBoundsException | NullPointerException _){
+        } catch (IndexOutOfBoundsException | NullPointerException _) {
             return Map.of();
         }
         return result;
