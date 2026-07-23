@@ -11,6 +11,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -20,9 +25,6 @@ import org.json.JSONObject;
  */
 public class DashboardQueriesHandler implements HttpHandler {
 
-    // TODO: parse startTime from the request
-    private static final Timestamp HARDCODED_START_TIME = Timestamp.valueOf("2026-01-01 00:00:00");
-
     private final DatabaseConnectionProvider provider;
 
     public DashboardQueriesHandler(DatabaseConnectionProvider provider) {
@@ -31,22 +33,28 @@ public class DashboardQueriesHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-
         // Only allow GET requests for now, because the dashboard only uses GET
         if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
             sendJson(exchange, 405, new JSONObject().put("error", "Only GET is supported"));
             return;
         }
-
+        Map<String, String> arguments = parseArguments(exchange.getRequestURI().getQuery());
+        Timestamp startTime = Timestamp.from(Instant.EPOCH);
+        try {
+            startTime = Timestamp.from(Instant.ofEpochSecond(Long.parseLong(arguments.get("start_time"))));
+        } catch (Exception _){}
         // get the path from the request to call the correct query method
         String path = exchange.getRequestURI().getPath();
         try {
             Object body =
                     switch (path) {
-                        case "/api/stats/overview" -> fetchOverview(HARDCODED_START_TIME);
-                        case "/api/stats/rcodes" -> fetchRcodes(HARDCODED_START_TIME);
-                        case "/api/stats/protocols" -> fetchProtocols(HARDCODED_START_TIME);
-                        case "/api/stats/rr-types" -> fetchRrTypes(HARDCODED_START_TIME);
+                        case "/api/stats/overview" -> fetchOverview(startTime);
+                        case "/api/stats/rcodes" -> fetchRcodes(startTime);
+                        case "/api/stats/protocols" -> fetchProtocols(startTime);
+                        case "/api/stats/rr-types" -> fetchRrTypes(startTime);
+                        case "/api/stats/sources" -> fetchSources(startTime);
+                        case "/api/stats/timeline" -> fetchTimeline(startTime, arguments.get("granularity"));
+                        case "/api/stats/requests" -> fetchRequests(startTime, arguments.get("page"), arguments.get("sortingColumn"), arguments.get("filter"));
                         default -> null;
                     };
             if (body == null) {
@@ -57,6 +65,8 @@ public class DashboardQueriesHandler implements HttpHandler {
         } catch (SQLException | ClassNotFoundException e) {
             System.err.println("Dashboard stats query failed for " + path + ": " + e.getMessage());
             sendJson(exchange, 500, new JSONObject().put("error", "Database error"));
+        } catch (IllegalArgumentException e){
+            sendJson(exchange, 500, new JSONObject().put("error", e.getMessage()));
         }
     }
 
@@ -89,7 +99,7 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
     }
 
-    private JSONArray fetchRcodes(Timestamp startTime) throws SQLException, ClassNotFoundException {
+    private JSONObject fetchRcodes(Timestamp startTime) throws SQLException, ClassNotFoundException {
         String sql = "SELECT "
                 + "CASE "
                 + "  WHEN rcode IS NULL THEN 'NO_RESPONSE' "
@@ -106,12 +116,12 @@ public class DashboardQueriesHandler implements HttpHandler {
         return fetchCounts(sql, startTime, "rcode_name");
     }
 
-    private JSONArray fetchProtocols(Timestamp startTime) throws SQLException, ClassNotFoundException {
+    private JSONObject fetchProtocols(Timestamp startTime) throws SQLException, ClassNotFoundException {
         String sql = "SELECT protocol, COUNT(*) AS count FROM dashboard WHERE received_at >= ? GROUP BY protocol";
         return fetchCounts(sql, startTime, "protocol");
     }
 
-    private JSONArray fetchRrTypes(Timestamp startTime) throws SQLException, ClassNotFoundException {
+    private JSONObject fetchRrTypes(Timestamp startTime) throws SQLException, ClassNotFoundException {
         String sql = "SELECT "
                 + "CASE qtype "
                 + "  WHEN 1 THEN 'A' WHEN 2 THEN 'NS' WHEN 5 THEN 'CNAME' WHEN 6 THEN 'SOA' "
@@ -123,26 +133,96 @@ public class DashboardQueriesHandler implements HttpHandler {
         return fetchCounts(sql, startTime, "rr_type");
     }
 
-    /** 
-     * Helper method to execute a SQL query that returns counts by label and return the results as JSON 
-     */
-    private JSONArray fetchCounts(String sql, Timestamp startTime, String labelColumn)
+    private JSONObject fetchSources(Timestamp startTime) throws SQLException, ClassNotFoundException{
+        String sql = "SELECT "
+                + "response_source,"
+                + "COUNT(*) AS count "
+                + "FROM dashboard WHERE received_at >= ? GROUP BY response_source";
+        return fetchCounts(sql, startTime, "response_source");
+    }
+
+    private JSONObject fetchTimeline(Timestamp startTime, String granularityArgument) throws SQLException, ClassNotFoundException, IllegalArgumentException{
+        if(granularityArgument == null){
+            granularityArgument = "5 minutes";
+        } else if (!granularityArgument.matches("\\d+ (microseconds|milliseconds|seconds|minutes|hours|days|weeks)")){
+            throw new IllegalArgumentException(granularityArgument + " Is not in the correct format use: '5 minutes' for example");
+        }
+        String sql = """
+                SELECT COUNT(*) AS count,
+                       date_bin(?::interval, responded_at, TIMESTAMP '2001-01-01') AS intervals
+                FROM dashboard WHERE received_at >= ? GROUP BY intervals;
+                """;
+        try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
+            stmt.setString(1, granularityArgument);
+            stmt.setTimestamp(2, startTime);
+            return fetchCounts(stmt, "intervals");
+        }
+    }
+    private JSONArray fetchRequests(Timestamp startTime, String page, String sortingColumn, String filter) throws SQLException, ClassNotFoundException, IllegalArgumentException {
+        int pageIndex = 0;
+        if(page != null){
+           try{
+               pageIndex = Integer.parseInt(page);
+           } catch (NumberFormatException _){
+               throw new IllegalArgumentException(page + " is not a valid page number");
+           }
+        }
+        if(sortingColumn == null){
+            sortingColumn = "responded_at";
+        } else if (!List.of("transaction_id", "received_at", "client_ip", "client_port", "protocol", "qname", "qtype", "rcode", "response_source", "responded_at", "resolution_trace").contains(sortingColumn)){
+            throw new IllegalArgumentException(sortingColumn + " is not one of \"transaction_id\", \"received_at\", \"client_ip\", \"client_port\", \"protocol\", \"qname\", \"qtype\", \"rcode\", \"response_source\", \"responded_at\", \"resolution_trace\"");
+        }
+        String sql = """
+                SELECT *
+                FROM dashboard
+                WHERE received_at >= ?
+                ORDER BY ?
+                """;
+        try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)){
+            stmt.setTimestamp(1, startTime);
+            stmt.setString(2, sortingColumn);
+            ResultSet rs = stmt.executeQuery();
+            JSONArray result = new JSONArray();
+            while (rs.next()){
+                result.put(new JSONObject()
+                        .put("transaction_id", rs.getString("transaction_id"))
+                        .put("received_at", rs.getTimestamp("received_at"))
+                        .put("client_ip", rs.getString("client_ip"))
+                        .put("client_port", rs.getInt("client_port"))
+                        .put("protocol", rs.getString("protocol"))
+                        .put("qname", rs.getString("qname"))
+                        .put("qtype", rs.getInt("qtype"))
+                        .put("rcode", rs.getInt("rcode"))
+                        .put("response_source", rs.getString("response_source"))
+                        .put("responded_at", rs.getTimestamp("responded_at"))
+                        .put("resolution_trace", rs.getString("resolution_trace"))
+                );
+            }
+            return result;
+        }
+    }
+
+        /**
+         * Helper method to execute a SQL query that returns counts by label and return the results as JSON
+         */
+    private JSONObject fetchCounts(String sql, Timestamp startTime, String labelColumn)
             throws SQLException, ClassNotFoundException {
         try (Connection conn = provider.newConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setTimestamp(1, startTime);
-            try (ResultSet rs = stmt.executeQuery()) {
-                JSONArray results = new JSONArray();
-                while (rs.next()) {
-                    results.put(new JSONObject()
-                            .put(labelColumn, rs.getString(labelColumn))
-                            .put("count", rs.getLong("count")));
-                }
-                return results;
-            }
+            return fetchCounts(stmt, labelColumn);
         }
     }
-
+    private JSONObject fetchCounts(PreparedStatement stmt, String labelColumn)
+            throws SQLException, ClassNotFoundException {
+        try (ResultSet rs = stmt.executeQuery()) {
+            JSONObject results = new JSONObject();
+            while (rs.next()) {
+                results.put(rs.getString(labelColumn), rs.getLong("count"));
+            }
+            return results;
+        }
+    }
     // Helper method to send a JSON response with the given status code and body
     private void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
         byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
@@ -151,5 +231,19 @@ public class DashboardQueriesHandler implements HttpHandler {
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
         }
+    }
+
+
+    private static Map<String, String> parseArguments(String args){
+        HashMap<String, String> result = new HashMap<>();
+        try {
+            for(String argument: args.split("&")){
+                String[] mapping = argument.split("=");
+                result.put(mapping[0], mapping[1]);
+            }
+        } catch (IndexOutOfBoundsException | NullPointerException _){
+            return Map.of();
+        }
+        return result;
     }
 }

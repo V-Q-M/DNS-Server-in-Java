@@ -11,10 +11,7 @@ public class DashboardHttpServer {
 
     public DashboardHttpServer(int port, DashboardQueriesHandler dashboardQueriesHandler) throws IOException {
         server = HttpServer.create(new InetSocketAddress(port), 0);
-        server.createContext("/api/stats/overview", dashboardQueriesHandler);
-        server.createContext("/api/stats/rcodes", dashboardQueriesHandler);
-        server.createContext("/api/stats/protocols", dashboardQueriesHandler);
-        server.createContext("/api/stats/rr-types", dashboardQueriesHandler);
+        server.createContext("/api/stats", dashboardQueriesHandler);
         server.setExecutor(Executors.newFixedThreadPool(4));
     }
 
