@@ -25,6 +25,7 @@ import org.json.JSONObject;
  */
 public class DashboardQueriesHandler implements HttpHandler {
 
+    private static final List<String> columnNames= List.of("transaction_id", "received_at", "client_ip", "client_port", "protocol", "qname", "qtype", "rcode", "response_source", "responded_at", "resolution_trace");
     private final DatabaseConnectionProvider provider;
 
     public DashboardQueriesHandler(DatabaseConnectionProvider provider) {
@@ -55,6 +56,7 @@ public class DashboardQueriesHandler implements HttpHandler {
                         case "/api/stats/sources" -> fetchSources(startTime);
                         case "/api/stats/timeline" -> fetchTimeline(startTime, arguments.get("granularity"));
                         case "/api/stats/requests" -> fetchRequests(startTime, arguments.get("page"), arguments.get("sortingColumn"), arguments.get("filter"));
+                        case String s when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
                         default -> null;
                     };
             if (body == null) {
@@ -169,39 +171,61 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
         if(sortingColumn == null){
             sortingColumn = "responded_at";
-        } else if (!List.of("transaction_id", "received_at", "client_ip", "client_port", "protocol", "qname", "qtype", "rcode", "response_source", "responded_at", "resolution_trace").contains(sortingColumn)){
-            throw new IllegalArgumentException(sortingColumn + " is not one of \"transaction_id\", \"received_at\", \"client_ip\", \"client_port\", \"protocol\", \"qname\", \"qtype\", \"rcode\", \"response_source\", \"responded_at\", \"resolution_trace\"");
+        } else if (!columnNames.contains(sortingColumn)){
+            throw new IllegalArgumentException(sortingColumn + " is not one of " + String.join(", ", columnNames));
         }
         String sql = """
                 SELECT *
                 FROM dashboard
                 WHERE received_at >= ?
                 ORDER BY ?
+                LIMIT 50
+                OFFSET ?
                 """;
         try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)){
             stmt.setTimestamp(1, startTime);
             stmt.setString(2, sortingColumn);
+            stmt.setInt(3, pageIndex*50);
             ResultSet rs = stmt.executeQuery();
             JSONArray result = new JSONArray();
             while (rs.next()){
-                result.put(new JSONObject()
-                        .put("transaction_id", rs.getString("transaction_id"))
-                        .put("received_at", rs.getTimestamp("received_at"))
-                        .put("client_ip", rs.getString("client_ip"))
-                        .put("client_port", rs.getInt("client_port"))
-                        .put("protocol", rs.getString("protocol"))
-                        .put("qname", rs.getString("qname"))
-                        .put("qtype", rs.getInt("qtype"))
-                        .put("rcode", rs.getInt("rcode"))
-                        .put("response_source", rs.getString("response_source"))
-                        .put("responded_at", rs.getTimestamp("responded_at"))
-                        .put("resolution_trace", rs.getString("resolution_trace"))
-                );
+                result.put(buildRequest(rs));
             }
             return result;
         }
     }
+    private JSONObject fetchRequest(String transaction_id) throws SQLException, ClassNotFoundException, IllegalArgumentException {
+        String sql = """
+                SELECT *
+                FROM dashboard
+                WHERE transaction_id = ?
+                """;
+        try(PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
+            stmt.setString(1, transaction_id);
+            ResultSet rs = stmt.executeQuery();
+            if(rs.next()){
+                return buildRequest(rs);
+            } else {
+                throw new IllegalArgumentException(transaction_id + " does not exist");
+            }
+        }
+    }
 
+    private static JSONObject buildRequest(ResultSet rs) throws SQLException{
+        return new JSONObject()
+                .put("transaction_id", rs.getString("transaction_id"))
+                .put("received_at", rs.getTimestamp("received_at"))
+                .put("client_ip", rs.getString("client_ip"))
+                .put("client_port", rs.getInt("client_port"))
+                .put("protocol", rs.getString("protocol"))
+                .put("qname", rs.getString("qname"))
+                .put("qtype", rs.getInt("qtype"))
+                .put("rcode", rs.getInt("rcode"))
+                .put("response_source", rs.getString("response_source"))
+                .put("responded_at", rs.getTimestamp("responded_at"))
+                .put("resolution_trace", rs.getString("resolution_trace"));
+
+    }
         /**
          * Helper method to execute a SQL query that returns counts by label and return the results as JSON
          */
