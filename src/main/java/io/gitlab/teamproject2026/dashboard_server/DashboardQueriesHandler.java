@@ -12,7 +12,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,14 +68,11 @@ public class DashboardQueriesHandler implements HttpHandler {
                         case "/api/stats/sources" -> fetchSources(startTime);
                         case "/api/stats/timeline" -> fetchTimeline(startTime, arguments.get("granularity"));
                         case "/api/stats/requests" ->
-                            fetchRequests(
-                                    startTime,
-                                    arguments.get("page"),
-                                    arguments.get("sorting_column"),
-                                    arguments);
+                            fetchRequests(startTime, arguments.get("page"), arguments.get("sorting_column"), arguments);
                         case String s
                         when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
-                        case "/api/stats/latency-distribution" -> latencyDistribution(startTime, arguments.get("granularity"));
+                        case "/api/stats/latency-distribution" ->
+                            latencyDistribution(startTime, arguments.get("granularity"));
                         case "/api/stats/top-domains" -> topDomains(startTime, arguments.get("granularity"));
                         default -> null;
                     };
@@ -90,7 +86,7 @@ public class DashboardQueriesHandler implements HttpHandler {
             sendJson(exchange, 500, new JSONObject().put("error", "Database error"));
         } catch (IllegalArgumentException e) {
             sendJson(exchange, 500, new JSONObject().put("error", e.getMessage()));
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -201,7 +197,7 @@ public class DashboardQueriesHandler implements HttpHandler {
         } else if (!columnNames.contains(sortingColumn)) {
             throw new IllegalArgumentException(sortingColumn + " is not one of " + String.join(", ", columnNames));
         }
-        if(sortingColumn.equals("latency")) {
+        if (sortingColumn.equals("latency")) {
             sortingColumn = "responded_at-received_at";
         }
         String sql = """
@@ -242,6 +238,7 @@ public class DashboardQueriesHandler implements HttpHandler {
             }
         }
     }
+
     private JSONObject latencyDistribution(Timestamp startTime, String granularityArgument)
             throws SQLException, ClassNotFoundException, IllegalArgumentException {
         System.out.println("here" + granularityArgument);
@@ -250,16 +247,16 @@ public class DashboardQueriesHandler implements HttpHandler {
         } else if (granularityArgument.matches("\\d+ (microseconds|milliseconds|seconds|minutes)")) {
             switch (granularityArgument.split(" ")[1]) {
                 case "microseconds":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0])/1000F;
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]) / 1000F;
                     break;
                 case "milliseconds":
                     granularity = Integer.parseInt(granularityArgument.split(" ")[0]);
                     break;
                 case "seconds":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0])*1000;
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]) * 1000;
                     break;
                 case "minutes":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0])*1000*1000;
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]) * 1000 * 1000;
                     break;
                 default:
                     break;
@@ -280,13 +277,14 @@ public class DashboardQueriesHandler implements HttpHandler {
             return fetchCounts(stmt, "intervals");
         }
     }
+
     private JSONObject topDomains(Timestamp startTime, String granularityArgument)
             throws SQLException, ClassNotFoundException, IllegalArgumentException {
         int granularity;
         if (granularityArgument == null) {
             granularity = 2;
         } else {
-            try{
+            try {
                 granularity = Integer.parseInt(granularityArgument);
             } catch (NumberFormatException _) {
                 throw new IllegalArgumentException(
@@ -299,7 +297,7 @@ public class DashboardQueriesHandler implements HttpHandler {
                 FROM dashboard WHERE received_at >= ? GROUP BY intervals;
                 """;
         try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
-            stmt.setInt(1, granularity+2);
+            stmt.setInt(1, granularity + 2);
             stmt.setTimestamp(2, startTime);
             return fetchCounts(stmt, "intervals");
         }
