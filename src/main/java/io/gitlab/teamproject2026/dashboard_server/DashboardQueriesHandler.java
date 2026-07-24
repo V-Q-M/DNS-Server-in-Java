@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +36,8 @@ public class DashboardQueriesHandler implements HttpHandler {
             "rcode",
             "response_source",
             "responded_at",
-            "resolution_trace");
+            "resolution_trace",
+            "latency");
     private final DatabaseConnectionProvider provider;
 
     public DashboardQueriesHandler(DatabaseConnectionProvider provider) {
@@ -70,10 +72,12 @@ public class DashboardQueriesHandler implements HttpHandler {
                             fetchRequests(
                                     startTime,
                                     arguments.get("page"),
-                                    arguments.get("sortingColumn"),
-                                    arguments.get("filter"));
+                                    arguments.get("sorting_column"),
+                                    arguments);
                         case String s
                         when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
+                        case "/api/stats/latency-distribution" -> latencyDistribution(startTime, arguments.get("granularity"));
+                        case "/api/stats/top-domains" -> topDomains(startTime, arguments.get("granularity"));
                         default -> null;
                     };
             if (body == null) {
@@ -86,6 +90,8 @@ public class DashboardQueriesHandler implements HttpHandler {
             sendJson(exchange, 500, new JSONObject().put("error", "Database error"));
         } catch (IllegalArgumentException e) {
             sendJson(exchange, 500, new JSONObject().put("error", e.getMessage()));
+        } catch (Exception e){
+            e.printStackTrace();
         }
     }
 
@@ -180,7 +186,7 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
     }
 
-    private JSONArray fetchRequests(Timestamp startTime, String page, String sortingColumn, String filter)
+    private JSONArray fetchRequests(Timestamp startTime, String page, String sortingColumn, Map<String, String> filter)
             throws SQLException, ClassNotFoundException, IllegalArgumentException {
         int pageIndex = 0;
         if (page != null) {
@@ -194,6 +200,9 @@ public class DashboardQueriesHandler implements HttpHandler {
             sortingColumn = "responded_at";
         } else if (!columnNames.contains(sortingColumn)) {
             throw new IllegalArgumentException(sortingColumn + " is not one of " + String.join(", ", columnNames));
+        }
+        if(sortingColumn.equals("latency")) {
+            sortingColumn = "responded_at-received_at";
         }
         String sql = """
                 SELECT *
@@ -231,6 +240,68 @@ public class DashboardQueriesHandler implements HttpHandler {
             } else {
                 throw new IllegalArgumentException(transaction_id + " does not exist");
             }
+        }
+    }
+    private JSONObject latencyDistribution(Timestamp startTime, String granularityArgument)
+            throws SQLException, ClassNotFoundException, IllegalArgumentException {
+        System.out.println("here" + granularityArgument);
+        float granularity = 10;
+        if (granularityArgument == null) {
+        } else if (granularityArgument.matches("\\d+ (microseconds|milliseconds|seconds|minutes)")) {
+            switch (granularityArgument.split(" ")[1]) {
+                case "microseconds":
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0])/1000F;
+                    break;
+                case "milliseconds":
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]);
+                    break;
+                case "seconds":
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0])*1000;
+                    break;
+                case "minutes":
+                    granularity = Integer.parseInt(granularityArgument.split(" ")[0])*1000*1000;
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            throw new IllegalArgumentException(
+                    granularityArgument + " Is not in the correct format use: '5 minutes' for example");
+        }
+        String sql = """
+                SELECT COUNT(*) AS count,
+                       floor((EXTRACT(epoch FROM (responded_at-received_at))*1000)/?) * ? AS intervals
+                FROM dashboard WHERE received_at >= ? GROUP BY intervals;
+                """;
+        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
+            stmt.setFloat(1, granularity);
+            stmt.setFloat(2, granularity);
+            stmt.setTimestamp(3, startTime);
+            return fetchCounts(stmt, "intervals");
+        }
+    }
+    private JSONObject topDomains(Timestamp startTime, String granularityArgument)
+            throws SQLException, ClassNotFoundException, IllegalArgumentException {
+        int granularity;
+        if (granularityArgument == null) {
+            granularity = 2;
+        } else {
+            try{
+                granularity = Integer.parseInt(granularityArgument);
+            } catch (NumberFormatException _) {
+                throw new IllegalArgumentException(
+                        granularityArgument + " Is not in the correct format use: '5 minutes' for example");
+            }
+        }
+        String sql = """
+                SELECT COUNT(*) AS count,
+                       array_to_string(array_reverse((array_reverse(regexp_split_to_array(qname, E'\\\\.')))[2:?]), '.') AS intervals
+                FROM dashboard WHERE received_at >= ? GROUP BY intervals;
+                """;
+        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
+            stmt.setInt(1, granularity+2);
+            stmt.setTimestamp(2, startTime);
+            return fetchCounts(stmt, "intervals");
         }
     }
 
