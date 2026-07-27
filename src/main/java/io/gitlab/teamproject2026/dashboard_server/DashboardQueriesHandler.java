@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpHandler;
 import io.gitlab.teamproject2026.database.DatabaseConnectionProvider;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -71,8 +72,7 @@ public class DashboardQueriesHandler implements HttpHandler {
                             fetchRequests(startTime, arguments.get("page"), arguments.get("sorting_column"), arguments);
                         case String s
                         when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
-                        case "/api/stats/latency-distribution" ->
-                            latencyDistribution(startTime, arguments.get("granularity"));
+                        case "/api/stats/latency-distribution" -> latencyDistribution(startTime);
                         case "/api/stats/top-domains" -> topDomains(startTime, arguments.get("granularity"));
                         default -> null;
                     };
@@ -182,7 +182,16 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
     }
 
-    private JSONArray fetchRequests(Timestamp startTime, String page, String sortingColumn, Map<String, String> filter)
+    private static final String RCODE_CASE = "CASE WHEN rcode IS NULL THEN 'NO_RESPONSE' "
+            + "WHEN rcode = 0 THEN 'NOERROR' WHEN rcode = 1 THEN 'FORMERR' WHEN rcode = 2 THEN 'SERVFAIL' "
+            + "WHEN rcode = 3 THEN 'NXDOMAIN' WHEN rcode = 4 THEN 'NOTIMP' WHEN rcode = 5 THEN 'REFUSED' "
+            + "ELSE 'OTHER' END";
+    private static final String RR_TYPE_CASE = "CASE qtype WHEN 1 THEN 'A' WHEN 2 THEN 'NS' WHEN 5 THEN 'CNAME' "
+            + "WHEN 6 THEN 'SOA' WHEN 12 THEN 'PTR' WHEN 15 THEN 'MX' WHEN 16 THEN 'TXT' WHEN 28 THEN 'AAAA' "
+            + "WHEN 33 THEN 'SRV' ELSE 'OTHER' END";
+
+    private JSONArray fetchRequests(
+            Timestamp startTime, String page, String sortingColumn, Map<String, String> arguments)
             throws SQLException, ClassNotFoundException, IllegalArgumentException {
         int pageIndex = 0;
         if (page != null) {
@@ -193,25 +202,39 @@ public class DashboardQueriesHandler implements HttpHandler {
             }
         }
         if (sortingColumn == null) {
-            sortingColumn = "responded_at";
+            sortingColumn = "received_at";
         } else if (!columnNames.contains(sortingColumn)) {
             throw new IllegalArgumentException(sortingColumn + " is not one of " + String.join(", ", columnNames));
         }
         if (sortingColumn.equals("latency")) {
-            sortingColumn = "responded_at-received_at";
+            sortingColumn = "(responded_at - received_at)";
         }
-        String sql = """
-                SELECT *
-                FROM dashboard
-                WHERE received_at >= ?
-                ORDER BY ?
-                LIMIT 50
-                OFFSET ?
-                """;
-        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
-            stmt.setTimestamp(1, startTime);
-            stmt.setString(2, sortingColumn);
-            stmt.setInt(3, pageIndex * 50);
+
+        String sortDirection = "asc".equalsIgnoreCase(arguments.get("sort_direction")) ? "ASC" : "DESC";
+
+        String[] rcodes = splitParam(arguments.get("rcodes"));
+        String[] rrTypes = splitParam(arguments.get("rr_types"));
+        String[] sources = splitParam(arguments.get("sources"));
+        String domainSearch = arguments.get("domain_search");
+        boolean hasDomainSearch = domainSearch != null && !domainSearch.isBlank();
+
+        StringBuilder sql = new StringBuilder("SELECT * FROM dashboard WHERE received_at >= ?");
+        if (rcodes != null) sql.append(" AND (").append(RCODE_CASE).append(") = ANY(?)");
+        if (rrTypes != null) sql.append(" AND (").append(RR_TYPE_CASE).append(") = ANY(?)");
+        if (sources != null) sql.append(" AND response_source::text = ANY(?)");
+        if (hasDomainSearch) sql.append(" AND qname ILIKE ?");
+        sql.append(" ORDER BY ").append(sortingColumn).append(' ').append(sortDirection);
+        sql.append(" LIMIT 50 OFFSET ?");
+
+        Connection conn = provider.getConnection();
+        try (PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            int i = 1;
+            stmt.setTimestamp(i++, startTime);
+            if (rcodes != null) stmt.setArray(i++, conn.createArrayOf("text", rcodes));
+            if (rrTypes != null) stmt.setArray(i++, conn.createArrayOf("text", rrTypes));
+            if (sources != null) stmt.setArray(i++, conn.createArrayOf("text", sources));
+            if (hasDomainSearch) stmt.setString(i++, "%" + domainSearch + "%");
+            stmt.setInt(i++, pageIndex * 50);
             ResultSet rs = stmt.executeQuery();
             JSONArray result = new JSONArray();
             while (rs.next()) {
@@ -219,6 +242,10 @@ public class DashboardQueriesHandler implements HttpHandler {
             }
             return result;
         }
+    }
+
+    private static String[] splitParam(String value) {
+        return (value == null || value.isBlank()) ? null : value.split(",");
     }
 
     private JSONObject fetchRequest(String transaction_id)
@@ -239,43 +266,22 @@ public class DashboardQueriesHandler implements HttpHandler {
         }
     }
 
-    private JSONObject latencyDistribution(Timestamp startTime, String granularityArgument)
-            throws SQLException, ClassNotFoundException, IllegalArgumentException {
-        System.out.println("here" + granularityArgument);
-        float granularity = 10;
-        if (granularityArgument == null) {
-        } else if (granularityArgument.matches("\\d+ (microseconds|milliseconds|seconds|minutes)")) {
-            switch (granularityArgument.split(" ")[1]) {
-                case "microseconds":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]) / 1000F;
-                    break;
-                case "milliseconds":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]);
-                    break;
-                case "seconds":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]) * 1000;
-                    break;
-                case "minutes":
-                    granularity = Integer.parseInt(granularityArgument.split(" ")[0]) * 1000 * 1000;
-                    break;
-                default:
-                    break;
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    granularityArgument + " Is not in the correct format use: '5 minutes' for example");
-        }
+    private JSONObject latencyDistribution(Timestamp startTime) throws SQLException, ClassNotFoundException {
         String sql = """
-                SELECT COUNT(*) AS count,
-                       floor((EXTRACT(epoch FROM (responded_at-received_at))*1000)/?) * ? AS intervals
-                FROM dashboard WHERE received_at >= ? GROUP BY intervals;
+                SELECT
+                    CASE
+                        WHEN (EXTRACT(epoch FROM (responded_at - received_at)) * 1000) < 5 THEN '<5ms'
+                        WHEN (EXTRACT(epoch FROM (responded_at - received_at)) * 1000) < 20 THEN '5-20ms'
+                        WHEN (EXTRACT(epoch FROM (responded_at - received_at)) * 1000) < 50 THEN '20-50ms'
+                        WHEN (EXTRACT(epoch FROM (responded_at - received_at)) * 1000) < 100 THEN '50-100ms'
+                        WHEN (EXTRACT(epoch FROM (responded_at - received_at)) * 1000) < 500 THEN '100-500ms'
+                        WHEN (EXTRACT(epoch FROM (responded_at - received_at)) * 1000) < 1000 THEN '500-1000ms'
+                        ELSE '>1000ms'
+                    END AS bucket,
+                    COUNT(*) AS count
+                FROM dashboard WHERE received_at >= ? AND responded_at IS NOT NULL GROUP BY bucket;
                 """;
-        try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
-            stmt.setFloat(1, granularity);
-            stmt.setFloat(2, granularity);
-            stmt.setTimestamp(3, startTime);
-            return fetchCounts(stmt, "intervals");
-        }
+        return fetchCounts(sql, startTime, "bucket");
     }
 
     private JSONObject topDomains(Timestamp startTime, String granularityArgument)
@@ -352,7 +358,9 @@ public class DashboardQueriesHandler implements HttpHandler {
         try {
             for (String argument : args.split("&")) {
                 String[] mapping = argument.split("=");
-                result.put(mapping[0], mapping[1]);
+                String key = URLDecoder.decode(mapping[0], StandardCharsets.UTF_8);
+                String value = URLDecoder.decode(mapping[1], StandardCharsets.UTF_8);
+                result.put(key, value);
             }
         } catch (IndexOutOfBoundsException | NullPointerException _) {
             return Map.of();
