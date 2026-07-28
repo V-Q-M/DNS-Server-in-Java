@@ -73,7 +73,7 @@ public class DashboardQueriesHandler implements HttpHandler {
                         case String s
                         when s.matches("/api/stats/request/.+") -> fetchRequest(path.split("/api/stats/request/")[1]);
                         case "/api/stats/latency-distribution" -> latencyDistribution(startTime);
-                        case "/api/stats/top-domains" -> topDomains(startTime, arguments.get("granularity"));
+                        case "/api/stats/top-domains" -> topDomains(startTime, arguments.get("common_labels"));
                         default -> null;
                     };
             if (body == null) {
@@ -85,7 +85,7 @@ public class DashboardQueriesHandler implements HttpHandler {
             System.err.println("Dashboard stats query failed for " + path + ": " + e.getMessage());
             sendJson(exchange, 500, new JSONObject().put("error", "Database error"));
         } catch (IllegalArgumentException e) {
-            sendJson(exchange, 500, new JSONObject().put("error", e.getMessage()));
+            sendJson(exchange, 400, new JSONObject().put("error", e.getMessage()));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -288,7 +288,7 @@ public class DashboardQueriesHandler implements HttpHandler {
             throws SQLException, ClassNotFoundException, IllegalArgumentException {
         int granularity;
         if (granularityArgument == null) {
-            granularity = 2;
+            granularity = 3;
         } else {
             try {
                 granularity = Integer.parseInt(granularityArgument);
@@ -303,7 +303,7 @@ public class DashboardQueriesHandler implements HttpHandler {
                 FROM dashboard WHERE received_at >= ? GROUP BY intervals;
                 """;
         try (PreparedStatement stmt = provider.getConnection().prepareStatement(sql)) {
-            stmt.setInt(1, granularity + 2);
+            stmt.setInt(1, granularity + 1);
             stmt.setTimestamp(2, startTime);
             return fetchCounts(stmt, "intervals");
         }
