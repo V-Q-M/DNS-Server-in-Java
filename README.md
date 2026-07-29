@@ -40,91 +40,95 @@
 teamproject2026
 ├── AnsiColors.java
 ├── config
-│  ├── Config.java
-│  ├── ConfigManager.java
-│  ├── interpreter
-│  │  ├── ConfInterpreter.java
-│  │  ├── ConfLexer.java
-│  │  ├── ConfNode.java
-│  │  ├── ConfParser.java
-│  │  ├── ConfToken.java
-│  │  └── ConfTokenType.java
-│  ├── logging
-│  │  ├── LoggingCategory.java
-│  │  ├── LoggingCategoryType.java
-│  │  ├── LoggingChannel.java
-│  │  ├── LoggingSection.java
-│  │  └── LoggingSeverity.java
-│  ├── options
-│  │  ├── OptionSection.java
-│  │  └── ResolverSection.java
-│  └── zones
-│     ├── ZoneSection.java
-│     └── ZoneType.java
+│   ├── Config.java
+│   ├── ConfigManager.java
+│   ├── interpreter
+│   │   ├── ConfInterpreter.java
+│   │   ├── ConfLexer.java
+│   │   ├── ConfNode.java
+│   │   ├── ConfParser.java
+│   │   ├── ConfToken.java
+│   │   └── ConfTokenType.java
+│   ├── logging
+│   │   ├── LoggingCategory.java
+│   │   ├── LoggingCategoryType.java
+│   │   ├── LoggingChannel.java
+│   │   ├── LoggingSection.java
+│   │   └── LoggingSeverity.java
+│   ├── options
+│   │   ├── OptionSection.java
+│   │   └── ResolverSection.java
+│   └── zones
+│       ├── ZoneSection.java
+│       └── ZoneType.java
+├── dashboard_server
+│   ├── DashboardHttpServer.java
+│   └── DashboardQueriesHandler.java
 ├── data
-│  └── MockResponses.java
+│   └── MockResponses.java
 ├── database
-│  ├── CacheHandler.java
-│  ├── DatabaseConnectionProvider.java
-│  └── ZoneHandler.java
+│   ├── CacheHandler.java
+│   ├── DashboardHandler.java
+│   ├── DatabaseConnectionProvider.java
+│   └── ZoneHandler.java
 ├── DNS_SERVER.java
 ├── DNSParser.java
 ├── DNSZone.java
 ├── logging
-│  ├── DNSEvent.java
-│  ├── DNSEventType.java
-│  ├── Logger.java
-│  └── ResponseSource.java
+│   ├── DNSEvent.java
+│   ├── DNSEventType.java
+│   ├── Logger.java
+│   └── ResponseSource.java
 ├── model
-│  ├── DNSPacket.java
-│  ├── OpCode.java
-│  ├── OPTPseudoResourceRecord.java
-│  ├── QuestionSection.java
-│  ├── RCode.java
-│  ├── rdata
-│  │  ├── RData.java
-│  │  ├── RDataA.java
-│  │  ├── RDataAAAA.java
-│  │  ├── RDataCNAME.java
-│  │  ├── RDataDNSKEY.java
-│  │  ├── RDataDS.java
-│  │  ├── RDataMX.java
-│  │  ├── RDataNS.java
-│  │  ├── RDataNSEC.java
-│  │  ├── RDataNSEC3.java
-│  │  ├── RDataNSEC3PARAM.java
-│  │  ├── RDataOPTOption.java
-│  │  ├── RDataPTR.java
-│  │  ├── RDataRRSIG.java
-│  │  ├── RDataSOA.java
-│  │  ├── RDataTXT.java
-│  │  └── RDataUnknown.java
-│  ├── ResourceRecord.java
-│  ├── RRClass.java
-│  └── RRType.java
+│   ├── DNSPacket.java
+│   ├── OpCode.java
+│   ├── OPTPseudoResourceRecord.java
+│   ├── QuestionSection.java
+│   ├── RCode.java
+│   ├── rdata
+│   │   ├── RData.java
+│   │   ├── RDataA.java
+│   │   ├── RDataAAAA.java
+│   │   ├── RDataCNAME.java
+│   │   ├── RDataDNSKEY.java
+│   │   ├── RDataDS.java
+│   │   ├── RDataMX.java
+│   │   ├── RDataNS.java
+│   │   ├── RDataNSEC.java
+│   │   ├── RDataNSEC3.java
+│   │   ├── RDataNSEC3PARAM.java
+│   │   ├── RDataOPTOption.java
+│   │   ├── RDataPTR.java
+│   │   ├── RDataRRSIG.java
+│   │   ├── RDataSOA.java
+│   │   ├── RDataTXT.java
+│   │   └── RDataUnknown.java
+│   ├── ResourceRecord.java
+│   ├── RRClass.java
+│   └── RRType.java
 ├── resolver
-│  ├── AbstractResolver.java
-│  ├── ForwardMode.java
-│  ├── NameServer.java
-│  ├── RecursiveResolver.java
-│  ├── ReferralAnalyzer.java
-│  ├── SListWrapper.java
-│  ├── StubResolver.java
-│  └── StubResolverStrategy.java
+│   ├── AbstractResolver.java
+│   ├── ForwardMode.java
+│   ├── NameServer.java
+│   ├── RecursiveResolver.java
+│   ├── ReferralAnalyzer.java
+│   ├── SListWrapper.java
+│   ├── StubResolver.java
+│   └── StubResolverStrategy.java
 ├── server
-│  ├── AbstractServer.java
-│  ├── DNSPayload.java
-│  ├── DNSResolutionPipeline.java
-│  ├── DNSResponseBuilder.java
-│  ├── ServerContext.java
-│  ├── TCPServer.java
-│  └── UDPServer.java
+│   ├── AbstractServer.java
+│   ├── DNSPayload.java
+│   ├── DNSResolutionPipeline.java
+│   ├── DNSResponseBuilder.java
+│   ├── ServerContext.java
+│   ├── TCPServer.java
+│   └── UDPServer.java
 └── zones
-  ├── ZoneLexer.java
-  ├── ZoneManager.java
-  ├── ZoneParser.java
-  ├── ZoneToken.java
-  └── ZoneTokenType.java
+    ├── ZoneLexer.java
+    ├── ZoneManager.java
+    ├── ZoneParser.java
+    ├── ZoneToken.java
+    └── ZoneTokenType.java
 ```
 
 ### Package Overview
@@ -136,8 +140,9 @@ teamproject2026
 | `config.logging`     | Logging configuration models, including categories, channels, and severity levels.                                                                                                                                                               |
 | `config.options`     | Runtime option models for server and resolver behavior, including `EDNS` size and `DNSSEC` enable.                                                                                                                                               
 | `config.zones`       | Configuration models for authoritative zone declarations and zone types.                                                                                                                                                                         |
+| `dashboard_server`   | Java sun HttpServer to expose restapi with various statistic endpoints                                                                                                                                                                           |
 | `data`               | Static mock DNS response data used by development utilities and during the early stages.                                                                                                                                                         |
-| `database`           | PostgreSQL access layer for authoritative zone storage and DNS cache management. Includes `CacheHandler`, `ZoneHandler`, and database connection handling.                                                                                       |
+| `database`           | PostgreSQL access layer for authoritative zone storage and DNS cache management. Includes `CacheHandler`, `ZoneHandler`, `DashboardHandler`, and database connection handling.                                                                   |
 | `logging`            | Structured DNS event logging, event types, response-source tracking, and logger implementation.                                                                                                                                                  |
 | `model`              | Core DNS protocol model, including packets, questions, resource records, opcodes, response codes, classes, types, and EDNS OPT records.                                                                                                          |
 | `model.rdata`        | RDATA implementations for supported DNS record types, including `A`, `AAAA`, `NS`, `MX`, `CNAME`, `SOA`, `PTR`, `TXT`, `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `OPT`, and unknown record data.                                   |
@@ -199,14 +204,6 @@ You can then start the server using the shortcut and optionally pass command-lin
 ```PowerShell
 run -p 2222
 ```
-
-### Dashboard frontend
-
-The `dashboard/` folder contains the statistics dashboard frontend written in VueJS. It visualises the data from the dashboard HTTP API.   `docker compose up -d` also
-builds and starts it and makes it available at **http://localhost:5173**.  
-It needs the DNS server to be running so it has data to show.
-
-To run it without Docker instead: `cd dashboard && npm install && npm run dev`.
 
 ## Testing
 
@@ -696,6 +693,14 @@ The server supports:
 
 ## Dashboard
 
+### Dashboard frontend
+
+The `dashboard/` folder contains the statistics dashboard frontend written in VueJS. It visualises the data from the dashboard HTTP API.   `docker compose up -d` also
+builds and starts it and makes it available at **http://localhost:5173**.  
+It needs the DNS server to be running so it has data to show.
+
+To run it without Docker instead: `cd dashboard && npm install && npm run dev`.
+
 ### Rest API
 
 | Response Code         | Reason                                                                                                       |
@@ -737,6 +742,7 @@ Arguments can be omitted, in which case their default value is used. If they are
 
 # Changelog
 ```diff
+~ dashboard
 ~ edns
 ~ resolver
 ~ config/
