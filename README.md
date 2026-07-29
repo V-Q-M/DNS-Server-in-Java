@@ -33,6 +33,7 @@
 - Sets authoritative response flags for local zone answers and preserves non-authoritative behavior for upstream responses
 - Includes fully configurable logging-section with `channel`, `category` and `severity`, according to the BIND-style
 - Includes black-box integration tests, unit tests, code formatting and coverage reporting 
+- Has a dashboard web app that shows interesting statistics
 ## Project Structure
 
 ```text
@@ -159,7 +160,7 @@ teamproject2026
 mvn clean package
 ```
 
-2. Start the PostgreSQL server using either
+1. Start the PostgreSQL server (and the statistics dashboard frontend) using either
 ```bash
 docker compose up -d
 ``` 
@@ -198,6 +199,14 @@ You can then start the server using the shortcut and optionally pass command-lin
 ```PowerShell
 run -p 2222
 ```
+
+### Dashboard frontend
+
+The `dashboard/` folder contains the statistics dashboard frontend written in VueJS. It visualises the data from the dashboard HTTP API.   `docker compose up -d` also
+builds and starts it and makes it available at **http://localhost:5173**.  
+It needs the DNS server to be running so it has data to show.
+
+To run it without Docker instead: `cd dashboard && npm install && npm run dev`.
 
 ## Testing
 
