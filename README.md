@@ -160,7 +160,7 @@ teamproject2026
 mvn clean package
 ```
 
-1. Start the PostgreSQL server (and the statistics dashboard frontend) using either
+2. Start the PostgreSQL server (and the statistics dashboard frontend) using either
 ```bash
 docker compose up -d
 ``` 
