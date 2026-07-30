@@ -5,6 +5,7 @@ import static io.gitlab.teamproject2026.AnsiColors.*;
 import io.gitlab.teamproject2026.DNS_SERVER;
 import io.gitlab.teamproject2026.config.logging.LoggingCategoryType;
 import io.gitlab.teamproject2026.config.logging.LoggingSeverity;
+import io.gitlab.teamproject2026.database.DashboardHandler;
 import io.gitlab.teamproject2026.model.DNSPacket;
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -102,6 +103,8 @@ public class UDPServer extends AbstractServer {
 
     private void handleUDPQueryPacket(byte[] data, InetAddress clientAddress, int clientPort) {
         try {
+            dashboardHandler.storeIncomingQuery(data, clientAddress, clientPort, DashboardHandler.Protocol.UDP);
+
             logger.log(
                     (BLUE + "[SERVER] Received UDP packet from " + clientAddress + ":" + clientPort + RESET),
                     LoggingCategoryType.GENERAL,

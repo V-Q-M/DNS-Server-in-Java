@@ -33,97 +33,102 @@
 - Sets authoritative response flags for local zone answers and preserves non-authoritative behavior for upstream responses
 - Includes fully configurable logging-section with `channel`, `category` and `severity`, according to the BIND-style
 - Includes black-box integration tests, unit tests, code formatting and coverage reporting 
+- Has a dashboard web app that shows interesting statistics
 ## Project Structure
 
 ```text
 teamproject2026
 ├── AnsiColors.java
 ├── config
-│  ├── Config.java
-│  ├── ConfigManager.java
-│  ├── interpreter
-│  │  ├── ConfInterpreter.java
-│  │  ├── ConfLexer.java
-│  │  ├── ConfNode.java
-│  │  ├── ConfParser.java
-│  │  ├── ConfToken.java
-│  │  └── ConfTokenType.java
-│  ├── logging
-│  │  ├── LoggingCategory.java
-│  │  ├── LoggingCategoryType.java
-│  │  ├── LoggingChannel.java
-│  │  ├── LoggingSection.java
-│  │  └── LoggingSeverity.java
-│  ├── options
-│  │  ├── OptionSection.java
-│  │  └── ResolverSection.java
-│  └── zones
-│     ├── ZoneSection.java
-│     └── ZoneType.java
+│   ├── Config.java
+│   ├── ConfigManager.java
+│   ├── interpreter
+│   │   ├── ConfInterpreter.java
+│   │   ├── ConfLexer.java
+│   │   ├── ConfNode.java
+│   │   ├── ConfParser.java
+│   │   ├── ConfToken.java
+│   │   └── ConfTokenType.java
+│   ├── logging
+│   │   ├── LoggingCategory.java
+│   │   ├── LoggingCategoryType.java
+│   │   ├── LoggingChannel.java
+│   │   ├── LoggingSection.java
+│   │   └── LoggingSeverity.java
+│   ├── options
+│   │   ├── OptionSection.java
+│   │   └── ResolverSection.java
+│   └── zones
+│       ├── ZoneSection.java
+│       └── ZoneType.java
+├── dashboard_server
+│   ├── DashboardHttpServer.java
+│   └── DashboardQueriesHandler.java
 ├── data
-│  └── MockResponses.java
+│   └── MockResponses.java
 ├── database
-│  ├── CacheHandler.java
-│  ├── DatabaseConnectionProvider.java
-│  └── ZoneHandler.java
+│   ├── CacheHandler.java
+│   ├── DashboardHandler.java
+│   ├── DatabaseConnectionProvider.java
+│   └── ZoneHandler.java
 ├── DNS_SERVER.java
 ├── DNSParser.java
 ├── DNSZone.java
 ├── logging
-│  ├── DNSEvent.java
-│  ├── DNSEventType.java
-│  ├── Logger.java
-│  └── ResponseSource.java
+│   ├── DNSEvent.java
+│   ├── DNSEventType.java
+│   ├── Logger.java
+│   └── ResponseSource.java
 ├── model
-│  ├── DNSPacket.java
-│  ├── OpCode.java
-│  ├── OPTPseudoResourceRecord.java
-│  ├── QuestionSection.java
-│  ├── RCode.java
-│  ├── rdata
-│  │  ├── RData.java
-│  │  ├── RDataA.java
-│  │  ├── RDataAAAA.java
-│  │  ├── RDataCNAME.java
-│  │  ├── RDataDNSKEY.java
-│  │  ├── RDataDS.java
-│  │  ├── RDataMX.java
-│  │  ├── RDataNS.java
-│  │  ├── RDataNSEC.java
-│  │  ├── RDataNSEC3.java
-│  │  ├── RDataNSEC3PARAM.java
-│  │  ├── RDataOPTOption.java
-│  │  ├── RDataPTR.java
-│  │  ├── RDataRRSIG.java
-│  │  ├── RDataSOA.java
-│  │  ├── RDataTXT.java
-│  │  └── RDataUnknown.java
-│  ├── ResourceRecord.java
-│  ├── RRClass.java
-│  └── RRType.java
+│   ├── DNSPacket.java
+│   ├── OpCode.java
+│   ├── OPTPseudoResourceRecord.java
+│   ├── QuestionSection.java
+│   ├── RCode.java
+│   ├── rdata
+│   │   ├── RData.java
+│   │   ├── RDataA.java
+│   │   ├── RDataAAAA.java
+│   │   ├── RDataCNAME.java
+│   │   ├── RDataDNSKEY.java
+│   │   ├── RDataDS.java
+│   │   ├── RDataMX.java
+│   │   ├── RDataNS.java
+│   │   ├── RDataNSEC.java
+│   │   ├── RDataNSEC3.java
+│   │   ├── RDataNSEC3PARAM.java
+│   │   ├── RDataOPTOption.java
+│   │   ├── RDataPTR.java
+│   │   ├── RDataRRSIG.java
+│   │   ├── RDataSOA.java
+│   │   ├── RDataTXT.java
+│   │   └── RDataUnknown.java
+│   ├── ResourceRecord.java
+│   ├── RRClass.java
+│   └── RRType.java
 ├── resolver
-│  ├── AbstractResolver.java
-│  ├── ForwardMode.java
-│  ├── NameServer.java
-│  ├── RecursiveResolver.java
-│  ├── ReferralAnalyzer.java
-│  ├── SListWrapper.java
-│  ├── StubResolver.java
-│  └── StubResolverStrategy.java
+│   ├── AbstractResolver.java
+│   ├── ForwardMode.java
+│   ├── NameServer.java
+│   ├── RecursiveResolver.java
+│   ├── ReferralAnalyzer.java
+│   ├── SListWrapper.java
+│   ├── StubResolver.java
+│   └── StubResolverStrategy.java
 ├── server
-│  ├── AbstractServer.java
-│  ├── DNSPayload.java
-│  ├── DNSResolutionPipeline.java
-│  ├── DNSResponseBuilder.java
-│  ├── ServerContext.java
-│  ├── TCPServer.java
-│  └── UDPServer.java
+│   ├── AbstractServer.java
+│   ├── DNSPayload.java
+│   ├── DNSResolutionPipeline.java
+│   ├── DNSResponseBuilder.java
+│   ├── ServerContext.java
+│   ├── TCPServer.java
+│   └── UDPServer.java
 └── zones
-  ├── ZoneLexer.java
-  ├── ZoneManager.java
-  ├── ZoneParser.java
-  ├── ZoneToken.java
-  └── ZoneTokenType.java
+    ├── ZoneLexer.java
+    ├── ZoneManager.java
+    ├── ZoneParser.java
+    ├── ZoneToken.java
+    └── ZoneTokenType.java
 ```
 
 ### Package Overview
@@ -135,8 +140,9 @@ teamproject2026
 | `config.logging`     | Logging configuration models, including categories, channels, and severity levels.                                                                                                                                                               |
 | `config.options`     | Runtime option models for server and resolver behavior, including `EDNS` size and `DNSSEC` enable.                                                                                                                                               
 | `config.zones`       | Configuration models for authoritative zone declarations and zone types.                                                                                                                                                                         |
+| `dashboard_server`   | Java sun HttpServer to expose restapi with various statistic endpoints                                                                                                                                                                           |
 | `data`               | Static mock DNS response data used by development utilities and during the early stages.                                                                                                                                                         |
-| `database`           | PostgreSQL access layer for authoritative zone storage and DNS cache management. Includes `CacheHandler`, `ZoneHandler`, and database connection handling.                                                                                       |
+| `database`           | PostgreSQL access layer for authoritative zone storage and DNS cache management. Includes `CacheHandler`, `ZoneHandler`, `DashboardHandler`, and database connection handling.                                                                   |
 | `logging`            | Structured DNS event logging, event types, response-source tracking, and logger implementation.                                                                                                                                                  |
 | `model`              | Core DNS protocol model, including packets, questions, resource records, opcodes, response codes, classes, types, and EDNS OPT records.                                                                                                          |
 | `model.rdata`        | RDATA implementations for supported DNS record types, including `A`, `AAAA`, `NS`, `MX`, `CNAME`, `SOA`, `PTR`, `TXT`, `DNSKEY`, `DS`, `RRSIG`, `NSEC`, `NSEC3`, `NSEC3PARAM`, `OPT`, and unknown record data.                                   |
@@ -186,7 +192,7 @@ Furthermore, the specific algorithm used to recursively resolve packages is docu
 mvn clean package
 ```
 
-2. Start the PostgreSQL server using either
+2. Start the PostgreSQL server (and the statistics dashboard frontend) using either
 ```bash
 docker compose up -d
 ``` 
@@ -717,11 +723,58 @@ The server supports:
 - `DNSSEC` awareness, allowing for querying and parsing `DNSSEC` records and generating correct `DNSSEC` answers from local zones. `DNSSEC` answers from upstream are forwarded aswell. Validation of `DNSSEC` is not supported.
 - `SPF`, by adding a `SPF` TXT-Record in one of the local zones
 
+## Dashboard
+
+### Dashboard frontend
+
+The `dashboard/` folder contains the statistics dashboard frontend written in VueJS. It visualises the data from the dashboard HTTP API.   `docker compose up -d` also
+builds and starts it and makes it available at **http://localhost:5173**.  
+It needs the DNS server to be running so it has data to show.
+
+To run it without Docker instead: `cd dashboard && npm install && npm run dev`.
+
+### Rest API
+
+| Response Code         | Reason                                                                                                       |
+|-----------------------|--------------------------------------------------------------------------------------------------------------|
+| 404, Unknown endpoint | Requested endpoint is not one of the ones below                                                              |
+| 200, OK               | Request went fine and response has json payload                                                              |
+| 500, Database Error   | The Rest API had issues communicating with its database                                                      |
+| 400, [Error Message]  | Any of the arguments were formatted incorrectly, refer to the returned error message for further information |
+
+| Endpoint                        | Description                                                                                                                        | Example Response                                                                                                                                                                                                                                           | Arguments                                                                  |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| /api/stats/overview             | Collection of general api information                                                                                              | {"unique_domains":0, "cache_misses":0, "avg_latency_ms":null, "cache_hits":0, "errors":0, "total_queries":0}                                                                                                                                               | start_time                                                                 |
+| /api/stats/rcodes               | Distribution of statuscodes, queries resulted in                                                                                   | {"NOERROR":3,"NXDOMAIN":1}                                                                                                                                                                                                                                 | start_time                                                                 |
+| /api/stats/protocols            | Distribution of protocols used                                                                                                     | {"UDP":5, "TCP": 2}                                                                                                                                                                                                                                        | start_time                                                                 |
+| /api/stats/rr-types             | Distribution of rr-types, that were queried                                                                                        | {"TXT":1,"A":2,"MX":1,"AAAA":1}                                                                                                                                                                                                                            | start_time                                                                 |
+| /api/stats/sources              | Distribution of sources, queries were resolved from                                                                                | {"ZONE":1,"RECURSIVE_RESOLVER":5,"CACHE":1}                                                                                                                                                                                                                | start_time                                                                 |
+| /api/stats/timeline             | Distribution of responses in [granularity] sized intervals. The key is always the earliest date, that can be sorted in each bucket | {"2026-07-28 15:30:00":3,"2026-07-28 15:20:00":4}                                                                                                                                                                                                          | start_time, granularity                                                    |
+| /api/stats/requests             | List of every request matching provided filters. Paginated with 50 entries per page                                                | [{"transaction_id":"0xeeeb","client_port":51717,"protocol":"UDP","qtype":16,"received_at":"2026-07-28 15:34:54.697347","qname":"example.com.","responded_at":"2026-07-28 15:34:54.69915","client_ip":"127.0.0.1","rcode":0,"response_source":"ZONE"}]      | start_time, page, sorting_column, rcodes, rr_types, sources, domain_search |
+| /api/stats/request/[id]         | Full information about a single request specified by `transaction_id`                                                              | {"transaction_id":"0x597b","client_port":51117,"protocol":"UDP","qtype":1,"received_at":"2026-07-28 15:23:04.491999","qname":"AAAAd.","responded_at":"2026-07-28 15:23:04.62694","client_ip":"127.0.0.1","rcode":3,"response_source":"RECURSIVE_RESOLVER"} | -                                                                          |
+| /api/stats/latency-distribution | Distribution of latencies in predefined buckets of (<5ms, 20-50ms, 50-100ms, 100-500ms, 500-1000ms)                                | {"<5ms":1,"20-50ms":1,"100-500ms":1,"50-100ms":2,"5-20ms":1,"500-1000ms":1}                                                                                                                                                                                | -                                                                          |
+| /api/stats/top-domains          | Distribution of queried domains                                                                                                    | {"AAAAd":1,"test.de":5,"example.com":1}                                                                                                                                                                                                                    | start_time, common_labels                                                  |
+
+Arguments can be omitted, in which case their default value is used. If they are specified but don't use correct formatting of arguments, the request will be answered with code `500` and an explanation to why it failed. 
+
+| Argument       | Description                                                                                                                                             | Allowed values                                                                                                                               | Default       |
+|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|---------------|
+| start_time     | Date after which stored queries are considered                                                                                                          | unixTimeStamp                                                                                                                                | `1970-01-01`  |
+| granularity    | Interval size for timestamp buckets                                                                                                                     | \d+ (microseconds\|milliseconds\|seconds\|minutes\|hours\|days\|weeks)                                                                       | `5 minutes`   |
+| page           | Page index for paginated endpoints                                                                                                                      | integer                                                                                                                                      | `0`           |
+| sorting_column | What database column to sort responses by                                                                                                               | transaction_id, received_at, client_ip, client_port, protocol, qname, qtype, rcode, response_source, responded_at, resolution_trace, latency | `received_at` |
+| rcodes         | Filter requests by their rcodes                                                                                                                         | list of rcodes, seperated by `,`                                                                                                             | all           |
+| rr-types       | Filter requests by their rr-types                                                                                                                       | list of rr-types, seperated by `,`                                                                                                           | all           |
+| sources        | Filter requests by which source they were resolved by                                                                                                   | list of rr-types, seperated by `,` (ZONE,CACHE,FORWARDER,RECURSIVE_RESOLVER,STUB)                                                            | all           |
+| domain-search  | Filter requests by requested domains containing the provided string                                                                                     | string                                                                                                                                       | all           |
+| common_labels  | Specifies the amount of last labels, 2 domains need to have in common to be considered the same. common_labels=1 lets you group them by TLD for example | integer                                                                                                                                      | 3             |
+
 ## Known issues and bugs
 - None
 
 # Changelog
 ```diff
+~ dashboard
 ~ edns
 ~ resolver
 ~ config/

@@ -34,7 +34,7 @@ public class DNSResolutionPipeline {
     private final Logger logger;
     private final List<String> zoneCatalog;
     private final boolean minimalResponses;
-    private final ForwardMode forwardMode;
+    final ForwardMode forwardMode;
     private final int ednsUdpSizeLimit;
     private final boolean dnssecEnabled;
     private final boolean dnssecValidation;

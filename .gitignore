@@ -130,3 +130,6 @@ dmypy.json
 .keys/
 *.key
 *.private
+
+# dashboard frontend
+node_modules/

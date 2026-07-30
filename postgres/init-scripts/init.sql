@@ -226,3 +226,30 @@ CREATE TABLE zone_unknown_rdata (
                                     type int CHECK(type >= 0 AND type < 65536),
                                     data bytea
 ) INHERITS (ZoneResourceRecord);
+
+-- DashboardTables
+CREATE TYPE ResponseSourceEnum AS ENUM (
+    'ZONE',
+    'CACHE',
+    'FORWARDER',
+    'RECURSIVE_RESOLVER',
+    'STUB'
+);
+CREATE TYPE Protocol AS ENUM (
+    'TCP',
+    'UDP'
+);
+
+CREATE TABLE dashboard (
+    transaction_id TEXT,
+    received_at TIMESTAMP,
+    client_ip inet,
+    client_port INTEGER,
+    protocol Protocol,
+    qname TEXT,
+    qtype INT,
+    rcode INT,
+    response_source ResponseSourceEnum,
+    responded_at TIMESTAMP,
+    resolution_trace JSON
+);

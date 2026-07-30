@@ -35,5 +35,23 @@ services:
   adminer:
     image: adminer
     restart: always
-    ports: 
+    ports:
       - 8080:8080
+
+  # Statistics dashboard frontend
+  # live on http://localhost:5173
+  # Requires the dns server backend to be running on http://localhost:8000, see readme
+  dashboard:
+    build:
+      context: ./dashboard
+    container_name: dashboard
+    restart: unless-stopped
+    ports:
+      - 5173:5173
+    environment:
+      VITE_DEV_API_TARGET: http://host.docker.internal:8000
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
