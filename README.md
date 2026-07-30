@@ -157,6 +157,15 @@ These are:
 - **usmallint**: an unsinged 16-bit integer
 - **utinyint**: an unsinged 8-bit integer
 
+Furthermore, both the Zone and Cache Schemes have fields specific to them, to allow for their specific functionality. 
+These are:   
+**Zone**: 
+- ZONE: text; a text field used to store the zone a Record is a part of  
+
+**Cache**:
+- INSERTED_AT: timestampz
+- EXPIRES_AT: timestampz
+
 ### Functionality Flowchart
 The Server roughly follows the base Algorithms provided in [RFC1034](https://datatracker.ietf.org/doc/html/rfc1034) Section 4.3.2 and 5.3.3, however it differs in parts. 
 For example, this Server does not implement the optional functionality of the RD-Bit and only forwards a query, if the [forwarding mode](#forwarding-mode) is configured accordingly, regardless of wether the RD-Bit is set or not.  
