@@ -146,6 +146,15 @@ teamproject2026
 | `DNS_SERVER`         | Main entry point. Initializes configuration, logging, database connections, zone loading, cache, resolvers, and UDP/TCP servers.                                                                                                                 |
 | `DNSParser`          | Low-level DNS parsing and serialization utilities for names, labels, wire-format data, flags, and byte conversions.                                                                                                                              |
 | `DNSZone`            | In-memory representation of a parsed authoritative zone, including origin, default TTL, SOA validation, and resource records.                                                                                                                    | 
+### Cache Structure
+
+### Functionality Flowchart
+The Server roughly follows the base Algorithms provided in [RFC1034](https://datatracker.ietf.org/doc/html/rfc1034) Section 4.3.2 and 5.3.3, however it differs in parts. 
+For example, this Server does not implement the optional functionality of the RD-Bit and only forwards a query, if the [forwarding mode](#forwarding-mode) is configured accordingly, regardless of wether the RD-Bit is set or not.  
+Generally, the resolution pipeline for this server is described by the following flowchart:   
+![General resolving algorithm used by this server](./docfiles/Algorithm_4.3.2_equivalent.png)
+Furthermore, the specific algorithm used to recursively resolve packages is documented below: 
+![Algorithm used by the Recursive resolver](./docfiles/Algorithm_5.3.3_equivalent.png)
 
 ## Requirements
 
