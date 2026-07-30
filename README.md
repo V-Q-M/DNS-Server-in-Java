@@ -147,6 +147,15 @@ teamproject2026
 | `DNSParser`          | Low-level DNS parsing and serialization utilities for names, labels, wire-format data, flags, and byte conversions.                                                                                                                              |
 | `DNSZone`            | In-memory representation of a parsed authoritative zone, including origin, default TTL, SOA validation, and resource records.                                                                                                                    | 
 ### Cache Structure
+Both the Zones and the Cache internally use a PostgreSQL Database, that consists of two ResourceRecord Tables, one for the Zones and one for the Cache, and several RData Tables that inherit the ResourceRecord table, as can be seen in the following Graph: 
+![The Databasescheme for the Servers Zone and Cache, consisting of one ResourceRecord table, that is inherited by multiple RDATA-Tables](./docfiles/Database_Scheme.png)
+To increase type safety of the Database, we assign each field a type, some of which are userdefined.  
+These are: 
+- **RRTypeEnum**: An enumeration of all supported RR types
+- **RRClassData**: An enumeration of RR Classes, only consists of the IN-Class
+- **uint**: an unsinged 32-bit integer, internally uses a 64-bit integer restricted to its positive values
+- **usmallint**: an unsinged 16-bit integer
+- **utinyint**: an unsinged 8-bit integer
 
 ### Functionality Flowchart
 The Server roughly follows the base Algorithms provided in [RFC1034](https://datatracker.ietf.org/doc/html/rfc1034) Section 4.3.2 and 5.3.3, however it differs in parts. 
@@ -191,6 +200,11 @@ alias run='java -jar target/dns-server.jar'
 You can then start the server using the alias and optionally pass command-line parameters:
 ```bash
 run -p 2222
+```
+
+If there are issues with loading the dependencies, you can also use maven to execute the Server:
+```bash
+mvn exec:java -Dexec.mainClass="io.gitlab.teamproject2026.DNS_SERVER" -Dexec.args="<Arguments>"
 ```
 ### Windows
 Start the DNS server from the project root with
