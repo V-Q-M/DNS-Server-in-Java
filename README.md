@@ -172,6 +172,25 @@ These are:
 - INSERTED_AT: timestampz
 - EXPIRES_AT: timestampz
 
+For the dashboard an additional table exists:  
+
+dashboard: 
+
+| column name       | type               | comment                                                                                                                                |
+|-------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| transaction_id    | TEXT               | same id as the one used, when resolving queries, used as key                                                                           |
+| received_at       | TIMESTAMP          | -                                                                                                                                      |
+| client_ip         | inet               | -                                                                                                                                      |
+| client_port       | INTEGER            | -                                                                                                                                      |
+| protocol          | Protocol           | Enum allowing `UDP`and `TCP`                                                                                                           |
+| qname             | TEXT               | stored as label.label.label.                                                                                                           |
+| qtype             | INT                | -                                                                                                                                      |
+| rcode             | INT                | -                                                                                                                                      |
+| response_source   | ResponseSourceEnum | Enum allowing `ZONE`, `CACHE`, `FORWARDER`, `RECURSIVE_RESOLVER`, `STUB` for resolver statistics in the dashboard                      |
+| responded_at      | TIMESTAMP          | -                                                                                                                                      |
+| resolution_trace  | JSON               | Ran out of time for implementation, always empty. Was supposed to store how exactly something was resolved to display on the dashboard |
+
+
 ### Functionality Flowchart
 The Server roughly follows the base Algorithms provided in [RFC1034](https://datatracker.ietf.org/doc/html/rfc1034) Section 4.3.2 and 5.3.3, however it differs in parts. 
 For example, this Server does not implement the optional functionality of the RD-Bit and only forwards a query, if the [forwarding mode](#forwarding-mode) is configured accordingly, regardless of wether the RD-Bit is set or not.  
