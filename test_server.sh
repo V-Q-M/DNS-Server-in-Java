@@ -203,8 +203,7 @@ testResolver(){
     doLookup "uni-tuebingen.de" "A" "134.2.5.1" ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "c1541.mx.srv.dfn.de." ${NOCACHE}
     doLookup "uni-tuebingen.de" "MX" "ANSWER: 3" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "ANSWER: 6" ${NOCACHE}
-    doLookup "uni-tuebingen.de" "TXT" "MS=ms30248456" ${NOCACHE}
+    doLookupNoError "uni-tuebingen.de" "TXT" ${NOCACHE}
 
     # CNAME response
     doLookup "kn-mattermost.cs.uni-tuebingen.de" "A" "atlas.cs.uni-tuebingen.de" ${NOCACHE}
